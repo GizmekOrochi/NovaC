@@ -40,19 +40,25 @@ struct NodeSchema {
 class Node {
 public:
     explicit Node(std::string kind);
+
     static NodePtr make(std::string kind);
+
     const std::string &kind() const;
 
     Node &set(std::string name, Field value);
+
     bool has(const std::string &name) const;
 
     const Field &field(const std::string &name) const;
+
     const std::unordered_map<std::string, Field> &fields() const;
 
     std::string str(const std::string &name) const;
+
     int integer(const std::string &name) const;
+
     NodePtr child(const std::string &name) const;
-    
+
     const NodeList &list(const std::string &name) const;
 
 private:
@@ -66,7 +72,30 @@ public:
 
     const NodeSchema *find(const std::string &kind) const;
 
+    void validate(const Node &node) const;
+
 private:
+    static bool fieldMatchesKind(const Field &field, FieldKind kind);
+
+    void validateFieldKnown(
+        const NodeSchema &schema,
+        const std::string &fieldName,
+        const Node &node) const;
+
+    void validateRequiredFields(
+        const NodeSchema &schema,
+        const Node &node) const;
+
+    void validateFieldTypes(
+        const NodeSchema &schema,
+        const Node &node) const;
+
+    void validateChildren(const Node &node) const;
+
+    const FieldSchema *findFieldSchema(
+        const NodeSchema &schema,
+        const std::string &fieldName) const;
+
     std::unordered_map<std::string, NodeSchema> schemas_;
 };
 

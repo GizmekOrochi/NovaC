@@ -1,101 +1,123 @@
 #include "../../include/compiler/Compiler.hpp"
 
-#include "../../include/lexer/Lexer.hpp"
-#include "../../include/parser/Parser.hpp"
+#include "../../include/compiler/Pass.hpp"
 
-#include <stdexcept>
 #include <utility>
-#include <vector>
 
 namespace novac::compiler {
 
-Compiler::Compiler(const language::Language &language, std::string startDomain)
-    : language_{language}, startDomain_{std::move(startDomain)} {}
+Compiler::Compiler(const language::Language &language, std::string startDomain) : language_{language}, startDomain_{std::move(startDomain)} {}
 
 ast::NodePtr Compiler::parse(const std::string &source) const {
-    lexer::Lexer lexer{language_.lexer};
-    std::vector<token::Token> tokens{lexer.tokenize(source)};
+    CompilationContext context{language_, startDomain_};
+    context.setSource(source);
 
-    parser::Parser parser{language_.parser, startDomain_};
+    PassManager passes{};
+    passes.add<ParsePass>();
+    passes.add<AstValidationPass>();
+    passes.run(context);
 
-    return parser.parse(std::move(tokens));
+    return context.ast();
 }
 
 ir::HIRModule Compiler::lowerToHIR(const ast::Node &root) const {
+    CompilationContext context{language_, startDomain_};
+    context.setAst(ast::Node::make(root.kind()));
+
+    language_.nodes.validate(root);
+
     ir::ASTLoweringPass pass{language_.lowering};
 
     return pass.lower(root);
 }
 
 ir::HIRModule Compiler::lowerToHIR(const std::string &source) const {
-    const ast::NodePtr root{parse(source)};
+    CompilationContext context{language_, startDomain_};
+    context.setSource(source);
 
-    if (!root) {
-        throw std::runtime_error(
-            "Compiler::lowerToHIR: parser returned null AST");
-    }
+    PassManager passes{};
+    passes.add<ParsePass>();
+    passes.add<AstValidationPass>();
+    passes.add<HIRLoweringPass>();
+    passes.run(context);
 
-    return lowerToHIR(*root);
+    return context.requireHIR();
 }
 
 ir::MIRModule Compiler::lowerToMIR(const ast::Node &root) const {
-    const ir::HIRModule hir{lowerToHIR(root)};
+    language_.nodes.validate(root);
 
-    ir::HIRLoweringPass pass{language_.lowering};
+    ir::ASTLoweringPass astPass{language_.lowering};
+    ir::HIRLoweringPass hirPass{language_.lowering};
 
-    return pass.lower(hir);
+    const ir::HIRModule hir{astPass.lower(root)};
+
+    return hirPass.lower(hir);
 }
 
 ir::MIRModule Compiler::lowerToMIR(const std::string &source) const {
-    const ast::NodePtr root{parse(source)};
+    CompilationContext context{language_, startDomain_};
+    context.setSource(source);
 
-    if (!root) {
-        throw std::runtime_error(
-            "Compiler::lowerToMIR: parser returned null AST");
-    }
+    PassManager passes{};
+    passes.add<ParsePass>();
+    passes.add<AstValidationPass>();
+    passes.add<HIRLoweringPass>();
+    passes.add<MIRLoweringPass>();
+    passes.run(context);
 
-    return lowerToMIR(*root);
+    return context.requireMIR();
 }
 
 runtime::Value Compiler::run(const ast::Node &root) const {
+    language_.nodes.validate(root);
+
     runtime::Runtime runtime{language_.runtime};
 
     return runtime.run(root);
 }
 
 runtime::Value Compiler::run(const std::string &source) const {
-    const ast::NodePtr root{parse(source)};
+    CompilationContext context{language_, startDomain_};
+    context.setSource(source);
 
-    if (!root) {
-        throw std::runtime_error(
-            "Compiler::run: parser returned null AST");
-    }
+    PassManager passes{};
+    passes.add<ParsePass>();
+    passes.add<AstValidationPass>();
+    passes.add<RuntimePass>();
+    passes.run(context);
 
-    return run(*root);
+    return context.requireRuntimeValue();
 }
 
 bool Compiler::emit(const ast::Node &root, const std::string &backendName) const {
+    language_.nodes.validate(root);
+
+    const ir::MIRModule mir{lowerToMIR(root)};
     std::unique_ptr<backend::Backend> backend{language_.backends.create(backendName)};
 
     if (!backend) {
         return false;
     }
 
-    const ir::MIRModule mir{lowerToMIR(root)};
     backend->emit(mir);
 
     return true;
 }
 
 bool Compiler::emit(const std::string &source, const std::string &backendName) const {
-    const ast::NodePtr root{parse(source)};
+    CompilationContext context{language_, startDomain_};
+    context.setSource(source);
 
-    if (!root) {
-        throw std::runtime_error(
-            "Compiler::emit: parser returned null AST");
-    }
+    PassManager passes{};
+    passes.add<ParsePass>();
+    passes.add<AstValidationPass>();
+    passes.add<HIRLoweringPass>();
+    passes.add<MIRLoweringPass>();
+    passes.add<BackendEmitPass>(backendName);
+    passes.run(context);
 
-    return emit(*root, backendName);
+    return true;
 }
 
 } // namespace novac::compiler
