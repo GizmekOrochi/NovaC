@@ -1,11 +1,14 @@
 #pragma once
 
 #include "../ir/IR.hpp"
+#include "../registry/Registry.hpp"
 
 #include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <stdexcept>
+#include <utility>
 
 namespace novac::backend {
 
@@ -46,12 +49,18 @@ public:
 
 class BackendRegistry {
 public:
-    void add(std::string name, std::function<std::unique_ptr<Backend>()> factory);
+    explicit BackendRegistry(
+        registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
+
+    registry::RegisterStatus add(
+        std::string name,
+        std::function<std::unique_ptr<Backend>()> factory);
 
     std::unique_ptr<Backend> create(const std::string &name) const;
 
 private:
     std::unordered_map<std::string, std::function<std::unique_ptr<Backend>()>> factories_;
+    registry::DuplicatePolicy duplicatePolicy_;
 };
 
 class BackendPipeline {

@@ -21,9 +21,6 @@ ast::NodePtr Compiler::parse(const std::string &source) const {
 }
 
 ir::HIRModule Compiler::lowerToHIR(const ast::Node &root) const {
-    CompilationContext context{language_, startDomain_};
-    context.setAst(ast::Node::make(root.kind()));
-
     language_.nodes.validate(root);
 
     ir::ASTLoweringPass pass{language_.lowering};
@@ -74,7 +71,7 @@ runtime::Value Compiler::run(const ast::Node &root) const {
 
     runtime::Runtime runtime{language_.runtime};
 
-    return runtime.run(root);
+    return runtime.eval(root);
 }
 
 runtime::Value Compiler::run(const std::string &source) const {

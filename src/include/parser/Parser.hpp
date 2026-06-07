@@ -2,6 +2,7 @@
 
 #include "../ast/Node.hpp"
 #include "../token/Token.hpp"
+#include "../registry/Registry.hpp"
 
 #include <functional>
 #include <string>
@@ -37,28 +38,23 @@ struct ParseDomain {
 
 class ParserRegistry {
 public:
-    void rule(std::string domain, std::string key, ParseFn fn);
+    explicit ParserRegistry(registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
 
-    void fallback(std::string domain, ParseFn fn);
-
-    void prefix(std::string domain, std::string key, PrefixFn fn);
-
-    void infix(std::string domain, std::string op, int precedence, InfixFn fn);
-
-    void postfix(std::string domain, std::string op, int precedence, PostfixFn fn);
+    registry::RegisterStatus rule(std::string domain, std::string key, ParseFn fn);
+    registry::RegisterStatus fallback(std::string domain, ParseFn fn);
+    registry::RegisterStatus prefix(std::string domain, std::string key, PrefixFn fn);
+    registry::RegisterStatus infix(std::string domain, std::string op, int precedence, InfixFn fn);
+    registry::RegisterStatus postfix(std::string domain, std::string op, int precedence, PostfixFn fn);
 
     ast::NodePtr parse(ParserContext &context, const std::string &domain, int minPrecedence = 0) const;
 
 private:
     static std::string tokenKey(const token::Token &token);
 
-    ast::NodePtr parsePratt(
-        ParserContext &context,
-        const std::string &domain,
-        const ParseDomain &rules,
-        int minPrecedence) const;
+    ast::NodePtr parsePratt(ParserContext &context, const std::string &domain, const ParseDomain &rules, int minPrecedence) const;
 
     std::unordered_map<std::string, ParseDomain> domains_;
+    registry::DuplicatePolicy duplicatePolicy_;
 };
 
 class ParserContext {

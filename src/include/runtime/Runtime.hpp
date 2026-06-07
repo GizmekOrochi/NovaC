@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ast/Node.hpp"
+#include "../registry/Registry.hpp"
 
 #include <functional>
 #include <memory>
@@ -12,6 +13,8 @@
 namespace novac::runtime {
 
 class Value;
+class RuntimeContext;
+class RuntimeRegistry;
 
 using Array = std::vector<Value>;
 using Object = std::unordered_map<std::string, Value>;
@@ -32,9 +35,7 @@ public:
     int asInt() const;
     double asFloat() const;
     bool asBool() const;
-
     bool truthy() const;
-
     std::string toString() const;
 
 private:
@@ -55,7 +56,10 @@ private:
     std::unordered_map<std::string, Value> values_;
 };
 
-class RuntimeRegistry;
+using ExprHandler = std::function<Value(const ast::Node &, const RuntimeContext &)>;
+using BinaryHandler = std::function<Value(const ast::Node &, const RuntimeContext &)>;
+using StmtHandler = std::function<void(const ast::Node &, RuntimeContext &)>;
+using DeclHandler = std::function<void(const ast::NodePtr &, RuntimeContext &)>;
 
 class RuntimeContext {
 public:
@@ -77,7 +81,6 @@ public:
 
     void returnValue(Value value);
     bool hasReturn() const;
-
     Value takeReturn();
 
 private:
@@ -88,18 +91,15 @@ private:
     Value returnValue_;
 };
 
-using ExprHandler = std::function<Value(const ast::Node &, const RuntimeContext &)>;
-using BinaryHandler = std::function<Value(const ast::Node &, const RuntimeContext &)>;
-using StmtHandler = std::function<void(const ast::Node &, RuntimeContext &)>;
-using DeclHandler = std::function<void(const ast::NodePtr &, RuntimeContext &)>;
-
 class RuntimeRegistry {
 public:
-    void expression(std::string kind, ExprHandler handler);
-    void statement(std::string kind, StmtHandler handler);
-    void declaration(std::string kind, DeclHandler handler);
+    explicit RuntimeRegistry(
+        registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
 
-    void binaryOperator(std::string op, BinaryHandler handler);
+    registry::RegisterStatus expression(std::string kind, ExprHandler handler);
+    registry::RegisterStatus statement(std::string kind, StmtHandler handler);
+    registry::RegisterStatus declaration(std::string kind, DeclHandler handler);
+    registry::RegisterStatus binaryOperator(std::string op, BinaryHandler handler);
 
     Value evalBinary(const ast::Node &node, const RuntimeContext &context) const;
     Value eval(const ast::Node &node, const RuntimeContext &context) const;
@@ -113,13 +113,16 @@ private:
     std::unordered_map<std::string, DeclHandler> declarations_;
     std::unordered_map<std::string, BinaryHandler> binaryOperators_;
     bool binaryDispatcherInstalled_;
+    registry::DuplicatePolicy duplicatePolicy_;
 };
 
 class Runtime {
 public:
     explicit Runtime(const RuntimeRegistry &registry);
 
-    Value run(const ast::Node &program) const;
+    Value eval(const ast::Node &root) const;
+
+    void exec(const ast::Node &root) const;
 
 private:
     const RuntimeRegistry &registry_;

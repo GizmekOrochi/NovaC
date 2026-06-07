@@ -5,30 +5,56 @@
 
 namespace novac::parser {
 
-void ParserRegistry::rule(std::string domain, std::string key, ParseFn fn) {
-    domains_[std::move(domain)].rules[std::move(key)] = std::move(fn);
+template<class Map, class Value>
+registry::RegisterStatus registerEntry(Map &map, std::string key, Value value, registry::DuplicatePolicy duplicatePolicy, const std::string &owner){
+    const auto iter{map.find(key)};
+
+    if (iter != map.end()) {
+        if (duplicatePolicy == registry::DuplicatePolicy::Ignore) {
+            return registry::RegisterStatus::Ignored;
+        }
+
+        if (duplicatePolicy == registry::DuplicatePolicy::Replace) {
+            iter->second = std::move(value);
+
+            return registry::RegisterStatus::Replaced;
+        }
+
+        throw std::runtime_error(
+            owner + ": duplicate registration '" + key + "'");
+    }
+
+    map.emplace(std::move(key), std::move(value));
+
+    return registry::RegisterStatus::Inserted;
 }
 
-void ParserRegistry::fallback(std::string domain, ParseFn fn) {
+ParserRegistry::ParserRegistry(registry::DuplicatePolicy duplicatePolicy)
+    : domains_{}, duplicatePolicy_{duplicatePolicy} {}
+
+registry::RegisterStatus ParserRegistry::rule(std::string domain, std::string key, ParseFn fn) {
+    return registerEntry(domains_[std::move(domain)].rules, std::move(key), std::move(fn), duplicatePolicy_, "ParserRegistry::rule");
+}
+
+registry::RegisterStatus ParserRegistry::fallback(std::string domain, ParseFn fn) {
     domains_[std::move(domain)].fallbacks.push_back(std::move(fn));
+
+    return registry::RegisterStatus::Inserted;
 }
 
-void ParserRegistry::prefix(std::string domain, std::string key, PrefixFn fn) {
-    domains_[std::move(domain)].prefixes[std::move(key)] = std::move(fn);
+registry::RegisterStatus ParserRegistry::prefix(std::string domain, std::string key, PrefixFn fn){
+    return registerEntry(domains_[std::move(domain)].prefixes, std::move(key), std::move(fn), duplicatePolicy_, "ParserRegistry::prefix");
 }
 
-void ParserRegistry::infix(std::string domain, std::string op, int precedence, InfixFn fn) {
-    domains_[std::move(domain)].infixes[std::move(op)] = {precedence, std::move(fn)};
+registry::RegisterStatus ParserRegistry::infix(std::string domain, std::string op, int precedence, InfixFn fn) {
+    return registerEntry(domains_[std::move(domain)].infixes, std::move(op), InfixRule{precedence, std::move(fn)}, duplicatePolicy_, "ParserRegistry::infix");
 }
 
-void ParserRegistry::postfix(std::string domain, std::string op, int precedence, PostfixFn fn) {
-    domains_[std::move(domain)].postfixes[std::move(op)] = {precedence, std::move(fn)};
+registry::RegisterStatus ParserRegistry::postfix(std::string domain, std::string op, int precedence, PostfixFn fn){
+    return registerEntry(domains_[std::move(domain)].postfixes, std::move(op), PostfixRule{precedence, std::move(fn)}, duplicatePolicy_, "ParserRegistry::postfix");
 }
 
-ast::NodePtr ParserRegistry::parse(
-    ParserContext &context,
-    const std::string &domain,
-    int minPrecedence) const {
+ast::NodePtr ParserRegistry::parse(ParserContext &context, const std::string &domain, int minPrecedence) const {
     const auto domainIter{domains_.find(domain)};
 
     if (domainIter == domains_.end()) {
@@ -65,11 +91,7 @@ ast::NodePtr ParserRegistry::parse(
         "ParserRegistry::parse: no rule matched domain '" + domain + "'");
 }
 
-ast::NodePtr ParserRegistry::parsePratt(
-    ParserContext &context,
-    const std::string &domain,
-    const ParseDomain &rules,
-    int minPrecedence) const {
+ast::NodePtr ParserRegistry::parsePratt(ParserContext &context, const std::string &domain, const ParseDomain &rules, int minPrecedence) const {
     const auto prefixIter{rules.prefixes.find(tokenKey(context.cur()))};
 
     if (prefixIter == rules.prefixes.end()) {
@@ -123,12 +145,8 @@ std::string ParserRegistry::tokenKey(const token::Token &token) {
     return token.text;
 }
 
-ParserContext::ParserContext(
-    std::vector<token::Token> tokens,
-    const ParserRegistry &registry)
-    : tokens_{std::move(tokens)},
-      pos_{},
-      registry_{registry} {}
+ParserContext::ParserContext(std::vector<token::Token> tokens, const ParserRegistry &registry)
+    : tokens_{std::move(tokens)}, pos_{}, registry_{registry} {}
 
 const token::Token &ParserContext::cur() const {
     return tokens_[pos_];

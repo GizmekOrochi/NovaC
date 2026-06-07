@@ -89,7 +89,7 @@ std::string RuntimePass::name() const {
 void RuntimePass::run(CompilationContext &context) const {
     runtime::Runtime runtime{context.language().runtime};
 
-    context.setRuntimeValue(runtime.run(context.requireAst()));
+    context.setRuntimeValue(runtime.eval(context.requireAst()));
 }
 
 BackendEmitPass::BackendEmitPass(std::string backendName)

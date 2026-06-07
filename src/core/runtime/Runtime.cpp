@@ -208,28 +208,82 @@ Value RuntimeContext::takeReturn() {
     return returnValue_;
 }
 
-void RuntimeRegistry::expression(std::string kind, ExprHandler handler) {
-    expressions_[std::move(kind)] = std::move(handler);
+template<class Map, class Value>
+registry::RegisterStatus registerEntry(Map &map, std::string key, Value value, registry::DuplicatePolicy duplicatePolicy, const std::string &owner) {
+    const auto iter{map.find(key)};
+
+    if (iter != map.end()) {
+        if (duplicatePolicy == registry::DuplicatePolicy::Ignore) {
+            return registry::RegisterStatus::Ignored;
+        }
+
+        if (duplicatePolicy == registry::DuplicatePolicy::Replace) {
+            iter->second = std::move(value);
+
+            return registry::RegisterStatus::Replaced;
+        }
+
+        throw std::runtime_error(
+            owner + ": duplicate registration '" + key + "'");
+    }
+
+    map.emplace(std::move(key), std::move(value));
+
+    return registry::RegisterStatus::Inserted;
 }
 
-void RuntimeRegistry::statement(std::string kind, StmtHandler handler) {
-    statements_[std::move(kind)] = std::move(handler);
+RuntimeRegistry::RuntimeRegistry(registry::DuplicatePolicy duplicatePolicy)
+    : expressions_{},
+      statements_{},
+      declarations_{},
+      binaryOperators_{},
+      binaryDispatcherInstalled_{false},
+      duplicatePolicy_{duplicatePolicy} {}
+
+registry::RegisterStatus RuntimeRegistry::expression(std::string kind, ExprHandler handler) {
+    return registerEntry(
+        expressions_,
+        std::move(kind),
+        std::move(handler),
+        duplicatePolicy_,
+        "RuntimeRegistry::expression");
 }
 
-void RuntimeRegistry::declaration(std::string kind, DeclHandler handler) {
-    declarations_[std::move(kind)] = std::move(handler);
+registry::RegisterStatus RuntimeRegistry::statement(std::string kind, StmtHandler handler) {
+    return registerEntry(
+        statements_,
+        std::move(kind),
+        std::move(handler),
+        duplicatePolicy_,
+        "RuntimeRegistry::statement");
 }
 
-void RuntimeRegistry::binaryOperator(std::string op, BinaryHandler handler) {
+registry::RegisterStatus RuntimeRegistry::declaration(std::string kind, DeclHandler handler) {
+    return registerEntry(
+        declarations_,
+        std::move(kind),
+        std::move(handler),
+        duplicatePolicy_,
+        "RuntimeRegistry::declaration");
+}
+
+registry::RegisterStatus RuntimeRegistry::binaryOperator(std::string op, BinaryHandler handler) {
     if (!binaryDispatcherInstalled_) {
-        expressions_["binary"] = [](const ast::Node &node, const RuntimeContext &context) {
-            return context.registry().evalBinary(node, context);
-        };
+        expressions_.emplace(
+            "binary",
+            [](const ast::Node &node, const RuntimeContext &context) {
+                return context.registry().evalBinary(node, context);
+            });
 
         binaryDispatcherInstalled_ = true;
     }
 
-    binaryOperators_[std::move(op)] = std::move(handler);
+    return registerEntry(
+        binaryOperators_,
+        std::move(op),
+        std::move(handler),
+        duplicatePolicy_,
+        "RuntimeRegistry::binaryOperator");
 }
 
 Value RuntimeRegistry::evalBinary(const ast::Node &node, const RuntimeContext &context) const {
@@ -274,34 +328,18 @@ void RuntimeRegistry::declare(const ast::NodePtr &node, RuntimeContext &context)
     }
 }
 
-Runtime::Runtime(const RuntimeRegistry &registry)
-    : registry_{registry} {}
+Runtime::Runtime(const RuntimeRegistry &registry) : registry_{registry} {}
 
-Value Runtime::run(const ast::Node &program) const {
+Value Runtime::eval(const ast::Node &root) const {
     RuntimeContext context{registry_};
 
-    for (const ast::NodePtr &declaration : program.list("declarations")) {
-        registry_.declare(declaration, context);
-    }
+    return context.eval(root);
+}
 
-    const ast::NodePtr main{context.function("main")};
+void Runtime::exec(const ast::Node &root) const {
+    RuntimeContext context{registry_};
 
-    if (!main) {
-        throw std::runtime_error(
-            "Runtime::run: missing main function");
-    }
-
-    const ast::NodePtr body{main->child("body")};
-
-    context.pushScope();
-    context.exec(*body);
-    context.popScope();
-
-    if (context.hasReturn()) {
-        return context.takeReturn();
-    }
-
-    return Value::voidValue();
+    context.exec(root);
 }
 
 } // namespace novac::runtime

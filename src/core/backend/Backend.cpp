@@ -38,20 +38,30 @@ void CTranspilerBackend::emit(const ir::MIRModule &module) {
     static_cast<void>(module);
 }
 
-void BackendRegistry::add(
-    std::string name,
-    std::function<std::unique_ptr<Backend>()> factory) {
-    factories_[std::move(name)] = std::move(factory);
-}
+BackendRegistry::BackendRegistry(registry::DuplicatePolicy duplicatePolicy)
+    : factories_{}, duplicatePolicy_{duplicatePolicy} {}
 
-std::unique_ptr<Backend> BackendRegistry::create(const std::string &name) const {
+registry::RegisterStatus BackendRegistry::add(std::string name, std::function<std::unique_ptr<Backend>()> factory) {
     const auto iter{factories_.find(name)};
 
-    if (iter == factories_.end()) {
-        return nullptr;
+    if (iter != factories_.end()) {
+        if (duplicatePolicy_ == registry::DuplicatePolicy::Ignore) {
+            return registry::RegisterStatus::Ignored;
+        }
+
+        if (duplicatePolicy_ == registry::DuplicatePolicy::Replace) {
+            iter->second = std::move(factory);
+
+            return registry::RegisterStatus::Replaced;
+        }
+
+        throw std::runtime_error(
+            "BackendRegistry::add: duplicate backend '" + name + "'");
     }
 
-    return iter->second();
+    factories_.emplace(std::move(name), std::move(factory));
+
+    return registry::RegisterStatus::Inserted;
 }
 
 BackendPipeline::BackendPipeline(const BackendRegistry &backends, const ir::LoweringRegistry &lowering) 
@@ -73,6 +83,16 @@ bool BackendPipeline::run(const ast::Node &ast, const std::string &backendName) 
     backend->emit(mir);
 
     return true;
+}
+
+std::unique_ptr<Backend> BackendRegistry::create(const std::string &name) const {
+    const auto iter{factories_.find(name)};
+
+    if (iter == factories_.end()) {
+        return nullptr;
+    }
+
+    return iter->second();
 }
 
 } // namespace novac::backend
