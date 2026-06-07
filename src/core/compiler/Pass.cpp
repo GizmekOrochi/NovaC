@@ -26,94 +26,124 @@ void PassManager::run(CompilationContext &context) const {
         pass->run(context);
 
         if (context.diagnostics().hasErrors()) {
-            throw std::runtime_error("PassManager::run: pass '" + pass->name() + "' failed with diagnostics:\n" + context.diagnostics().format());
+            throw std::runtime_error( "PassManager::run: pass '" + pass->name() + "' failed with diagnostics:\n" + context.diagnostics().format());
         }
     }
+}
+
+ParsePass::ParsePass(std::string outputArtifact)
+    : outputArtifact_{std::move(outputArtifact)} {
 }
 
 std::string ParsePass::name() const {
     return "parse";
 }
 
-void ParsePass::run(CompilationContext &context) const {
-    lexer::Lexer lexer{context.language().lexer};
-    std::vector<token::Token> tokens{lexer.tokenize(context.source())};
-
-    parser::Parser parser{
-        context.language().parser,
-        context.startDomain()
-    };
-
-    ast::NodePtr ast{parser.parse(std::move(tokens))};
-
-    if (!ast) {
-        throw std::runtime_error(
-            "ParsePass::run: parser returned null AST");
-    }
-
-    context.setAst(ast);
-}
-
 std::string AstValidationPass::name() const {
     return "ast.validation";
-}
-
-void AstValidationPass::run(CompilationContext &context) const {
-    context.language().nodes.validate(context.requireAst());
 }
 
 std::string HIRLoweringPass::name() const {
     return "hir.lowering";
 }
 
-void HIRLoweringPass::run(CompilationContext &context) const {
-    ir::ASTLoweringPass pass{context.language().lowering};
-
-    context.setHIR(pass.lower(context.requireAst()));
-}
-
 std::string MIRLoweringPass::name() const {
     return "mir.lowering";
-}
-
-void MIRLoweringPass::run(CompilationContext &context) const {
-    ir::HIRLoweringPass pass{context.language().lowering};
-
-    context.setMIR(pass.lower(context.requireHIR()));
 }
 
 std::string RuntimePass::name() const {
     return "runtime";
 }
 
-void RuntimePass::run(CompilationContext &context) const {
-    runtime::Runtime runtime{context.language().runtime};
-
-    context.setRuntimeValue(runtime.eval(context.requireAst()));
-}
-
-BackendEmitPass::BackendEmitPass(std::string backendName)
-    : backendName_{std::move(backendName)} {}
-
 std::string BackendEmitPass::name() const {
     return "backend.emit." + backendName_;
 }
 
+void ParsePass::run(CompilationContext &context) const {
+    lexer::Lexer lexer{context.language().lexer};
+
+    auto tokens{lexer.tokenize(context.source())};
+
+    parser::Parser parser{context.language().parser, context.startDomain()};
+
+    auto ast{parser.parse(std::move(tokens))};
+
+    if (!ast) {
+        throw std::runtime_error("ParsePass::run: parser returned null AST");
+    }
+
+    context.setArtifact(outputArtifact_, ast);
+}
+
+AstValidationPass::AstValidationPass(std::string astArtifact)
+    : astArtifact_{std::move(astArtifact)} {
+}
+
+void AstValidationPass::run(CompilationContext &context) const {
+    const ast::NodePtr &root{context.requireArtifact<ast::NodePtr>(astArtifact_)};
+
+    context.language().nodes.validate(*root);
+}
+
+HIRLoweringPass::HIRLoweringPass(std::string inputAst, std::string outputHir)
+    : inputAst_{std::move(inputAst)}, outputHir_{std::move(outputHir)} {
+}
+
+void HIRLoweringPass::run(CompilationContext &context) const {
+    const ast::NodePtr &root{context.requireArtifact<ast::NodePtr>(inputAst_)};
+
+    ir::ASTLoweringPass pass{context.language().lowering};
+
+    context.setArtifact(outputHir_, pass.lower(*root));
+}
+
+MIRLoweringPass::MIRLoweringPass(std::string inputHir, std::string outputMir)
+    : inputHir_{std::move(inputHir)}, outputMir_{std::move(outputMir)} {
+}
+
+void MIRLoweringPass::run(CompilationContext &context) const {
+    const ir::HIRModule &hir{context.requireArtifact<ir::HIRModule>(inputHir_)};
+
+    ir::HIRLoweringPass pass{context.language().lowering};
+
+    context.setArtifact(outputMir_, pass.lower(hir));
+}
+
+RuntimePass::RuntimePass(std::string inputAst, std::string outputValue)
+    : inputAst_{std::move(inputAst)}, outputValue_{std::move(outputValue)} {
+}
+
+void RuntimePass::run(
+    CompilationContext &context) const {
+    const ast::NodePtr &root{context.requireArtifact<ast::NodePtr>(inputAst_)};
+
+    runtime::Runtime runtime{context.language().runtime};
+
+    context.setArtifact(outputValue_, runtime.eval(*root));
+}
+
+BackendEmitPass::BackendEmitPass(std::string backendName, std::string mirArtifact)
+    : backendName_{std::move(backendName)}, mirArtifact_{std::move(mirArtifact)} {
+}
+
 void BackendEmitPass::run(CompilationContext &context) const {
-    std::unique_ptr<backend::Backend> backend{context.language().backends.create(backendName_)};
+    auto backend{
+        context.language().backends.create(
+            backendName_)
+    };
 
     if (!backend) {
         throw std::runtime_error(
-            "BackendEmitPass::run: backend not found '" + backendName_ + "'");
+            "BackendEmitPass::run: backend not found '" +
+            backendName_ + "'");
     }
 
-    if (!context.mir()) {
-        MIRLoweringPass loweringPass{};
+    const ir::MIRModule &mir{
+        context.requireArtifact<ir::MIRModule>(
+            mirArtifact_)
+    };
 
-        loweringPass.run(context);
-    }
-
-    backend->emit(context.requireMIR());
+    backend->emit(mir);
 }
 
 } // namespace novac::compiler

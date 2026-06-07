@@ -1,39 +1,33 @@
 #pragma once
 
-#include "../ast/Node.hpp"
-#include "../backend/Backend.hpp"
-#include "../diagnostics/Diagnostic.hpp"
-#include "../ir/IR.hpp"
-#include "../language/Language.hpp"
-#include "../runtime/Runtime.hpp"
+#include "CompilationContext.hpp"
+#include "Pass.hpp"
 
+#include "../language/Language.hpp"
+
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace novac::compiler {
 
 class Compiler {
 public:
-    Compiler(
-        const language::Language &language,
-        std::string startDomain);
+    explicit Compiler(const language::Language &language, std::string startDomain);
 
-    ast::NodePtr parse(const std::string &source) const;
+    void addPass(std::unique_ptr<Pass> pass);
 
-    ir::HIRModule lowerToHIR(const ast::Node &root) const;
-    ir::HIRModule lowerToHIR(const std::string &source) const;
+    template<class T, class... Args>
+    void addPass(Args &&...args) {
+        addPass(std::make_unique<T>(std::forward<Args>(args)...));
+    }
 
-    ir::MIRModule lowerToMIR(const ast::Node &root) const;
-    ir::MIRModule lowerToMIR(const std::string &source) const;
-
-    runtime::Value run(const ast::Node &root) const;
-    runtime::Value run(const std::string &source) const;
-
-    bool emit(const ast::Node &root, const std::string &backendName) const;
-    bool emit(const std::string &source, const std::string &backendName) const;
+    CompilationContext run(std::string source) const;
 
 private:
     const language::Language &language_;
     std::string startDomain_;
+    PassManager passes_;
 };
 
 } // namespace novac::compiler

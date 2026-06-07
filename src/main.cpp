@@ -1,36 +1,32 @@
 #include "include/compiler/Compiler.hpp"
+#include "include/compiler/Pass.hpp"
 #include "include/language/Language.hpp"
 
 #include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 using namespace novac;
 
-int main()
-{
+int main() {
     try {
         language::Language language{};
 
         language.lexer.symbol("+");
 
         language.nodes.registerNode({
-            "program",
-            {{"expression", ast::FieldKind::Node}},
+            "program", {{"expression", ast::FieldKind::Node}},
             "program root"
         });
 
         language.nodes.registerNode({
-            "integer",
-            {{"value", ast::FieldKind::Int}},
+            "integer", {{"value", ast::FieldKind::Int}},
             "integer literal"
         });
 
         language.nodes.registerNode({
-            "binary",
-            {
+            "binary", {
                 {"left", ast::FieldKind::Node},
                 {"right", ast::FieldKind::Node},
                 {"op", ast::FieldKind::String}
@@ -134,13 +130,11 @@ int main()
 
         class DumpBackend final : public backend::Backend {
         public:
-            std::string name() const override
-            {
+            std::string name() const override {
                 return "dump";
             }
 
-            void emit(const ir::MIRModule &module) override
-            {
+            void emit(const ir::MIRModule &module) override {
                 std::cout << "\n=== MIR ===\n";
 
                 for (const ir::MIRNode &node : module.nodes) {
@@ -163,17 +157,18 @@ int main()
 
         compiler::Compiler compiler{language, "program"};
 
+        compiler.addPass<compiler::ParsePass>("ast");
+        compiler.addPass<compiler::AstValidationPass>("ast");
+        compiler.addPass<compiler::HIRLoweringPass>("ast", "hir");
+        compiler.addPass<compiler::MIRLoweringPass>("hir", "mir");
+        compiler.addPass<compiler::BackendEmitPass>("dump", "mir");
+        compiler.addPass<compiler::RuntimePass>("ast", "result");
+
         const std::string source{"40 + 2 + 8"};
 
-        const ast::NodePtr root{compiler.parse(source)};
-        const ir::HIRModule hir{compiler.lowerToHIR(*root)};
-        const ir::MIRModule mir{compiler.lowerToMIR(*root)};
-        const runtime::Value result{compiler.run(source)};
+        compiler::CompilationContext context{compiler.run(source)};
 
-        static_cast<void>(hir);
-        static_cast<void>(mir);
-
-        compiler.emit(*root, "dump");
+        const runtime::Value &result{context.requireArtifact<runtime::Value>("result")};
 
         std::cout << "\nResult = " << result.toString() << '\n';
 

@@ -1,13 +1,12 @@
 #pragma once
 
-#include "../ast/Node.hpp"
 #include "../diagnostics/Diagnostic.hpp"
-#include "../ir/IR.hpp"
 #include "../language/Language.hpp"
-#include "../runtime/Runtime.hpp"
 
-#include <optional>
+#include <any>
 #include <string>
+#include <unordered_map>
+
 
 namespace novac::compiler {
 
@@ -24,21 +23,41 @@ public:
     void setSource(std::string source);
     const std::string &source() const;
 
-    void setAst(ast::NodePtr ast);
-    ast::NodePtr ast() const;
-    const ast::Node &requireAst() const;
+    template<typename T>
+    void setArtifact(std::string name, T value) {
+        artifacts_[std::move(name)] = std::move(value);
+    }
 
-    void setHIR(ir::HIRModule hir);
-    const std::optional<ir::HIRModule> &hir() const;
-    const ir::HIRModule &requireHIR() const;
+    template<typename T>
+    bool hasArtifact(const std::string &name) const {
+        return artifacts_.find(name) != artifacts_.end();
+    }
 
-    void setMIR(ir::MIRModule mir);
-    const std::optional<ir::MIRModule> &mir() const;
-    const ir::MIRModule &requireMIR() const;
+    template<typename T>
+    T &requireArtifact(const std::string &name) {
+        const auto iter{artifacts_.find(name)};
 
-    void setRuntimeValue(runtime::Value value);
-    const std::optional<runtime::Value> &runtimeValue() const;
-    const runtime::Value &requireRuntimeValue() const;
+        if (iter == artifacts_.end()) {
+            throw std::runtime_error(
+                "CompilationContext::requireArtifact: missing artifact '" +
+                name + "'");
+        }
+
+        return std::any_cast<T &>(iter->second);
+    }
+
+    template<typename T>
+    const T &requireArtifact(const std::string &name) const {
+        const auto iter{artifacts_.find(name)};
+
+        if (iter == artifacts_.end()) {
+            throw std::runtime_error(
+                "CompilationContext::requireArtifact: missing artifact '" +
+                name + "'");
+        }
+
+        return std::any_cast<const T &>(iter->second);
+    }
 
     diagnostics::DiagnosticEngine &diagnostics();
     const diagnostics::DiagnosticEngine &diagnostics() const;
@@ -47,10 +66,9 @@ private:
     const language::Language &language_;
     std::string startDomain_;
     std::string source_;
-    ast::NodePtr ast_;
-    std::optional<ir::HIRModule> hir_;
-    std::optional<ir::MIRModule> mir_;
-    std::optional<runtime::Value> runtimeValue_;
+
+    std::unordered_map<std::string, std::any> artifacts_;
+
     diagnostics::DiagnosticEngine diagnostics_;
 };
 

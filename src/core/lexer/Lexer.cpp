@@ -133,7 +133,7 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source) {
         }
 
         if (!matched) {
-            advance();
+            throw std::runtime_error( "Lexer::tokenize: unexpected character '" + std::string{source[index]} + "' at line " + std::to_string(line) + ", column " + std::to_string(column));
         }
     }
 

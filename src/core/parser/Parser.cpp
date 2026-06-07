@@ -65,10 +65,6 @@ ast::NodePtr ParserRegistry::parse(ParserContext &context, const std::string &do
     const ParseDomain &rules{domainIter->second};
     const std::string key{tokenKey(context.cur())};
 
-    if (!rules.prefixes.empty()) {
-        return parsePratt(context, domain, rules, minPrecedence);
-    }
-
     const auto ruleIter{rules.rules.find(key)};
 
     if (ruleIter != rules.rules.end()) {
@@ -79,6 +75,14 @@ ast::NodePtr ParserRegistry::parse(ParserContext &context, const std::string &do
 
     if (textRuleIter != rules.rules.end()) {
         return textRuleIter->second(context);
+    }
+
+    if (!rules.prefixes.empty()) {
+        const auto prefixIter{rules.prefixes.find(key)};
+
+        if (prefixIter != rules.prefixes.end()) {
+            return parsePratt(context, domain, rules, minPrecedence);
+        }
     }
 
     for (const ParseFn &fallback : rules.fallbacks) {

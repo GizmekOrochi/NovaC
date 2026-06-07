@@ -6,6 +6,29 @@
 
 namespace novac::ir {
 
+template<class Map, class Value>
+registry::RegisterStatus registerEntry(Map &map, std::string key, Value value, registry::DuplicatePolicy duplicatePolicy, const std::string &owner) { 
+    const auto iter{map.find(key)};
+    
+    if (iter != map.end()) {
+        if (duplicatePolicy == registry::DuplicatePolicy::Ignore) {
+            return registry::RegisterStatus::Ignored;
+        }
+
+        if (duplicatePolicy == registry::DuplicatePolicy::Replace) {
+            iter->second = std::move(value);
+
+            return registry::RegisterStatus::Replaced;
+        }
+
+        throw std::runtime_error(owner + ": duplicate registration '" + key + "'");
+    }
+
+    map.emplace(std::move(key), std::move(value));
+
+    return registry::RegisterStatus::Inserted;
+}
+
 void HIRBuilder::emit(std::string op, std::vector<std::string> operands) {
     module_.nodes.push_back({std::move(op), std::move(operands)});
 }
@@ -22,12 +45,15 @@ MIRModule MIRBuilder::finish() {
     return std::move(module_);
 }
 
-bool LoweringRegistry::hir(std::string nodeKind, HIRLowerer fn) {
-    return hir_.emplace(std::move(nodeKind), std::move(fn)).second;
+LoweringRegistry::LoweringRegistry(registry::DuplicatePolicy duplicatePolicy)
+    : hir_{}, mir_{}, duplicatePolicy_{duplicatePolicy} {}
+
+registry::RegisterStatus LoweringRegistry::hir(std::string nodeKind, HIRLowerer fn) {
+    return registerEntry(hir_, std::move(nodeKind), std::move(fn), duplicatePolicy_, "LoweringRegistry::hir");
 }
 
-bool LoweringRegistry::mir(std::string hirKind, MIRLowerer fn) {
-    return mir_.emplace(std::move(hirKind), std::move(fn)).second;
+registry::RegisterStatus LoweringRegistry::mir(std::string hirKind, MIRLowerer fn) {
+    return registerEntry(mir_, std::move(hirKind),std::move(fn), duplicatePolicy_, "LoweringRegistry::mir");
 }
 
 bool LoweringRegistry::hasHIR(const std::string &nodeKind) const {

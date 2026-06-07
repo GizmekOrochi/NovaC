@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ast/Node.hpp"
+#include "../registry/Registry.hpp"
 
 #include <functional>
 #include <string>
@@ -52,8 +53,11 @@ public:
     using HIRLowerer = std::function<void(const ast::Node &, HIRBuilder &, const LoweringRegistry &)>;
     using MIRLowerer = std::function<void(const HIRNode &, MIRBuilder &, const LoweringRegistry &)>;
 
-    bool hir(std::string nodeKind, HIRLowerer fn);
-    bool mir(std::string hirKind, MIRLowerer fn);
+    explicit LoweringRegistry(
+        registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
+
+    registry::RegisterStatus hir(std::string nodeKind, HIRLowerer fn);
+    registry::RegisterStatus mir(std::string hirKind, MIRLowerer fn);
 
     bool hasHIR(const std::string &nodeKind) const;
     bool hasMIR(const std::string &hirKind) const;
@@ -65,6 +69,7 @@ public:
 private:
     std::unordered_map<std::string, HIRLowerer> hir_;
     std::unordered_map<std::string, MIRLowerer> mir_;
+    registry::DuplicatePolicy duplicatePolicy_;
 };
 
 class ASTLoweringPass {
