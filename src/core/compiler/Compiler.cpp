@@ -15,7 +15,6 @@ CompilationContext Compiler::run(std::string source) const {
     CompilationContext context{language_, startDomain_};
 
     context.setSource(std::move(source));
-
     passes_.run(context);
 
     return context;

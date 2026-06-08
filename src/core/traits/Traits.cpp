@@ -14,9 +14,8 @@ void TraitRegistry::addTrait(Trait trait) {
 const Trait *TraitRegistry::find(const std::string &name) const {
     const auto iter{traits_.find(name)};
 
-    if (iter == traits_.end()) {
+    if (iter == traits_.end())
         return nullptr;
-    }
 
     return &iter->second;
 }
@@ -29,55 +28,41 @@ void TraitRegistry::addImplementation(
     TraitImplementation implementation) {
     validateImplementation(implementation);
 
-    implementations_[implementation.traitName][implementation.typeName] =
-        std::move(implementation);
+    implementations_[implementation.traitName][implementation.typeName] = std::move(implementation);
 }
 
 bool TraitRegistry::satisfies(const std::string &trait, types::TypeRef type) const {
     const auto traitIter{implementations_.find(trait)};
 
-    if (traitIter == implementations_.end()) {
-        return false;
-    }
+    if (traitIter == implementations_.end()) return false;
 
-    if (!type) {
-        return false;
-    }
+    if (!type) return false;
 
-    return traitIter->second.find(type->display())
-        != traitIter->second.end();
+    return traitIter->second.find(type->display()) != traitIter->second.end();
 }
 
 bool TraitRegistry::hasMethod(const std::string &trait, const std::string &method) const {
     const Trait *traitDefinition{find(trait)};
 
-    if (!traitDefinition) {
+    if (!traitDefinition)
         return false;
-    }
 
-    for (const TraitMethod &traitMethod : traitDefinition->methods) {
-        if (traitMethod.name == method) {
+    for (const TraitMethod &traitMethod : traitDefinition->methods)
+        if (traitMethod.name == method)
             return true;
-        }
-    }
 
     return false;
 }
 
-void TraitRegistry::validateImplementation(const TraitImplementation &implementation) const { const Trait *traitDefinition{
-        find(implementation.traitName)
-    };
+void TraitRegistry::validateImplementation(const TraitImplementation &implementation) const { 
+    const Trait *traitDefinition{find(implementation.traitName)};
 
-    if (!traitDefinition) {
-        throw std::runtime_error(
-            "TraitRegistry::validateImplementation: unknown trait implementation target '"
-            + implementation.traitName + "'");
-    }
+    if (!traitDefinition)
+        throw std::runtime_error("TraitRegistry::validateImplementation: unknown trait implementation target '" + implementation.traitName + "'");
 
     for (const TraitMethod &requiredMethod : traitDefinition->methods) {
-        if (requiredMethod.hasDefaultImplementation) {
+        if (requiredMethod.hasDefaultImplementation)
             continue;
-        }
 
         bool found{false};
 
@@ -88,17 +73,11 @@ void TraitRegistry::validateImplementation(const TraitImplementation &implementa
             }
         }
 
-        if (!found && !traitDefinition->requiredOperators.empty()) {
+        if (!found && !traitDefinition->requiredOperators.empty())
             found = true;
-        }
 
         if (!found) {
-            throw std::runtime_error(
-                "TraitRegistry::validateImplementation: trait implementation missing method '"
-                + requiredMethod.name
-                + "' for trait '"
-                + implementation.traitName
-                + "'");
+            throw std::runtime_error("TraitRegistry::validateImplementation: trait implementation missing method '" + requiredMethod.name + "' for trait '" + implementation.traitName + "'");
         }
     }
 
@@ -107,38 +86,24 @@ void TraitRegistry::validateImplementation(const TraitImplementation &implementa
             continue;
         }
 
-        if (implementation.associatedTypes.find(associatedType.name)
-            == implementation.associatedTypes.end()) {
-            throw std::runtime_error(
-                "TraitRegistry::validateImplementation: trait implementation missing associated type '"
-                + associatedType.name
-                + "' for trait '"
-                + implementation.traitName
-                + "'");
+        if (implementation.associatedTypes.find(associatedType.name) == implementation.associatedTypes.end()) {
+            throw std::runtime_error("TraitRegistry::validateImplementation: trait implementation missing associated type '" + associatedType.name + "' for trait '" + implementation.traitName + "'");
         }
     }
 }
 
-ConstraintSolver::ConstraintSolver(
-    const TraitRegistry &traits)
-    : traits_{traits} {
-}
+ConstraintSolver::ConstraintSolver(const TraitRegistry &traits)
+    : traits_{traits} {}
 
 bool ConstraintSolver::solve(const std::vector<Constraint> &constraints, const types::Substitution &substitution) const {
     for (const Constraint &constraint : constraints) {
-        const auto iter{
-            substitution.find(constraint.typeVariable)
-        };
+        const auto iter{substitution.find(constraint.typeVariable)};
 
-        if (iter == substitution.end()) {
+        if (iter == substitution.end())
             return false;
-        }
 
-        if (!traits_.satisfies(
-                constraint.traitName,
-                iter->second)) {
+        if (!traits_.satisfies(constraint.traitName, iter->second))
             return false;
-        }
     }
 
     return true;

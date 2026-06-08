@@ -53,8 +53,7 @@ public:
     using HIRLowerer = std::function<void(const ast::Node &, HIRBuilder &, const LoweringRegistry &)>;
     using MIRLowerer = std::function<void(const HIRNode &, MIRBuilder &, const LoweringRegistry &)>;
 
-    explicit LoweringRegistry(
-        registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
+    explicit LoweringRegistry(registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
 
     registry::RegisterStatus hir(std::string nodeKind, HIRLowerer fn);
     registry::RegisterStatus mir(std::string hirKind, MIRLowerer fn);

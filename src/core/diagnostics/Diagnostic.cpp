@@ -42,25 +42,14 @@ const std::vector<Diagnostic> &DiagnosticEngine::diagnostics() const {
 std::string DiagnosticEngine::format() const {
     std::ostringstream output{};
 
-    for (const Diagnostic &diagnostic : diagnostics_) {
-        output
-            << severityName(diagnostic.severity)
-            << ": "
-            << diagnostic.message
-            << '\n';
-    }
-
+    for (const Diagnostic &diagnostic : diagnostics_)
+        output << severityName(diagnostic.severity) << ": " << diagnostic.message << '\n';
     return output.str();
 }
 
 std::string DiagnosticEngine::severityName(DiagnosticSeverity severity) {
-    if (severity == DiagnosticSeverity::Note) {
-        return "note";
-    }
-
-    if (severity == DiagnosticSeverity::Warning) {
-        return "warning";
-    }
+    if (severity == DiagnosticSeverity::Note) return "note";
+    if (severity == DiagnosticSeverity::Warning) return "warning";
 
     return "error";
 }

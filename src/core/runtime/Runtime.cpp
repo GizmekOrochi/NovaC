@@ -30,83 +30,46 @@ Value Value::voidValue() {
 }
 
 int Value::asInt() const {
-    if (const auto *value{std::get_if<int>(&data_)}) {
-        return *value;
-    }
-
-    throw std::runtime_error(
-        "Value::asInt: value is not int");
+    if (const auto *value{std::get_if<int>(&data_)}) return *value;
+    
+    throw std::runtime_error("Value::asInt: value is not int");
 }
 
 double Value::asFloat() const {
-    if (const auto *value{std::get_if<double>(&data_)}) {
-        return *value;
-    }
+    if (const auto *value{std::get_if<double>(&data_)})return *value;
+    if (const auto *value{std::get_if<int>(&data_)}) return *value;
 
-    if (const auto *value{std::get_if<int>(&data_)}) {
-        return *value;
-    }
-
-    throw std::runtime_error(
-        "Value::asFloat: value is not float");
+    throw std::runtime_error("Value::asFloat: value is not float");
 }
 
 bool Value::asBool() const {
-    if (const auto *value{std::get_if<bool>(&data_)}) {
+    if (const auto *value{std::get_if<bool>(&data_)})
         return *value;
-    }
 
-    throw std::runtime_error(
-        "Value::asBool: value is not bool");
+    throw std::runtime_error("Value::asBool: value is not bool");
 }
 
 bool Value::truthy() const {
-    if (std::holds_alternative<std::monostate>(data_)) {
-        return false;
-    }
-
-    if (const auto *value{std::get_if<bool>(&data_)}) {
-        return *value;
-    }
-
-    if (const auto *value{std::get_if<int>(&data_)}) {
-        return *value != 0;
-    }
-
-    if (const auto *value{std::get_if<double>(&data_)}) {
-        return *value != 0.0;
-    }
-
-    if (const auto *value{std::get_if<std::string>(&data_)}) {
-        return !value->empty();
-    }
+    if (std::holds_alternative<std::monostate>(data_)) return false;
+    if (const auto *value{std::get_if<bool>(&data_)}) return *value;
+    if (const auto *value{std::get_if<int>(&data_)}) return *value != 0;
+    if (const auto *value{std::get_if<double>(&data_)}) return *value != 0.0;
+    if (const auto *value{std::get_if<std::string>(&data_)}) return !value->empty();
 
     return true;
 }
 
 std::string Value::toString() const {
-    if (const auto *value{std::get_if<int>(&data_)}) {
-        return std::to_string(*value);
-    }
-
-    if (const auto *value{std::get_if<double>(&data_)}) {
-        return std::to_string(*value);
-    }
-
-    if (const auto *value{std::get_if<bool>(&data_)}) {
-        return *value ? "true" : "false";
-    }
-
-    if (const auto *value{std::get_if<std::string>(&data_)}) {
-        return *value;
-    }
+    if (const auto *value{std::get_if<int>(&data_)}) return std::to_string(*value);
+    if (const auto *value{std::get_if<double>(&data_)}) return std::to_string(*value);
+    if (const auto *value{std::get_if<bool>(&data_)}) return *value ? "true" : "false";
+    if (const auto *value{std::get_if<std::string>(&data_)}) return *value;
 
     return "void";
 }
 
 Environment::Environment(Environment *parent)
-    : parent_{parent},
-      values_{} {}
+    : parent_{parent}, values_{} {}
 
 bool Environment::define(std::string name, Value value) {
     return values_.emplace(std::move(name), std::move(value)).second;
@@ -125,23 +88,17 @@ bool Environment::assign(const std::string &name, Value value) {
 Value *Environment::resolve(const std::string &name) {
     const auto iter{values_.find(name)};
 
-    if (iter != values_.end()) {
+    if (iter != values_.end())
         return &iter->second;
-    }
 
-    if (parent_) {
+    if (parent_)
         return parent_->resolve(name);
-    }
 
     return nullptr;
 }
 
 RuntimeContext::RuntimeContext(const RuntimeRegistry &registry)
-    : registry_{registry},
-      scopes_{},
-      nodeBindings_{},
-      hasReturn_{false},
-      returnValue_{} {
+    : registry_{registry}, scopes_{}, nodeBindings_{}, hasReturn_{false}, returnValue_{} {
     scopes_.push_back(std::make_unique<Environment>(nullptr));
 }
 
@@ -158,19 +115,15 @@ void RuntimeContext::pushScope() {
 }
 
 void RuntimeContext::popScope() {
-    if (scopes_.size() <= 1) {
-        throw std::runtime_error(
-            "RuntimeContext::popScope: cannot pop root scope");
-    }
+    if (scopes_.size() <= 1)
+        throw std::runtime_error("RuntimeContext::popScope: cannot pop root scope");
 
     scopes_.pop_back();
 }
 
 Environment &RuntimeContext::env() {
-    if (scopes_.empty()) {
-        throw std::runtime_error(
-            "RuntimeContext::env: no active scope");
-    }
+    if (scopes_.empty())
+        throw std::runtime_error("RuntimeContext::env: no active scope");
 
     return *scopes_.back();
 }
@@ -186,9 +139,8 @@ void RuntimeContext::bindNode(std::string name, ast::NodePtr node) {
 ast::NodePtr RuntimeContext::boundNode(const std::string &name) const {
     const auto iter{nodeBindings_.find(name)};
 
-    if (iter == nodeBindings_.end()) {
+    if (iter == nodeBindings_.end())
         return nullptr;
-    }
 
     return iter->second;
 }
@@ -209,7 +161,6 @@ bool RuntimeContext::hasReturn() const {
 
 Value RuntimeContext::takeReturn() {
     hasReturn_ = false;
-
     return returnValue_;
 }
 
@@ -218,18 +169,16 @@ registry::RegisterStatus registerEntry(Map &map, std::string key, Value value, r
     const auto iter{map.find(key)};
 
     if (iter != map.end()) {
-        if (duplicatePolicy == registry::DuplicatePolicy::Ignore) {
+        if (duplicatePolicy == registry::DuplicatePolicy::Ignore)
             return registry::RegisterStatus::Ignored;
-        }
-
+    
         if (duplicatePolicy == registry::DuplicatePolicy::Replace) {
             iter->second = std::move(value);
 
             return registry::RegisterStatus::Replaced;
         }
 
-        throw std::runtime_error(
-            owner + ": duplicate registration '" + key + "'");
+        throw std::runtime_error(owner + ": duplicate registration '" + key + "'");
     }
 
     map.emplace(std::move(key), std::move(value));
@@ -238,67 +187,35 @@ registry::RegisterStatus registerEntry(Map &map, std::string key, Value value, r
 }
 
 RuntimeRegistry::RuntimeRegistry(registry::DuplicatePolicy duplicatePolicy)
-    : expressions_{},
-      statements_{},
-      declarations_{},
-      binaryOperators_{},
-      binaryDispatcherInstalled_{false},
-      duplicatePolicy_{duplicatePolicy} {}
+    : expressions_{}, statements_{}, declarations_{}, binaryOperators_{}, binaryDispatcherInstalled_{false}, duplicatePolicy_{duplicatePolicy} {}
 
 registry::RegisterStatus RuntimeRegistry::expression(std::string kind, ExprHandler handler) {
-    return registerEntry(
-        expressions_,
-        std::move(kind),
-        std::move(handler),
-        duplicatePolicy_,
-        "RuntimeRegistry::expression");
+    return registerEntry(expressions_, std::move(kind), std::move(handler), duplicatePolicy_, "RuntimeRegistry::expression");
 }
 
 registry::RegisterStatus RuntimeRegistry::statement(std::string kind, StmtHandler handler) {
-    return registerEntry(
-        statements_,
-        std::move(kind),
-        std::move(handler),
-        duplicatePolicy_,
-        "RuntimeRegistry::statement");
+    return registerEntry(statements_, std::move(kind), std::move(handler), duplicatePolicy_, "RuntimeRegistry::statement");
 }
 
 registry::RegisterStatus RuntimeRegistry::declaration(std::string kind, DeclHandler handler) {
-    return registerEntry(
-        declarations_,
-        std::move(kind),
-        std::move(handler),
-        duplicatePolicy_,
-        "RuntimeRegistry::declaration");
+    return registerEntry(declarations_, std::move(kind), std::move(handler), duplicatePolicy_, "RuntimeRegistry::declaration");
 }
 
 registry::RegisterStatus RuntimeRegistry::binaryOperator(std::string op, BinaryHandler handler) {
     if (!binaryDispatcherInstalled_) {
-        expressions_.emplace(
-            "binary",
-            [](const ast::Node &node, const RuntimeContext &context) {
-                return context.registry().evalBinary(node, context);
-            });
-
+        expressions_.emplace("binary", [](const ast::Node &node, const RuntimeContext &context) { return context.registry().evalBinary(node, context); });
         binaryDispatcherInstalled_ = true;
     }
 
-    return registerEntry(
-        binaryOperators_,
-        std::move(op),
-        std::move(handler),
-        duplicatePolicy_,
-        "RuntimeRegistry::binaryOperator");
+    return registerEntry(binaryOperators_, std::move(op), std::move(handler), duplicatePolicy_, "RuntimeRegistry::binaryOperator");
 }
 
 Value RuntimeRegistry::evalBinary(const ast::Node &node, const RuntimeContext &context) const {
     const std::string op{node.str("op")};
     const auto iter{binaryOperators_.find(op)};
 
-    if (iter == binaryOperators_.end()) {
-        throw std::runtime_error(
-            "RuntimeRegistry::evalBinary: no runtime binary operator handler for '" + op + "'");
-    }
+    if (iter == binaryOperators_.end())
+        throw std::runtime_error("RuntimeRegistry::evalBinary: no runtime binary operator handler for '" + op + "'");
 
     return iter->second(node, context);
 }
@@ -306,10 +223,8 @@ Value RuntimeRegistry::evalBinary(const ast::Node &node, const RuntimeContext &c
 Value RuntimeRegistry::eval(const ast::Node &node, const RuntimeContext &context) const {
     const auto iter{expressions_.find(node.kind())};
 
-    if (iter == expressions_.end()) {
-        throw std::runtime_error(
-            "RuntimeRegistry::eval: no runtime expression handler for '" + node.kind() + "'");
-    }
+    if (iter == expressions_.end())
+        throw std::runtime_error("RuntimeRegistry::eval: no runtime expression handler for '" + node.kind() + "'");
 
     return iter->second(node, context);
 }
@@ -317,10 +232,8 @@ Value RuntimeRegistry::eval(const ast::Node &node, const RuntimeContext &context
 void RuntimeRegistry::exec(const ast::Node &node, RuntimeContext &context) const {
     const auto iter{statements_.find(node.kind())};
 
-    if (iter == statements_.end()) {
-        throw std::runtime_error(
-            "RuntimeRegistry::exec: no runtime statement handler for '" + node.kind() + "'");
-    }
+    if (iter == statements_.end())
+        throw std::runtime_error("RuntimeRegistry::exec: no runtime statement handler for '" + node.kind() + "'");
 
     iter->second(node, context);
 }
@@ -328,9 +241,8 @@ void RuntimeRegistry::exec(const ast::Node &node, RuntimeContext &context) const
 void RuntimeRegistry::declare(const ast::NodePtr &node, RuntimeContext &context) const {
     const auto iter{declarations_.find(node->kind())};
 
-    if (iter != declarations_.end()) {
+    if (iter != declarations_.end())
         iter->second(node, context);
-    }
 }
 
 Runtime::Runtime(const RuntimeRegistry &registry) : registry_{registry} {}

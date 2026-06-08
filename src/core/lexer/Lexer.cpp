@@ -12,13 +12,7 @@ void LexerRegistry::keyword(std::string keyword) {
 
 void LexerRegistry::symbol(std::string symbol) {
     symbols_.push_back(std::move(symbol));
-
-    std::sort(
-        symbols_.begin(),
-        symbols_.end(),
-        [](const std::string &left, const std::string &right) {
-            return left.size() > right.size();
-        });
+    std::sort(symbols_.begin(), symbols_.end(), [](const std::string &left, const std::string &right) { return left.size() > right.size();});
 }
 
 bool LexerRegistry::isKeyword(const std::string &value) const {
@@ -39,23 +33,19 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source) {
     int line{1};
     int column{1};
 
-    const auto advance{
-        [&]() {
-            if (source[index] == '\n') {
-                ++line;
-                column = 1;
-            } else {
-                ++column;
-            }
-
-            ++index;
+    const auto advance{[&]() {
+        if (source[index] == '\n') {
+            ++line;
+            column = 1;
+            } 
+        else
+            ++column;
+        ++index;
         }
     };
 
     while (index < source.size()) {
-        const unsigned char current{
-            static_cast<unsigned char>(source[index])
-        };
+        const unsigned char current{static_cast<unsigned char>(source[index])};
 
         if (std::isspace(current)) {
             advance();
@@ -67,24 +57,12 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source) {
 
             std::string text{};
 
-            while (
-                index < source.size()
-                && (
-                    std::isalnum(
-                        static_cast<unsigned char>(source[index]))
-                    || source[index] == '_')) {
+            while (index < source.size() && ( std::isalnum(static_cast<unsigned char>(source[index])) || source[index] == '_')) {
                 text += source[index];
                 advance();
             }
 
-            tokens.push_back({
-                registry_.isKeyword(text)
-                    ? token::Kind::Keyword
-                    : token::Kind::Identifier,
-                text,
-                line,
-                tokenColumn
-            });
+            tokens.push_back({registry_.isKeyword(text) ? token::Kind::Keyword : token::Kind::Identifier, text, line, tokenColumn});
 
             continue;
         }
@@ -94,20 +72,12 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source) {
 
             std::string text{};
 
-            while (
-                index < source.size()
-                && std::isdigit(
-                    static_cast<unsigned char>(source[index]))) {
+            while (index < source.size() && std::isdigit(static_cast<unsigned char>(source[index]))) {
                 text += source[index];
                 advance();
             }
 
-            tokens.push_back({
-                token::Kind::Integer,
-                text,
-                line,
-                tokenColumn
-            });
+            tokens.push_back({token::Kind::Integer, text, line, tokenColumn});
 
             continue;
         }
@@ -116,12 +86,7 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source) {
 
         for (const std::string &symbol : registry_.symbols()) {
             if (source.compare(index, symbol.size(), symbol) == 0) {
-                tokens.push_back({
-                    token::Kind::Symbol,
-                    symbol,
-                    line,
-                    column
-                });
+                tokens.push_back({token::Kind::Symbol, symbol, line, column});
 
                 for (std::size_t count{}; count < symbol.size(); ++count) {
                     advance();
@@ -137,12 +102,7 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source) {
         }
     }
 
-    tokens.push_back({
-        token::Kind::End,
-        "",
-        line,
-        column
-    });
+    tokens.push_back({token::Kind::End, "", line, column});
 
     return tokens;
 }

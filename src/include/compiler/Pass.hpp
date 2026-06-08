@@ -48,8 +48,7 @@ private:
 
 class AstValidationPass final : public Pass {
 public:
-    explicit AstValidationPass(
-        std::string astArtifact = "ast");
+    explicit AstValidationPass(std::string astArtifact = "ast");
 
     std::string name() const override;
 

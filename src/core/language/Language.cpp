@@ -53,33 +53,26 @@ void LanguageFeature::lowering(ir::LoweringRegistry &lowering) const {
 }
 
 bool Language::has(const std::string &name) const {
-    for (const FeatureInfo &featureInfo : features) {
-        if (featureInfo.name == name) {
+    for (const FeatureInfo &featureInfo : features)
+        if (featureInfo.name == name)
             return true;
-        }
-    }
 
     return false;
 }
 
 bool Language::hasCapability(const std::string &capability) const {
-    for (const FeatureInfo &featureInfo : features) {
-        for (const std::string &featureCapability : featureInfo.capabilities) {
-            if (featureCapability == capability) {
+    for (const FeatureInfo &featureInfo : features)
+        for (const std::string &featureCapability : featureInfo.capabilities)
+            if (featureCapability == capability)
                 return true;
-            }
-        }
-    }
 
     return false;
 }
 
 const FeatureInfo *Language::feature(const std::string &name) const {
-    for (const FeatureInfo &featureInfo : features) {
-        if (featureInfo.name == name) {
+    for (const FeatureInfo &featureInfo : features)
+        if (featureInfo.name == name)
             return &featureInfo;
-        }
-    }
 
     return nullptr;
 }
@@ -87,18 +80,12 @@ const FeatureInfo *Language::feature(const std::string &name) const {
 LanguageBuilder &LanguageBuilder::useObject(const LanguageFeature &feature) {
     const FeatureInfo info{feature.info()};
 
-    if (pending_.find(info.name) != pending_.end()) {
-        throw std::runtime_error(
-            "LanguageBuilder::useObject: duplicate feature '" + info.name + "'");
-    }
+    if (pending_.find(info.name) != pending_.end())
+        throw std::runtime_error("LanguageBuilder::useObject: duplicate feature '" + info.name + "'");
 
-    for (const std::string &conflict : info.conflicts) {
-        if (pending_.find(conflict) != pending_.end()) {
-            throw std::runtime_error(
-                "LanguageBuilder::useObject: feature '" + info.name
-                + "' conflicts with '" + conflict + "'");
-        }
-    }
+    for (const std::string &conflict : info.conflicts)
+        if (pending_.find(conflict) != pending_.end())
+            throw std::runtime_error("LanguageBuilder::useObject: feature '" + info.name  + "' conflicts with '" + conflict + "'");
 
     pending_[info.name] = info;
     installOrder_.push_back(info.name);
@@ -109,15 +96,10 @@ LanguageBuilder &LanguageBuilder::useObject(const LanguageFeature &feature) {
 }
 
 void LanguageBuilder::validateDependencies() const {
-    for (const auto &[name, info] : pending_) {
-        for (const std::string &dependency : info.dependencies) {
-            if (pending_.find(dependency) == pending_.end()) {
-                throw std::runtime_error(
-                    "LanguageBuilder::validateDependencies: feature '" + name
-                    + "' requires missing feature '" + dependency + "'");
-            }
-        }
-    }
+    for (const auto &[name, info] : pending_)
+        for (const std::string &dependency : info.dependencies)
+            if (pending_.find(dependency) == pending_.end())
+                throw std::runtime_error("LanguageBuilder::validateDependencies: feature '" + name + "' requires missing feature '" + dependency + "'");
 }
 
 void LanguageBuilder::validateCapabilities() const {
@@ -126,20 +108,14 @@ void LanguageBuilder::validateCapabilities() const {
     for (const auto &[name, info] : pending_) {
         static_cast<void>(name);
 
-        for (const std::string &capability : info.capabilities) {
+        for (const std::string &capability : info.capabilities)
             capabilities.insert(capability);
-        }
     }
 
-    for (const auto &[name, info] : pending_) {
-        for (const std::string &capability : info.requiredCapabilities) {
-            if (capabilities.find(capability) == capabilities.end()) {
-                throw std::runtime_error(
-                    "LanguageBuilder::validateCapabilities: feature '" + name
-                    + "' requires missing capability '" + capability + "'");
-            }
-        }
-    }
+    for (const auto &[name, info] : pending_)
+        for (const std::string &capability : info.requiredCapabilities)
+            if (capabilities.find(capability) == capabilities.end())
+                throw std::runtime_error("LanguageBuilder::validateCapabilities: feature '" + name + "' requires missing capability '" + capability + "'");
 }
 
 void LanguageBuilder::validateCycles() const {
@@ -153,19 +129,10 @@ void LanguageBuilder::validateCycles() const {
 
             if (iter != pending_.end()) {
                 for (const std::string &dependency : iter->second.dependencies) {
-                    if (pending_.find(dependency) == pending_.end()) {
-                        continue;
-                    }
+                    if (pending_.find(dependency) == pending_.end()) continue;
 
-                    if (state[dependency] == 1) {
-                        throw std::runtime_error(
-                            "LanguageBuilder::validateCycles: feature dependency cycle involving '"
-                            + dependency + "'");
-                    }
-
-                    if (state[dependency] == 0) {
-                        visit(dependency);
-                    }
+                    if (state[dependency] == 1) throw std::runtime_error("LanguageBuilder::validateCycles: feature dependency cycle involving '" + dependency + "'");
+                    if (state[dependency] == 0) visit(dependency);
                 }
             }
 
@@ -176,9 +143,8 @@ void LanguageBuilder::validateCycles() const {
     for (const auto &[name, info] : pending_) {
         static_cast<void>(info);
 
-        if (state[name] == 0) {
+        if (state[name] == 0)
             visit(name);
-        }
     }
 }
 
@@ -187,19 +153,11 @@ void LanguageBuilder::validateVersions() const {
         for (const VersionRequirement &requirement : info.versionRequirements) {
             const auto iter{pending_.find(requirement.feature)};
 
-            if (iter == pending_.end()) {
-                throw std::runtime_error(
-                    "LanguageBuilder::validateVersions: feature '" + name
-                    + "' requires versioned missing feature '" + requirement.feature + "'");
-            }
+            if (iter == pending_.end())
+                throw std::runtime_error("LanguageBuilder::validateVersions: feature '" + name + "' requires versioned missing feature '" + requirement.feature + "'");
 
-            if (!requirement.minVersion.empty()
-                && iter->second.version < requirement.minVersion) {
-                throw std::runtime_error(
-                    "LanguageBuilder::validateVersions: feature '" + name
-                    + "' requires '" + requirement.feature + "' >= "
-                    + requirement.minVersion + ", got " + iter->second.version);
-            }
+            if (!requirement.minVersion.empty() && iter->second.version < requirement.minVersion)
+                throw std::runtime_error("LanguageBuilder::validateVersions: feature '" + name + "' requires '" + requirement.feature + "' >= " + requirement.minVersion + ", got " + iter->second.version);
         }
     }
 }

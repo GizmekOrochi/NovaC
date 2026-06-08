@@ -16,9 +16,8 @@ void MacroRegistry::add(std::string name, MacroFn fn, SourceSpan definition) {
 const MacroFn *MacroRegistry::find(const std::string &name) const {
     const auto iter{macros_.find(name)};
 
-    if (iter == macros_.end()) {
+    if (iter == macros_.end())
         return nullptr;
-    }
 
     return &iter->second;
 }
@@ -26,18 +25,15 @@ const MacroFn *MacroRegistry::find(const std::string &name) const {
 SourceSpan MacroRegistry::definition(const std::string &name) const {
     const auto iter{definitions_.find(name)};
 
-    if (iter == definitions_.end()) {
+    if (iter == definitions_.end())
         return {};
-    }
 
     return iter->second;
 }
 
 bool ExpansionContext::enter(const std::string &name) {
-    if (depth_++ > recursionLimit_) {
-        throw std::runtime_error(
-            "ExpansionContext::enter: macro recursion limit reached");
-    }
+    if (depth_++ > recursionLimit_)
+        throw std::runtime_error("ExpansionContext::enter: macro recursion limit reached");
 
     return active_.insert(name).second;
 }
@@ -45,9 +41,8 @@ bool ExpansionContext::enter(const std::string &name) {
 void ExpansionContext::leave(const std::string &name) {
     active_.erase(name);
 
-    if (depth_ > 0) {
+    if (depth_ > 0)
         --depth_;
-    }
 }
 
 std::string ExpansionContext::hygienicName(const std::string &base) {
@@ -65,12 +60,7 @@ void ExpansionContext::map(SourceSpan generated, SourceSpan original) {
 }
 
 void ExpansionContext::record(std::string name, SourceSpan call, SourceSpan def) {
-    records_.push_back({
-        std::move(name),
-        std::move(call),
-        std::move(def),
-        currentMappings_
-    });
+    records_.push_back({std::move(name), std::move(call), std::move(def), currentMappings_});
 
     currentMappings_.clear();
 }
@@ -89,26 +79,20 @@ ast::NodePtr MacroExpansionPass::expand(ast::NodePtr node) const {
 }
 
 ast::NodePtr MacroExpansionPass::expandNode(ast::NodePtr node, ExpansionContext &context) const {
-    if (!node) {
+    if (!node)
         return nullptr;
-    }
 
     if (node->kind() == "macro.call") {
         const std::string name{node->str("name")};
 
-        if (!context.enter(name)) {
-            throw std::runtime_error(
-                "MacroExpansionPass::expandNode: recursive macro expansion '" + name + "'");
-        }
+        if (!context.enter(name))
+            throw std::runtime_error("MacroExpansionPass::expandNode: recursive macro expansion '" + name + "'");
 
         const MacroFn *fn{registry_.find(name)};
         ast::NodePtr expanded{fn ? (*fn)(*node) : node};
 
-        if (expanded && expanded->has("generatedName")) {
-            expanded->set(
-                "generatedName",
-                context.hygienicName(expanded->str("generatedName")));
-        }
+        if (expanded && expanded->has("generatedName"))
+            expanded->set("generatedName", context.hygienicName(expanded->str("generatedName")));
 
         context.record(name, context.spanFor(*node), registry_.definition(name));
         context.leave(name);
@@ -116,22 +100,17 @@ ast::NodePtr MacroExpansionPass::expandNode(ast::NodePtr node, ExpansionContext 
         return expanded;
     }
 
-    auto &fields{
-        const_cast<std::unordered_map<std::string, ast::Field> &>(node->fields())
-    };
+    auto &fields{const_cast<std::unordered_map<std::string, ast::Field> &>(node->fields())};
 
     for (auto &[name, field] : fields) {
         static_cast<void>(name);
 
-        if (auto *child{std::get_if<ast::NodePtr>(&field)}) {
+        if (auto *child{std::get_if<ast::NodePtr>(&field)})
             *child = expandNode(*child, context);
-        }
 
-        if (auto *list{std::get_if<ast::NodeList>(&field)}) {
-            for (ast::NodePtr &child : *list) {
+        if (auto *list{std::get_if<ast::NodeList>(&field)})
+            for (ast::NodePtr &child : *list)
                 child = expandNode(child, context);
-            }
-        }
     }
 
     return node;

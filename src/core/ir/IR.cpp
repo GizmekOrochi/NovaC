@@ -11,13 +11,11 @@ registry::RegisterStatus registerEntry(Map &map, std::string key, Value value, r
     const auto iter{map.find(key)};
     
     if (iter != map.end()) {
-        if (duplicatePolicy == registry::DuplicatePolicy::Ignore) {
+        if (duplicatePolicy == registry::DuplicatePolicy::Ignore)
             return registry::RegisterStatus::Ignored;
-        }
 
         if (duplicatePolicy == registry::DuplicatePolicy::Replace) {
             iter->second = std::move(value);
-
             return registry::RegisterStatus::Replaced;
         }
 
@@ -25,7 +23,6 @@ registry::RegisterStatus registerEntry(Map &map, std::string key, Value value, r
     }
 
     map.emplace(std::move(key), std::move(value));
-
     return registry::RegisterStatus::Inserted;
 }
 
@@ -67,10 +64,8 @@ bool LoweringRegistry::hasMIR(const std::string &hirKind) const {
 void LoweringRegistry::lowerHIR(const ast::Node &node, HIRBuilder &out) const {
     const auto iter{hir_.find(node.kind())};
 
-    if (iter == hir_.end()) {
-        throw std::runtime_error(
-            "LoweringRegistry::lowerHIR: missing HIR lowerer for AST node kind '" + node.kind() + "'");
-    }
+    if (iter == hir_.end())
+        throw std::runtime_error("LoweringRegistry::lowerHIR: missing HIR lowerer for AST node kind '" + node.kind() + "'");
 
     iter->second(node, out, *this);
 }
@@ -78,10 +73,8 @@ void LoweringRegistry::lowerHIR(const ast::Node &node, HIRBuilder &out) const {
 void LoweringRegistry::lowerMIR(const HIRNode &node, MIRBuilder &out) const {
     const auto iter{mir_.find(node.op)};
 
-    if (iter == mir_.end()) {
-        throw std::runtime_error(
-            "LoweringRegistry::lowerMIR: missing MIR lowerer for HIR node kind '" + node.op + "'");
-    }
+    if (iter == mir_.end())
+        throw std::runtime_error("LoweringRegistry::lowerMIR: missing MIR lowerer for HIR node kind '" + node.op + "'");
 
     iter->second(node, out, *this);
 }
@@ -90,16 +83,13 @@ void LoweringRegistry::lowerChildren(const ast::Node &node, HIRBuilder &out) con
     for (const auto &[name, field] : node.fields()) {
         static_cast<void>(name);
 
-        if (const auto *child{std::get_if<ast::NodePtr>(&field)}; child && *child) {
+        if (const auto *child{std::get_if<ast::NodePtr>(&field)}; child && *child)
             lowerHIR(**child, out);
-        }
 
         if (const auto *list{std::get_if<ast::NodeList>(&field)}) {
-            for (const ast::NodePtr &child : *list) {
-                if (child) {
+            for (const ast::NodePtr &child : *list)
+                if (child)
                     lowerHIR(*child, out);
-                }
-            }
         }
     }
 }
@@ -109,9 +99,7 @@ ASTLoweringPass::ASTLoweringPass(const LoweringRegistry &registry)
 
 HIRModule ASTLoweringPass::lower(const ast::Node &root) const {
     HIRBuilder builder{};
-
     registry_.lowerHIR(root, builder);
-
     return builder.finish();
 }
 
@@ -121,9 +109,8 @@ HIRLoweringPass::HIRLoweringPass(const LoweringRegistry &registry)
 MIRModule HIRLoweringPass::lower(const HIRModule &hir) const {
     MIRBuilder builder{};
 
-    for (const HIRNode &node : hir.nodes) {
+    for (const HIRNode &node : hir.nodes)
         registry_.lowerMIR(node, builder);
-    }
 
     return builder.finish();
 }

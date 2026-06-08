@@ -58,16 +58,11 @@ class ImportResolver {
 public:
     void registerVirtualFile(std::string moduleName, std::string source);
 
-    void exportSymbol(
-        const std::string &moduleName,
-        std::string symbol,
-        Visibility visibility = Visibility::Public);
+    void exportSymbol(const std::string &moduleName, std::string symbol, Visibility visibility = Visibility::Public);
 
     const Module &load(const std::string &name);
 
-    ImportedSymbol resolveQualified(
-        const std::string &moduleName,
-        const std::string &symbol);
+    ImportedSymbol resolveQualified(const std::string &moduleName, const std::string &symbol);
 
 private:
     std::unordered_map<std::string, std::string> virtualFiles_;

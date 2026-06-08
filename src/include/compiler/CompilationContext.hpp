@@ -12,12 +12,9 @@ namespace novac::compiler {
 
 class CompilationContext {
 public:
-    CompilationContext(
-        const language::Language &language,
-        std::string startDomain);
+    CompilationContext(const language::Language &language, std::string startDomain);
 
     const language::Language &language() const;
-
     const std::string &startDomain() const;
 
     void setSource(std::string source);
@@ -37,11 +34,8 @@ public:
     T &requireArtifact(const std::string &name) {
         const auto iter{artifacts_.find(name)};
 
-        if (iter == artifacts_.end()) {
-            throw std::runtime_error(
-                "CompilationContext::requireArtifact: missing artifact '" +
-                name + "'");
-        }
+        if (iter == artifacts_.end())
+            throw std::runtime_error("CompilationContext::requireArtifact: missing artifact '" + name + "'");
 
         return std::any_cast<T &>(iter->second);
     }
@@ -50,11 +44,8 @@ public:
     const T &requireArtifact(const std::string &name) const {
         const auto iter{artifacts_.find(name)};
 
-        if (iter == artifacts_.end()) {
-            throw std::runtime_error(
-                "CompilationContext::requireArtifact: missing artifact '" +
-                name + "'");
-        }
+        if (iter == artifacts_.end())
+            throw std::runtime_error("CompilationContext::requireArtifact: missing artifact '" + name + "'");
 
         return std::any_cast<const T &>(iter->second);
     }

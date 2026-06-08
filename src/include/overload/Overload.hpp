@@ -41,10 +41,7 @@ class OverloadRegistry {
 public:
     void add(Candidate candidate);
 
-    std::optional<RankedCandidate> best(
-        const std::string &name,
-        const std::vector<types::TypeRef> &args,
-        const types::TypeRegistry &types) const;
+    std::optional<RankedCandidate> best(const std::string &name, const std::vector<types::TypeRef> &args, const types::TypeRegistry &types) const;
 
 private:
     std::unordered_map<std::string, OverloadSet> sets_;
@@ -54,10 +51,7 @@ class OperatorRegistry {
 public:
     void addOperator(std::string op, Candidate candidate);
 
-    std::optional<RankedCandidate> resolve(
-        const std::string &op,
-        const std::vector<types::TypeRef> &args,
-        const types::TypeRegistry &types) const;
+    std::optional<RankedCandidate> resolve(const std::string &op, const std::vector<types::TypeRef> &args, const types::TypeRegistry &types) const;
 
 private:
     OverloadRegistry overloads_;
