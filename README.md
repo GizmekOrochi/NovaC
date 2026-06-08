@@ -2,13 +2,25 @@
 
 NovaC is a framework for building programming languages.
 
-Unlike traditional compiler frameworks, NovaC does not impose a language architecture, runtime model, compilation pipeline, or backend strategy. Instead, it provides a collection of reusable components that can be assembled to create languages with widely different designs and execution models.
+Unlike traditional compiler frameworks, NovaC does not impose a language architecture, runtime model, compilation pipeline, intermediate representation, or backend strategy.
+
+Instead, it provides a collection of reusable infrastructure components that can be assembled to create languages with widely different designs and execution models.
 
 NovaC is designed around a simple principle:
 
 > The framework provides infrastructure. The language provides semantics.
 
-Whether you are building an interpreted scripting language, a statically typed systems language, a bytecode VM, a transpiler, or an experimental research language, NovaC aims to stay out of the way while providing the tools needed to build it.
+Whether you are building:
+
+* an interpreted scripting language
+* a statically typed systems language
+* a bytecode virtual machine
+* a transpiler
+* a compiler
+* a research language
+* a domain specific language
+
+NovaC aims to remain language-agnostic while providing the building blocks required to implement them.
 
 ---
 
@@ -20,24 +32,26 @@ NovaC is not a compiler.
 
 NovaC is a language construction framework.
 
-The framework should know as little as possible about the language being built. Language-specific concepts belong inside the language definition, not inside the framework itself.
+Language-specific concepts belong inside the language definition rather than inside the framework itself.
 
-For example, concepts such as:
+For example:
 
 * Functions
 * Classes
 * Variables
 * Blocks
-* Conditionals
 * Loops
-* Return statements
-* Program entry points
+* Pattern Matching
+* Ownership Systems
+* Coroutines
+* Garbage Collection
+* Program Entry Points
 
 are language features.
 
-NovaC does not assume that these concepts exist, nor does it provide built-in implementations for them.
+NovaC does not assume these concepts exist.
 
-Instead, NovaC focuses exclusively on providing the infrastructure required to define and process them.
+Instead, NovaC provides the infrastructure required to define, analyze, transform, execute, and compile them.
 
 ---
 
@@ -45,31 +59,31 @@ Instead, NovaC focuses exclusively on providing the infrastructure required to d
 
 ## Lexer
 
-A registry-driven tokenization system.
+Registry-driven tokenization.
 
 Languages define:
 
 * Keywords
 * Symbols
-* Lexical behavior
+* Lexical rules
 
 ---
 
 ## AST
 
-A runtime-configurable abstract syntax tree system.
+Runtime-configurable abstract syntax tree infrastructure.
 
 Languages define:
 
 * Node kinds
-* Node fields
+* Field schemas
 * Validation rules
 
 ---
 
 ## Parser
 
-A domain-based parsing framework.
+Domain-based parsing infrastructure.
 
 Languages define:
 
@@ -78,13 +92,34 @@ Languages define:
 * Declaration domains
 * Custom parsing domains
 
-This allows parsing behavior to be customized without hardcoding language constructs into the framework.
+NovaC uses Pratt parsing for expression-oriented grammars while remaining extensible.
+
+---
+
+## Semantic Layer
+
+Optional semantic analysis infrastructure.
+
+Provides:
+
+* Symbols
+* Definitions
+* References
+* Scopes
+* Semantic Contexts
+
+Languages define:
+
+* Name resolution
+* Type checking
+* Semantic rules
+* Validation passes
 
 ---
 
 ## Runtime
 
-A registry-driven execution system.
+Registry-driven interpretation infrastructure.
 
 Languages define:
 
@@ -109,13 +144,13 @@ Languages define:
 
 ## Traits
 
-A capability and constraint system that can be used to express reusable behavior and generic requirements.
+Capability and constraint infrastructure for reusable behavior and generic requirements.
 
 ---
 
 ## Templates
 
-Infrastructure for generic programming and compile-time specialization.
+Infrastructure for generic programming and specialization.
 
 ---
 
@@ -127,18 +162,70 @@ Compile-time AST transformation and code generation facilities.
 
 ## Modules
 
-Infrastructure for organizing code across compilation units through imports and exports.
+Infrastructure for organizing code across compilation units.
+
+Provides:
+
+* Imports
+* Exports
+* Resolution
 
 ---
 
 ## Diagnostics
 
-Framework-wide reporting for:
+Framework-wide reporting infrastructure.
+
+Supports:
 
 * Errors
 * Warnings
 * Notes
-* Source locations
+* Source Locations
+
+---
+
+## Intermediate Representations
+
+NovaC provides optional IR infrastructure.
+
+### HIR
+
+High-Level Intermediate Representation.
+
+Provides:
+
+* Typed Values
+* Instructions
+* Basic Blocks
+* Control Flow Foundation
+
+### MIR
+
+Mid-Level Intermediate Representation.
+
+Provides:
+
+* Typed Values
+* Instructions
+* Basic Blocks
+* Backend-Oriented Lowering
+
+NovaC does not impose a specific lowering pipeline.
+
+Languages may use:
+
+AST → HIR → MIR
+
+or
+
+AST → MIR
+
+or
+
+AST → Bytecode
+
+or any other architecture.
 
 ---
 
@@ -146,50 +233,99 @@ Framework-wide reporting for:
 
 Compilation is organized around passes.
 
-NovaC does not require a specific compilation pipeline. Languages may define any sequence of passes appropriate for their architecture.
+NovaC does not require a predefined compilation pipeline.
+
+Languages define their own pipelines.
 
 ---
 
-## Artifacts
+## Artifact System
 
 Passes communicate through named artifacts stored inside the compilation context.
 
-This allows compiler stages to remain loosely coupled and reusable.
+Examples:
+
+* AST
+* Semantic Context
+* HIR
+* MIR
+* Runtime Values
+* Bytecode
+* Analysis Results
+
+This allows passes to remain loosely coupled and reusable.
 
 ---
 
-# Architecture
+# Architecture ( TO REFARCTOR )
 
-```text
 Language
 │
 ├── Lexer
 ├── AST
 ├── Parser
+├── Semantic
 ├── Runtime
 ├── Types
 ├── Traits
 ├── Templates
 ├── Macros
-└── Modules
-
+├── Modules
+└── IR
 
 Compiler
 │
 └── PassManager
-    │
-    ├── Pass
-    ├── Pass
-    ├── Pass
-    └── Pass
-
+│
+├── ParsePass
+├── SemanticPass
+├── TypeCheckPass
+├── LoweringPass
+├── OptimizationPass
+└── BackendPass
 
 CompilationContext
 │
 ├── Source
 ├── Artifacts
 └── Diagnostics
-```
+
+Artifacts
+│
+├── AST
+├── SemanticContext
+├── HIR
+├── MIR
+├── Bytecode
+└── RuntimeValue
+
+---
+
+# Feature System
+
+NovaC includes an optional feature system.
+
+Features may contribute:
+
+* Tokens
+* AST Nodes
+* Parsing Rules
+* Runtime Behavior
+* Semantic Rules
+* Types
+* Traits
+* Templates
+* Macros
+* Lowering Rules
+
+Features can declare:
+
+* Dependencies
+* Capabilities
+* Conflicts
+* Version Requirements
+
+This allows languages to be assembled from reusable building blocks.
 
 ---
 
@@ -200,13 +336,14 @@ NovaC is built around the following goals:
 * Language Agnostic
 * Pass Driven
 * Registry Driven
+* Feature Driven
 * Extensible
 * Runtime Configurable
 * Minimal Assumptions
 * Reusable Infrastructure
 * No Hardcoded Language Semantics
 
-The framework should make building a language easier without forcing language authors into a predefined architecture.
+The framework should make building languages easier without forcing language authors into a predefined architecture.
 
 ---
 
@@ -216,15 +353,26 @@ NovaC intentionally assumes very little.
 
 The framework only assumes the existence of:
 
-* Source code
+* Source Code
 * Tokens
-* AST nodes
+* AST Nodes
 * Passes
 * Artifacts
 
 Everything else belongs to the language being built.
 
-If a language requires functions, classes, modules, ownership systems, garbage collection, bytecode, JIT compilation, or entirely different concepts, those features should be implemented by the language rather than embedded into the framework.
+If a language requires:
+
+* Classes
+* Ownership
+* Bytecode
+* JIT Compilation
+* Garbage Collection
+* Borrow Checking
+* Coroutines
+* Pattern Matching
+
+those concepts should be implemented by the language itself.
 
 ---
 
@@ -233,18 +381,22 @@ If a language requires functions, classes, modules, ownership systems, garbage c
 NovaC currently provides:
 
 * Lexer Infrastructure
-* AST Registry
-* Parser Domains
-* Runtime Registry
+* AST Infrastructure
+* Parser Infrastructure
+* Semantic Infrastructure
+* Runtime Infrastructure
 * Type System
 * Traits
 * Templates
 * Macros
 * Module Infrastructure
 * Diagnostics
+* Typed HIR
+* Typed MIR
 * Pass Framework
 * Artifact System
+* Feature System
 
-Current development is primarily focused on framework architecture, extensibility, and infrastructure rather than the implementation of a specific language.
+Current development focuses on framework architecture, scalability, extensibility, and language-building infrastructure rather than the implementation of a specific language.
 
 The long-term goal is to provide a robust foundation for building a wide variety of programming languages while remaining independent of any particular language design.

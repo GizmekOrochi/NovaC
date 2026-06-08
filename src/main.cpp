@@ -83,10 +83,10 @@ public:
             std::cout << block.name << ":\n";
 
             for (const ir::Instruction &instruction : block.instructions) {
+                std::cout << "  ";
+
                 if (instruction.result) {
-                    std::cout << "  v" << instruction.result->value << " = ";
-                } else {
-                    std::cout << "  ";
+                    std::cout << "v" << instruction.result->value << " = ";
                 }
 
                 std::cout << instruction.op;
@@ -95,15 +95,24 @@ public:
                     std::cout << " " << operand.toString();
                 }
 
-                if (instruction.type) {
-                    std::cout << " : " << instruction.type->display();
-                }
-
+                std::cout << " : " << ir::valueTypeName(instruction.type);
                 std::cout << '\n';
             }
         }
     }
 };
+
+static ir::ValueId requireValue(
+    const ir::LoweringRegistry::LoweredValue &value,
+    const std::string &owner)
+{
+    if (!value) {
+        throw std::runtime_error(
+            owner + ": expected value-producing expression");
+    }
+
+    return *value;
+}
 
 int main()
 {
@@ -111,7 +120,6 @@ int main()
         language::Language language{};
 
         language.lexer.symbol(testlang::ops::add.value);
-        language.types.primitive("int");
 
         language.nodes.registerNode({
             testlang::nodes::program.value,
@@ -228,40 +236,50 @@ int main()
 
         language.lowering.hir(
             testlang::nodes::integer,
-            [&language](const ast::Node &node,
-                        ir::HIRBuilder &builder,
-                        const ir::LoweringRegistry &) {
-                builder.emitValue(
+            [](const ast::Node &node,
+               ir::HIRBuilder &builder,
+               const ir::LoweringRegistry &) -> ir::LoweringRegistry::LoweredValue {
+                return builder.emitValue(
                     testlang::ops::hirConst,
                     {
                         ir::Operand::fromLiteral(
                             node.integer(testlang::fields::value))
                     },
-                    language.types.find("int"));
+                    ir::ValueType::Int);
             });
 
         language.lowering.hir(
             testlang::nodes::binary,
             [](const ast::Node &node,
                ir::HIRBuilder &builder,
-               const ir::LoweringRegistry &registry) {
-                registry.lowerHIR(
-                    *node.child(testlang::fields::left),
-                    builder);
+               const ir::LoweringRegistry &registry) -> ir::LoweringRegistry::LoweredValue {
+                const ir::ValueId lhs{
+                    requireValue(
+                        registry.lowerHIR(*node.child(testlang::fields::left), builder),
+                        "binary.hir.left")
+                };
 
-                registry.lowerHIR(
-                    *node.child(testlang::fields::right),
-                    builder);
+                const ir::ValueId rhs{
+                    requireValue(
+                        registry.lowerHIR(*node.child(testlang::fields::right), builder),
+                        "binary.hir.right")
+                };
 
-                builder.emitValue(testlang::ops::hirAdd);
+                return builder.emitValue(
+                    testlang::ops::hirAdd,
+                    {
+                        ir::Operand::fromValue(lhs),
+                        ir::Operand::fromValue(rhs)
+                    },
+                    ir::ValueType::Int);
             });
 
         language.lowering.hir(
             testlang::nodes::program,
             [](const ast::Node &node,
                ir::HIRBuilder &builder,
-               const ir::LoweringRegistry &registry) {
-                registry.lowerHIR(
+               const ir::LoweringRegistry &registry) -> ir::LoweringRegistry::LoweredValue {
+                return registry.lowerHIR(
                     *node.child(testlang::fields::expression),
                     builder);
             });
@@ -270,8 +288,8 @@ int main()
             testlang::ops::hirConst,
             [](const ir::Instruction &instruction,
                ir::MIRBuilder &builder,
-               const ir::LoweringRegistry &) {
-                builder.emitValue(
+               const ir::LoweringRegistry &) -> ir::LoweringRegistry::LoweredValue {
+                return builder.emitValue(
                     testlang::ops::mirConst,
                     instruction.operands,
                     instruction.type);
@@ -281,8 +299,8 @@ int main()
             testlang::ops::hirAdd,
             [](const ir::Instruction &instruction,
                ir::MIRBuilder &builder,
-               const ir::LoweringRegistry &) {
-                builder.emitValue(
+               const ir::LoweringRegistry &) -> ir::LoweringRegistry::LoweredValue {
+                return builder.emitValue(
                     testlang::ops::mirAdd,
                     instruction.operands,
                     instruction.type);

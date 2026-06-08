@@ -3,7 +3,6 @@
 #include "../ast/Node.hpp"
 #include "../ids/Ids.hpp"
 #include "../registry/Registry.hpp"
-#include "../types/TypeSystem.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -21,6 +20,15 @@ struct ValueId {
 
 struct BlockId {
     std::uint32_t value{};
+};
+
+enum class ValueType {
+    Unknown,
+    Void,
+    Int,
+    Bool,
+    Float,
+    String
 };
 
 class Literal {
@@ -65,7 +73,7 @@ struct Instruction {
     std::string op{};
     std::optional<ValueId> result{};
     std::vector<Operand> operands{};
-    types::TypeRef type{};
+    ValueType type{ValueType::Unknown};
 };
 
 struct BasicBlock {
@@ -92,12 +100,12 @@ public:
     ValueId emitValue(
         std::string op,
         std::vector<Operand> operands = {},
-        types::TypeRef type = nullptr);
+        ValueType type = ValueType::Unknown);
 
     ValueId emitValue(
         const ids::Operation &op,
         std::vector<Operand> operands = {},
-        types::TypeRef type = nullptr);
+        ValueType type = ValueType::Unknown);
 
     void emit(
         std::string op,
@@ -127,12 +135,12 @@ public:
     ValueId emitValue(
         std::string op,
         std::vector<Operand> operands = {},
-        types::TypeRef type = nullptr);
+        ValueType type = ValueType::Unknown);
 
     ValueId emitValue(
         const ids::Operation &op,
         std::vector<Operand> operands = {},
-        types::TypeRef type = nullptr);
+        ValueType type = ValueType::Unknown);
 
     void emit(
         std::string op,
@@ -154,8 +162,9 @@ private:
 
 class LoweringRegistry {
 public:
-    using HIRLowerer = std::function<void(const ast::Node &, HIRBuilder &, const LoweringRegistry &)>;
-    using MIRLowerer = std::function<void(const Instruction &, MIRBuilder &, const LoweringRegistry &)>;
+    using LoweredValue = std::optional<ValueId>;
+    using HIRLowerer = std::function<LoweredValue(const ast::Node &, HIRBuilder &, const LoweringRegistry &)>;
+    using MIRLowerer = std::function<LoweredValue(const Instruction &, MIRBuilder &, const LoweringRegistry &)>;
 
     explicit LoweringRegistry(
         registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
@@ -172,8 +181,9 @@ public:
     bool hasMIR(const std::string &hirKind) const;
     bool hasMIR(const ids::Operation &hirKind) const;
 
-    void lowerHIR(const ast::Node &node, HIRBuilder &out) const;
-    void lowerMIR(const Instruction &instruction, MIRBuilder &out) const;
+    LoweredValue lowerHIR(const ast::Node &node, HIRBuilder &out) const;
+    LoweredValue lowerMIR(const Instruction &instruction, MIRBuilder &out) const;
+
     void lowerChildren(const ast::Node &node, HIRBuilder &out) const;
 
 private:
@@ -201,5 +211,7 @@ public:
 private:
     const LoweringRegistry &registry_;
 };
+
+std::string valueTypeName(ValueType type);
 
 } // namespace novac::ir
