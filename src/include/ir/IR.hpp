@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ast/Node.hpp"
+#include "../ids/Ids.hpp"
 #include "../registry/Registry.hpp"
 
 #include <functional>
@@ -31,6 +32,7 @@ struct MIRModule {
 class HIRBuilder {
 public:
     void emit(std::string op, std::vector<std::string> operands = {});
+    void emit(const ids::Operation &op, std::vector<std::string> operands = {});
 
     HIRModule finish();
 
@@ -41,6 +43,7 @@ private:
 class MIRBuilder {
 public:
     void emit(std::string op, std::vector<std::string> operands = {});
+    void emit(const ids::Operation &op, std::vector<std::string> operands = {});
 
     MIRModule finish();
 
@@ -53,13 +56,20 @@ public:
     using HIRLowerer = std::function<void(const ast::Node &, HIRBuilder &, const LoweringRegistry &)>;
     using MIRLowerer = std::function<void(const HIRNode &, MIRBuilder &, const LoweringRegistry &)>;
 
-    explicit LoweringRegistry(registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
+    explicit LoweringRegistry(
+        registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
 
     registry::RegisterStatus hir(std::string nodeKind, HIRLowerer fn);
+    registry::RegisterStatus hir(const ids::NodeKind &nodeKind, HIRLowerer fn);
+
     registry::RegisterStatus mir(std::string hirKind, MIRLowerer fn);
+    registry::RegisterStatus mir(const ids::Operation &hirKind, MIRLowerer fn);
 
     bool hasHIR(const std::string &nodeKind) const;
+    bool hasHIR(const ids::NodeKind &nodeKind) const;
+
     bool hasMIR(const std::string &hirKind) const;
+    bool hasMIR(const ids::Operation &hirKind) const;
 
     void lowerHIR(const ast::Node &node, HIRBuilder &out) const;
     void lowerMIR(const HIRNode &node, MIRBuilder &out) const;

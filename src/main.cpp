@@ -1,12 +1,68 @@
 #include "include/compiler/Compiler.hpp"
 #include "include/compiler/Pass.hpp"
 #include "include/language/Language.hpp"
+#include "include/semantic/Semantic.hpp"
 
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
 using namespace novac;
+
+namespace testlang::nodes {
+
+inline const ids::NodeKind program{"program"};
+inline const ids::NodeKind integer{"integer"};
+inline const ids::NodeKind binary{"binary"};
+
+} // namespace testlang::nodes
+
+namespace testlang::fields {
+
+inline const ids::FieldName expression{"expression"};
+inline const ids::FieldName value{"value"};
+inline const ids::FieldName left{"left"};
+inline const ids::FieldName right{"right"};
+inline const ids::FieldName op{"op"};
+
+} // namespace testlang::fields
+
+namespace testlang::domains {
+
+inline const ids::ParseDomain program{"program"};
+inline const ids::ParseDomain expr{"expr"};
+
+} // namespace testlang::domains
+
+namespace testlang::ops {
+
+inline const ids::Operation add{"+"};
+inline const ids::Operation hirConst{"hir.const"};
+inline const ids::Operation hirAdd{"hir.add"};
+inline const ids::Operation mirConst{"mir.const"};
+inline const ids::Operation mirAdd{"mir.add"};
+
+} // namespace testlang::ops
+
+class DumpSemanticPass final : public compiler::Pass {
+public:
+    std::string name() const override
+    {
+        return "dump.semantic";
+    }
+
+    void run(compiler::CompilationContext &context) const override
+    {
+        const semantic::SemanticContext &semanticContext{
+            context.requireArtifact<semantic::SemanticContext>("semantic")
+        };
+
+        std::cout << "\n=== SEMANTIC ===\n";
+        std::cout << "Scopes: " << semanticContext.scopes().size() << '\n';
+        std::cout << "Symbols: " << semanticContext.symbols().size() << '\n';
+        std::cout << "References: " << semanticContext.references().size() << '\n';
+    }
+};
 
 class DumpMIRPass final : public compiler::Pass {
 public:
@@ -40,114 +96,160 @@ int main()
     try {
         language::Language language{};
 
-        language.lexer.symbol("+");
+        language.lexer.symbol(testlang::ops::add.value);
 
         language.nodes.registerNode({
-            "program",
-            {{"expression", ast::FieldKind::Node}},
+            testlang::nodes::program.value,
+            {
+                {testlang::fields::expression.value, ast::FieldKind::Node}
+            },
             "program root"
         });
 
         language.nodes.registerNode({
-            "integer",
-            {{"value", ast::FieldKind::Int}},
+            testlang::nodes::integer.value,
+            {
+                {testlang::fields::value.value, ast::FieldKind::Int}
+            },
             "integer literal"
         });
 
         language.nodes.registerNode({
-            "binary",
+            testlang::nodes::binary.value,
             {
-                {"left", ast::FieldKind::Node},
-                {"right", ast::FieldKind::Node},
-                {"op", ast::FieldKind::String}
+                {testlang::fields::left.value, ast::FieldKind::Node},
+                {testlang::fields::right.value, ast::FieldKind::Node},
+                {testlang::fields::op.value, ast::FieldKind::String}
             },
             "binary operation"
         });
 
         language.parser.prefix(
-            "expr",
+            testlang::domains::expr,
             "$int",
             [](parser::ParserContext &context) {
                 const auto token{context.consumeKind(token::Kind::Integer)};
 
-                ast::NodePtr node{ast::Node::make("integer")};
-                node->set("value", std::stoi(token.text));
+                ast::NodePtr node{ast::Node::make(testlang::nodes::integer)};
+                node->set(testlang::fields::value, std::stoi(token.text));
 
                 return node;
             });
 
         language.parser.infix(
-            "expr",
-            "+",
+            testlang::domains::expr,
+            testlang::ops::add.value,
             10,
             [](parser::ParserContext &context, ast::NodePtr left) {
-                context.consume("+");
+                context.consume(testlang::ops::add.value);
 
-                ast::NodePtr right{context.parse("expr", 11)};
-                ast::NodePtr node{ast::Node::make("binary")};
+                ast::NodePtr right{context.parse(testlang::domains::expr, 11)};
+                ast::NodePtr node{ast::Node::make(testlang::nodes::binary)};
 
-                node->set("left", left);
-                node->set("right", right);
-                node->set("op", std::string{"+"});
+                node->set(testlang::fields::left, left);
+                node->set(testlang::fields::right, right);
+                node->set(testlang::fields::op, testlang::ops::add.value);
 
                 return node;
             });
 
         language.parser.fallback(
-            "program",
+            testlang::domains::program,
             [](parser::ParserContext &context) {
-                ast::NodePtr expression{context.parse("expr")};
+                ast::NodePtr expression{context.parse(testlang::domains::expr)};
+                ast::NodePtr program{ast::Node::make(testlang::nodes::program)};
 
-                ast::NodePtr program{ast::Node::make("program")};
-                program->set("expression", expression);
+                program->set(testlang::fields::expression, expression);
 
                 return program;
             });
 
         language.runtime.expression(
-            "integer",
+            testlang::nodes::integer,
             [](const ast::Node &node, const runtime::RuntimeContext &) {
-                return runtime::Value::integer(node.integer("value"));
+                return runtime::Value::integer(
+                    node.integer(testlang::fields::value));
             });
 
         language.runtime.binaryOperator(
-            "+",
+            testlang::ops::add,
             [](const ast::Node &node, const runtime::RuntimeContext &context) {
-                const int lhs{context.eval(*node.child("left")).asInt()};
-                const int rhs{context.eval(*node.child("right")).asInt()};
+                const int lhs{
+                    context.eval(*node.child(testlang::fields::left)).asInt()
+                };
+
+                const int rhs{
+                    context.eval(*node.child(testlang::fields::right)).asInt()
+                };
 
                 return runtime::Value::integer(lhs + rhs);
             });
 
         language.runtime.expression(
-            "program",
+            testlang::nodes::program,
             [](const ast::Node &node, const runtime::RuntimeContext &context) {
-                return context.eval(*node.child("expression"));
+                return context.eval(*node.child(testlang::fields::expression));
             });
 
         language.lowering.hir(
-            "integer",
-            [](const ast::Node &node, ir::HIRBuilder &builder, const ir::LoweringRegistry &) {
-                builder.emit("hir.const", {std::to_string(node.integer("value"))});
+            testlang::nodes::integer,
+            [](const ast::Node &node,
+               ir::HIRBuilder &builder,
+               const ir::LoweringRegistry &) {
+                builder.emit(
+                    testlang::ops::hirConst,
+                    {
+                        std::to_string(
+                            node.integer(testlang::fields::value))
+                    });
             });
 
         language.lowering.hir(
-            "binary",
-            [](const ast::Node &node, ir::HIRBuilder &builder, const ir::LoweringRegistry &registry) {
-                registry.lowerHIR(*node.child("left"), builder);
-                registry.lowerHIR(*node.child("right"), builder);
+            testlang::nodes::binary,
+            [](const ast::Node &node,
+               ir::HIRBuilder &builder,
+               const ir::LoweringRegistry &registry) {
+                registry.lowerHIR(*node.child(testlang::fields::left), builder);
+                registry.lowerHIR(*node.child(testlang::fields::right), builder);
 
-                builder.emit("hir.add");
+                builder.emit(testlang::ops::hirAdd);
             });
 
-        language.lowering.hir("program", [](const ast::Node &node, ir::HIRBuilder &builder, const ir::LoweringRegistry &registry) { registry.lowerHIR(*node.child("expression"), builder); });
-        language.lowering.mir("hir.const", [](const ir::HIRNode &node, ir::MIRBuilder &builder, const ir::LoweringRegistry &) { builder.emit("mir.const", node.operands); });
-        language.lowering.mir("hir.add", [](const ir::HIRNode &, ir::MIRBuilder &builder, const ir::LoweringRegistry &) { builder.emit("mir.add"); });
+        language.lowering.hir(
+            testlang::nodes::program,
+            [](const ast::Node &node,
+               ir::HIRBuilder &builder,
+               const ir::LoweringRegistry &registry) {
+                registry.lowerHIR(
+                    *node.child(testlang::fields::expression),
+                    builder);
+            });
 
-        compiler::Compiler compiler{language, "program"};
+        language.lowering.mir(
+            testlang::ops::hirConst,
+            [](const ir::HIRNode &node,
+               ir::MIRBuilder &builder,
+               const ir::LoweringRegistry &) {
+                builder.emit(testlang::ops::mirConst, node.operands);
+            });
+
+        language.lowering.mir(
+            testlang::ops::hirAdd,
+            [](const ir::HIRNode &,
+               ir::MIRBuilder &builder,
+               const ir::LoweringRegistry &) {
+                builder.emit(testlang::ops::mirAdd);
+            });
+
+        compiler::Compiler compiler{
+            language,
+            testlang::domains::program.value
+        };
 
         compiler.addPass<compiler::ParsePass>("ast");
         compiler.addPass<compiler::AstValidationPass>("ast");
+        compiler.addPass<compiler::SemanticPass>("ast", "semantic");
+        compiler.addPass<DumpSemanticPass>();
         compiler.addPass<compiler::HIRLoweringPass>("ast", "hir");
         compiler.addPass<compiler::MIRLoweringPass>("hir", "mir");
         compiler.addPass<DumpMIRPass>();

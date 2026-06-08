@@ -1,5 +1,8 @@
 #pragma once
 
+#include "../ids/Ids.hpp"
+#include "../registry/Registry.hpp"
+
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -40,23 +43,35 @@ struct NodeSchema {
 class Node {
 public:
     explicit Node(std::string kind);
+    explicit Node(const ids::NodeKind &kind);
+
     static NodePtr make(std::string kind);
+    static NodePtr make(const ids::NodeKind &kind);
+
     const std::string &kind() const;
 
     Node &set(std::string name, Field value);
+    Node &set(const ids::FieldName &name, Field value);
 
     bool has(const std::string &name) const;
+    bool has(const ids::FieldName &name) const;
 
     const Field &field(const std::string &name) const;
+    const Field &field(const ids::FieldName &name) const;
+
     const std::unordered_map<std::string, Field> &fields() const;
 
-    std::string str(const std::string &name) const;
+    const std::string &str(const std::string &name) const;
+    const std::string &str(const ids::FieldName &name) const;
 
     int integer(const std::string &name) const;
+    int integer(const ids::FieldName &name) const;
 
     NodePtr child(const std::string &name) const;
+    NodePtr child(const ids::FieldName &name) const;
 
     const NodeList &list(const std::string &name) const;
+    const NodeList &list(const ids::FieldName &name) const;
 
 private:
     std::string kind_;
@@ -65,9 +80,12 @@ private:
 
 class NodeRegistry {
 public:
-    bool registerNode(NodeSchema schema);
+    explicit NodeRegistry(registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
+
+    registry::RegisterStatus registerNode(NodeSchema schema);
 
     const NodeSchema *find(const std::string &kind) const;
+    const NodeSchema *find(const ids::NodeKind &kind) const;
 
     void validate(const Node &node) const;
 
@@ -82,6 +100,7 @@ private:
     const FieldSchema *findFieldSchema(const NodeSchema &schema, const std::string &fieldName) const;
 
     std::unordered_map<std::string, NodeSchema> schemas_;
+    registry::DuplicatePolicy duplicatePolicy_;
 };
 
 } // namespace novac::ast

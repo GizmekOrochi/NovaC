@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ast/Node.hpp"
+#include "../ids/Ids.hpp"
 #include "../registry/Registry.hpp"
 
 #include <functional>
@@ -97,9 +98,16 @@ public:
         registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
 
     registry::RegisterStatus expression(std::string kind, ExprHandler handler);
+    registry::RegisterStatus expression(const ids::NodeKind &kind, ExprHandler handler);
+
     registry::RegisterStatus statement(std::string kind, StmtHandler handler);
+    registry::RegisterStatus statement(const ids::NodeKind &kind, StmtHandler handler);
+
     registry::RegisterStatus declaration(std::string kind, DeclHandler handler);
+    registry::RegisterStatus declaration(const ids::NodeKind &kind, DeclHandler handler);
+
     registry::RegisterStatus binaryOperator(std::string op, BinaryHandler handler);
+    registry::RegisterStatus binaryOperator(const ids::Operation &op, BinaryHandler handler);
 
     Value evalBinary(const ast::Node &node, const RuntimeContext &context) const;
     Value eval(const ast::Node &node, const RuntimeContext &context) const;

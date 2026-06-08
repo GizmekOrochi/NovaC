@@ -1,7 +1,5 @@
 #include "../../include/compiler/CompilationContext.hpp"
 
-#include <utility>
-
 namespace novac::compiler {
 
 CompilationContext::CompilationContext(const language::Language &language, std::string startDomain)

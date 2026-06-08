@@ -21,15 +21,16 @@ void LanguageFeature::parser(parser::ParserRegistry &parser) const {
     static_cast<void>(parser);
 }
 
+void LanguageFeature::semantic(semantic::SemanticRegistry &semantic) const {
+    static_cast<void>(semantic);
+}
+
 void LanguageFeature::types(types::TypeRegistry &types) const {
     static_cast<void>(types);
 }
 
-void LanguageFeature::operators(
-    overload::OperatorRegistry &operators,
-    types::TypeRegistry &types) const {
-    static_cast<void>(operators);
-    static_cast<void>(types);
+void LanguageFeature::operators(overload::OperatorRegistry &operators, types::TypeRegistry &types) const {
+    static_cast<void>(operators);static_cast<void>(types);
 }
 
 void LanguageFeature::traits(traits::TraitRegistry &traits) const {
@@ -85,7 +86,7 @@ LanguageBuilder &LanguageBuilder::useObject(const LanguageFeature &feature) {
 
     for (const std::string &conflict : info.conflicts)
         if (pending_.find(conflict) != pending_.end())
-            throw std::runtime_error("LanguageBuilder::useObject: feature '" + info.name  + "' conflicts with '" + conflict + "'");
+            throw std::runtime_error("LanguageBuilder::useObject: feature '" + info.name + "' conflicts with '" + conflict + "'");
 
     pending_[info.name] = info;
     installOrder_.push_back(info.name);
@@ -129,10 +130,14 @@ void LanguageBuilder::validateCycles() const {
 
             if (iter != pending_.end()) {
                 for (const std::string &dependency : iter->second.dependencies) {
-                    if (pending_.find(dependency) == pending_.end()) continue;
+                    if (pending_.find(dependency) == pending_.end())
+                        continue;
 
-                    if (state[dependency] == 1) throw std::runtime_error("LanguageBuilder::validateCycles: feature dependency cycle involving '" + dependency + "'");
-                    if (state[dependency] == 0) visit(dependency);
+                    if (state[dependency] == 1)
+                        throw std::runtime_error("LanguageBuilder::validateCycles: feature dependency cycle involving '" + dependency + "'");
+
+                    if (state[dependency] == 0)
+                        visit(dependency);
                 }
             }
 
@@ -176,6 +181,7 @@ void LanguageBuilder::installFeature(const LanguageFeature &feature, const Featu
     feature.nodes(lang_.nodes);
     feature.types(lang_.types);
     feature.parser(lang_.parser);
+    feature.semantic(lang_.semantic);
     feature.operators(lang_.operators, lang_.types);
     feature.traits(lang_.traitRegistry);
     feature.templates(lang_.templateRegistry);

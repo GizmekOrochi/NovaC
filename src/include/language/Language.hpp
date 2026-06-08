@@ -8,6 +8,7 @@
 #include "../overload/Overload.hpp"
 #include "../parser/Parser.hpp"
 #include "../runtime/Runtime.hpp"
+#include "../semantic/Semantic.hpp"
 #include "../templates/Templates.hpp"
 #include "../traits/Traits.hpp"
 #include "../types/TypeSystem.hpp"
@@ -45,6 +46,7 @@ public:
     virtual void tokens(lexer::LexerRegistry &lexer) const;
     virtual void nodes(ast::NodeRegistry &nodes) const;
     virtual void parser(parser::ParserRegistry &parser) const;
+    virtual void semantic(semantic::SemanticRegistry &semantic) const;
     virtual void types(types::TypeRegistry &types) const;
     virtual void operators(overload::OperatorRegistry &operators, types::TypeRegistry &types) const;
     virtual void traits(traits::TraitRegistry &traits) const;
@@ -63,6 +65,7 @@ public:
     lexer::LexerRegistry lexer{};
     ast::NodeRegistry nodes{};
     parser::ParserRegistry parser{};
+    semantic::SemanticRegistry semantic{};
     types::TypeRegistry types{};
     overload::OperatorRegistry operators{};
     traits::TraitRegistry traitRegistry{};
@@ -79,8 +82,7 @@ public:
 class LanguageBuilder {
 public:
     template<class F, class... Args>
-    LanguageBuilder &use(Args &&...args)
-    {
+    LanguageBuilder &use(Args &&...args) {
         F feature{std::forward<Args>(args)...};
 
         return useObject(feature);

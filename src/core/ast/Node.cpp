@@ -1,5 +1,7 @@
 #include "../../include/ast/Node.hpp"
 
+#include "../../include/registry/RegistryHelpers.hpp"
+
 #include <stdexcept>
 #include <utility>
 
@@ -8,8 +10,15 @@ namespace novac::ast {
 Node::Node(std::string kind)
     : kind_{std::move(kind)}, fields_{} {}
 
+Node::Node(const ids::NodeKind &kind)
+    : Node{kind.value} {}
+
 NodePtr Node::make(std::string kind) {
     return std::make_shared<Node>(std::move(kind));
+}
+
+NodePtr Node::make(const ids::NodeKind &kind) {
+    return std::make_shared<Node>(kind);
 }
 
 const std::string &Node::kind() const {
@@ -22,8 +31,16 @@ Node &Node::set(std::string name, Field value) {
     return *this;
 }
 
+Node &Node::set(const ids::FieldName &name, Field value) {
+    return set(name.value, std::move(value));
+}
+
 bool Node::has(const std::string &name) const {
     return fields_.find(name) != fields_.end();
+}
+
+bool Node::has(const ids::FieldName &name) const {
+    return has(name.value);
 }
 
 const Field &Node::field(const std::string &name) const {
@@ -35,17 +52,25 @@ const Field &Node::field(const std::string &name) const {
     return iter->second;
 }
 
+const Field &Node::field(const ids::FieldName &name) const {
+    return field(name.value);
+}
+
 const std::unordered_map<std::string, Field> &Node::fields() const {
     return fields_;
 }
 
-std::string Node::str(const std::string &name) const {
+const std::string &Node::str(const std::string &name) const {
     const Field &value{field(name)};
 
     if (!std::holds_alternative<std::string>(value))
         throw std::runtime_error("Node::str: field '" + name + "' is not a string");
 
     return std::get<std::string>(value);
+}
+
+const std::string &Node::str(const ids::FieldName &name) const {
+    return str(name.value);
 }
 
 int Node::integer(const std::string &name) const {
@@ -57,6 +82,10 @@ int Node::integer(const std::string &name) const {
     return std::get<int>(value);
 }
 
+int Node::integer(const ids::FieldName &name) const {
+    return integer(name.value);
+}
+
 NodePtr Node::child(const std::string &name) const {
     const Field &value{field(name)};
 
@@ -64,6 +93,10 @@ NodePtr Node::child(const std::string &name) const {
         throw std::runtime_error("Node::child: field '" + name + "' is not a node");
 
     return std::get<NodePtr>(value);
+}
+
+NodePtr Node::child(const ids::FieldName &name) const {
+    return child(name.value);
 }
 
 const NodeList &Node::list(const std::string &name) const {
@@ -75,10 +108,20 @@ const NodeList &Node::list(const std::string &name) const {
     return std::get<NodeList>(value);
 }
 
-bool NodeRegistry::registerNode(NodeSchema schema) {
+const NodeList &Node::list(const ids::FieldName &name) const {
+    return list(name.value);
+}
+
+NodeRegistry::NodeRegistry(registry::DuplicatePolicy duplicatePolicy)
+    : schemas_{}, duplicatePolicy_{duplicatePolicy} {}
+
+registry::RegisterStatus NodeRegistry::registerNode(NodeSchema schema) {
+    if (schema.kind.empty())
+        throw std::runtime_error("NodeRegistry::registerNode: node kind cannot be empty");
+
     const std::string kind{schema.kind};
 
-    return schemas_.emplace(kind, std::move(schema)).second;
+    return registry::registerEntry(schemas_, kind, std::move(schema), duplicatePolicy_, "NodeRegistry::registerNode");
 }
 
 const NodeSchema *NodeRegistry::find(const std::string &kind) const {
@@ -88,6 +131,10 @@ const NodeSchema *NodeRegistry::find(const std::string &kind) const {
         return nullptr;
 
     return &iter->second;
+}
+
+const NodeSchema *NodeRegistry::find(const ids::NodeKind &kind) const {
+    return find(kind.value);
 }
 
 void NodeRegistry::validate(const Node &node) const {
@@ -167,17 +214,14 @@ void NodeRegistry::validateChildren(const Node &node) const {
     for (const auto &[fieldName, field] : node.fields()) {
         static_cast<void>(fieldName);
 
-        if (const auto *child{std::get_if<NodePtr>(&field)}) {
+        if (const auto *child{std::get_if<NodePtr>(&field)})
             if (*child)
                 validate(**child);
-        }
 
-        if (const auto *children{std::get_if<NodeList>(&field)}) {
-            for (const NodePtr &child : *children) {
+        if (const auto *children{std::get_if<NodeList>(&field)})
+            for (const NodePtr &child : *children)
                 if (child)
                     validate(*child);
-            }
-        }
     }
 }
 

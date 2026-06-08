@@ -1,8 +1,9 @@
 #pragma once
 
 #include "../ast/Node.hpp"
-#include "../token/Token.hpp"
+#include "../ids/Ids.hpp"
 #include "../registry/Registry.hpp"
+#include "../token/Token.hpp"
 
 #include <functional>
 #include <string>
@@ -38,20 +39,31 @@ struct ParseDomain {
 
 class ParserRegistry {
 public:
-    explicit ParserRegistry(registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
+    explicit ParserRegistry(
+        registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
 
     registry::RegisterStatus rule(std::string domain, std::string key, ParseFn fn);
+    registry::RegisterStatus rule(const ids::ParseDomain &domain, std::string key, ParseFn fn);
+
     registry::RegisterStatus fallback(std::string domain, ParseFn fn);
+    registry::RegisterStatus fallback(const ids::ParseDomain &domain, ParseFn fn);
+
     registry::RegisterStatus prefix(std::string domain, std::string key, PrefixFn fn);
+    registry::RegisterStatus prefix(const ids::ParseDomain &domain, std::string key, PrefixFn fn);
+
     registry::RegisterStatus infix(std::string domain, std::string op, int precedence, InfixFn fn);
+    registry::RegisterStatus infix(const ids::ParseDomain &domain, std::string op, int precedence, InfixFn fn);
+
     registry::RegisterStatus postfix(std::string domain, std::string op, int precedence, PostfixFn fn);
+    registry::RegisterStatus postfix(const ids::ParseDomain &domain, std::string op, int precedence, PostfixFn fn);
 
     ast::NodePtr parse(ParserContext &context, const std::string &domain, int minPrecedence = 0) const;
+    ast::NodePtr parse(ParserContext &context, const ids::ParseDomain &domain, int minPrecedence = 0) const;
 
 private:
     static std::string tokenKey(const token::Token &token);
 
-    ast::NodePtr parsePratt(ParserContext &context, const std::string &domain, const ParseDomain &rules, int minPrecedence) const;
+    ast::NodePtr parsePratt(ParserContext &context,const std::string &domain, const ParseDomain &rules, int minPrecedence) const;
 
     std::unordered_map<std::string, ParseDomain> domains_;
     registry::DuplicatePolicy duplicatePolicy_;
@@ -73,6 +85,7 @@ public:
     const token::Token &consumeKind(token::Kind kind);
 
     ast::NodePtr parse(const std::string &domain, int minPrecedence = 0);
+    ast::NodePtr parse(const ids::ParseDomain &domain, int minPrecedence = 0);
 
 private:
     std::vector<token::Token> tokens_;
@@ -83,6 +96,7 @@ private:
 class Parser {
 public:
     Parser(const ParserRegistry &registry, std::string startDomain);
+    Parser(const ParserRegistry &registry, const ids::ParseDomain &startDomain);
 
     ast::NodePtr parse(std::vector<token::Token> tokens) const;
 

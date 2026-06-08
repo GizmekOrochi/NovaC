@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CompilationContext.hpp"
+#include "../semantic/Semantic.hpp"
 
 #include <memory>
 #include <string>
@@ -56,6 +57,21 @@ public:
 
 private:
     std::string astArtifact_;
+};
+
+class SemanticPass final : public Pass {
+public:
+    SemanticPass(
+        std::string inputAst = "ast",
+        std::string outputSemantic = "semantic");
+
+    std::string name() const override;
+
+    void run(CompilationContext &context) const override;
+
+private:
+    std::string inputAst_;
+    std::string outputSemantic_;
 };
 
 class HIRLoweringPass final : public Pass {

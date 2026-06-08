@@ -63,6 +63,22 @@ void AstValidationPass::run(CompilationContext &context) const {
     context.language().nodes.validate(*root);
 }
 
+SemanticPass::SemanticPass(std::string inputAst, std::string outputSemantic)
+    : inputAst_{std::move(inputAst)}, outputSemantic_{std::move(outputSemantic)} {}
+
+std::string SemanticPass::name() const {
+    return "semantic";
+}
+
+void SemanticPass::run(CompilationContext &context) const {
+    const ast::NodePtr &root{context.requireArtifact<ast::NodePtr>(inputAst_)};
+
+    semantic::SemanticContext semanticContext{};
+
+    context.language().semantic.analyze(root, semanticContext);
+    context.setArtifact(outputSemantic_,std::move(semanticContext));
+}
+
 HIRLoweringPass::HIRLoweringPass(std::string inputAst, std::string outputHir)
     : inputAst_{std::move(inputAst)}, outputHir_{std::move(outputHir)} {}
 

@@ -1,18 +1,21 @@
 #pragma once
 
+#include "../registry/Registry.hpp"
 #include "../token/Token.hpp"
 
 #include <string>
 #include <unordered_set>
 #include <vector>
-#include <stdexcept>
 
 namespace novac::lexer {
 
 class LexerRegistry {
 public:
-    void keyword(std::string keyword);
-    void symbol(std::string symbol);
+    explicit LexerRegistry(registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
+
+    registry::RegisterStatus keyword(std::string keyword);
+    registry::RegisterStatus symbol(std::string symbol);
+
     bool isKeyword(const std::string &value) const;
 
     const std::vector<std::string> &symbols() const;
@@ -20,6 +23,7 @@ public:
 private:
     std::unordered_set<std::string> keywords_;
     std::vector<std::string> symbols_;
+    registry::DuplicatePolicy duplicatePolicy_;
 };
 
 class Lexer {
