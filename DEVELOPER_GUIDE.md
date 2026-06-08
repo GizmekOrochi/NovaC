@@ -1,27 +1,41 @@
 # NovaC Developer Guide
 
-## Rule #1
+This document defines the architectural principles of NovaC.
 
-No language semantics in framework code.
+Every contribution to the framework should be evaluated against these rules.
 
-Never assume:
-
-* program
-* function
-* variable
-* class
-* block
-* if
-* while
-* for
-* return
-* main
+When in doubt, prefer preserving the architecture over adding features.
 
 ---
 
-## Rule #2
+# Rule #1 — No Language Semantics in Framework Code
 
-Prefer registries over switch statements.
+The framework must not assume the existence of language constructs.
+
+Never hardcode concepts such as:
+
+* Program
+* Function
+* Variable
+* Class
+* Block
+* If
+* While
+* For
+* Return
+* Main
+
+These concepts belong to languages, not to NovaC.
+
+If a feature only makes sense for a particular language design, it does not belong in the framework.
+
+---
+
+# Rule #2 — Prefer Registries Over Switch Statements
+
+Framework behavior should be data-driven and extensible.
+
+Avoid dispatch based on hardcoded node kinds.
 
 Bad:
 
@@ -39,11 +53,13 @@ runtime.expression(
     handler);
 ```
 
+Registries allow languages to define behavior without modifying framework code.
+
 ---
 
-## Rule #3
+# Rule #3 — Prefer Passes Over Pipelines
 
-Prefer passes over pipelines.
+NovaC should not encode a fixed compilation model.
 
 Bad:
 
@@ -61,11 +77,15 @@ compiler.addPass(...);
 compiler.addPass(...);
 ```
 
+Compilation is a sequence of passes chosen by the language author.
+
+The framework provides execution infrastructure, not compilation architecture.
+
 ---
 
-## Rule #4
+# Rule #4 — Artifacts Are the Communication Layer
 
-Artifacts are the communication layer.
+Compiler components communicate through artifacts.
 
 Bad:
 
@@ -81,13 +101,15 @@ Good:
 setArtifact(...);
 ```
 
+Artifacts remove assumptions about intermediate representations and allow arbitrary compiler designs.
+
 ---
 
-## Rule #5
+# Rule #5 — Support Duplicate Policies
 
-Support DuplicatePolicy.
+Every registry should explicitly define duplicate handling.
 
-Every registry should support:
+Required policies:
 
 ```cpp
 DuplicatePolicy::Error
@@ -97,104 +119,147 @@ DuplicatePolicy::Ignore
 
 Silent overwrites are forbidden.
 
----
-
-## Rule #6
-
-Diagnostics before exceptions.
-
-Language errors should be diagnostics.
-
-Framework failures may throw exceptions.
+Ambiguous behavior eventually becomes a bug.
 
 ---
 
-## Rule #7
+# Rule #6 — Diagnostics Before Exceptions
 
-Everything should be replaceable.
+Language errors are diagnostics.
 
-If a subsystem cannot be replaced, it is probably too opinionated.
+Framework failures are exceptions.
+
+Examples of diagnostics:
+
+* Syntax errors
+* Type errors
+* Undefined symbols
+* Invalid language constructs
+
+Examples of exceptions:
+
+* Invalid framework state
+* Registry corruption
+* Internal invariants violated
+
+Users should receive diagnostics whenever recovery is possible.
 
 ---
 
-## Rule #8
+# Rule #7 — Everything Should Be Replaceable
 
-Prefer artifacts over specialized APIs.
+Framework components should be loosely coupled.
+
+If a subsystem cannot be replaced, extended, or bypassed, it is likely too opinionated.
+
+NovaC should provide defaults where useful, but ownership must remain with the language.
+
+---
+
+# Rule #8 — Prefer Artifacts Over Specialized APIs
+
+Avoid APIs that encode assumptions about compiler structure.
 
 Bad:
 
 ```cpp
-context.ast()
-context.hir()
-context.mir()
+context.ast();
+context.hir();
+context.mir();
 ```
 
 Good:
 
 ```cpp
-context.requireArtifact(...)
+context.requireArtifact(...);
 ```
+
+The framework should not know which representations exist.
+
+Only the language should decide that.
 
 ---
 
-## Rule #9
+# Rule #9 — Framework Components Must Not Encode Pipelines
 
-Framework components must not encode pipelines.
+Intermediate representations are language concerns.
 
 Bad:
 
+```text
 AST → HIR → MIR
+```
 
 Good:
 
+```text
 Pass → Artifact → Pass → Artifact
+```
+
+A language may use AST, HIR, MIR, bytecode, SSA, custom graphs, interpreters, virtual machines, or no intermediate representation at all.
+
+NovaC must remain agnostic.
 
 ---
 
-## Rule #10
+# Rule #10 — Infrastructure Belongs to the Framework. Semantics Belong to the Language.
 
-The framework owns infrastructure.
+Before adding any feature, ask:
 
-The language owns semantics.
+> Does this belong to the framework or to a language?
 
-When adding code, always ask:
+If the answer is language, it must not be added to NovaC Core.
 
-"Does this belong to the framework or to a language?"
-
-If the answer is language, it must not be added to NovaC core.
+This rule takes precedence over all others.
 
 ---
 
-# Long-Term Vision
+# Architectural Vision
 
+```text
 Language
-|
-+-- Lexer
-+-- AST
-+-- Parser
-+-- Runtime
-+-- Types
-+-- Traits
-+-- Templates
-+-- Macros
-+-- Modules
+│
+├── Lexer
+├── AST
+├── Parser
+├── Runtime
+├── Types
+├── Traits
+├── Templates
+├── Macros
+└── Modules
+
 
 Compiler
-|
-+-- PassManager
-|
-+-- Pass
-+-- Pass
-+-- Pass
-+-- Pass
+│
+└── PassManager
+    │
+    ├── Pass
+    ├── Pass
+    ├── Pass
+    └── Pass
+
 
 CompilationContext
-|
-+-- Artifacts
-+-- Diagnostics
+│
+├── Artifacts
+└── Diagnostics
+```
 
 The compiler should know nothing about the language.
 
 The framework should know as little as possible about the language.
 
 The language should define everything.
+
+---
+
+# The NovaC Principle
+
+Infrastructure is universal.
+
+Semantics are language-specific.
+
+NovaC owns the infrastructure.
+
+The language owns the semantics.

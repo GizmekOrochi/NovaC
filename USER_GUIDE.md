@@ -2,24 +2,22 @@
 
 ## Introduction
 
-NovaC is a framework for building programming languages.
+NovaC is a framework designed to make building programming languages simple and flexible.
 
-A language is created by configuring a Language object.
+Instead of forcing a specific compiler architecture, NovaC lets you define your language by configuring a `Language` object and assembling the compilation pipeline that best fits your needs.
 
----
-
-# Minimal Language
-
-A minimal language requires:
+At its core, a language consists of four elements:
 
 * Tokens
-* AST Nodes
-* Parser Rules
-* Runtime Rules
+* AST nodes
+* Parser rules
+* Runtime rules
 
 ---
 
-# Create a Language
+# Creating a Language
+
+Start by creating a language instance:
 
 ```cpp
 language::Language language{};
@@ -27,7 +25,11 @@ language::Language language{};
 
 ---
 
-# Register Tokens
+# Defining Tokens
+
+Tokens describe the symbols and lexical elements recognized by the lexer.
+
+For example, to register the `+` operator:
 
 ```cpp
 language.lexer.symbol("+");
@@ -35,7 +37,11 @@ language.lexer.symbol("+");
 
 ---
 
-# Register AST Nodes
+# Defining AST Nodes
+
+AST nodes represent the structure of your language.
+
+An integer literal can be defined as:
 
 ```cpp
 language.nodes.registerNode({
@@ -45,6 +51,8 @@ language.nodes.registerNode({
     }
 });
 ```
+
+A binary expression node might look like:
 
 ```cpp
 language.nodes.registerNode({
@@ -59,7 +67,11 @@ language.nodes.registerNode({
 
 ---
 
-# Register Parser Rules
+# Defining Parser Rules
+
+Parser rules describe how tokens are transformed into AST nodes.
+
+Register a prefix rule for integer literals:
 
 ```cpp
 language.parser.prefix(
@@ -67,6 +79,8 @@ language.parser.prefix(
     "$int",
     parseInteger);
 ```
+
+Register an infix rule for addition:
 
 ```cpp
 language.parser.infix(
@@ -76,15 +90,23 @@ language.parser.infix(
     parseAddition);
 ```
 
+The precedence value (`10` in this example) controls operator binding strength.
+
 ---
 
-# Register Runtime Rules
+# Defining Runtime Rules
+
+Runtime rules specify how AST nodes are evaluated.
+
+Register an evaluator for integer literals:
 
 ```cpp
 language.runtime.expression(
     "integer",
     evaluateInteger);
 ```
+
+Register an evaluator for the addition operator:
 
 ```cpp
 language.runtime.binaryOperator(
@@ -94,7 +116,9 @@ language.runtime.binaryOperator(
 
 ---
 
-# Create a Compiler
+# Creating a Compiler
+
+Once the language is configured, create a compiler instance:
 
 ```cpp
 compiler::Compiler compiler{
@@ -103,11 +127,17 @@ compiler::Compiler compiler{
 };
 ```
 
+The second argument specifies the root grammar rule used when parsing source code.
+
 ---
 
-# Create a Pipeline
+# Building a Compilation Pipeline
+
+NovaC uses pipelines composed of independent compiler passes.
 
 ## Direct Interpretation
+
+For a simple interpreted language:
 
 ```cpp
 compiler.addPass<compiler::ParsePass>(
@@ -118,9 +148,13 @@ compiler.addPass<compiler::RuntimePass>(
     "result");
 ```
 
+This pipeline parses source code into an AST and immediately executes it.
+
 ---
 
-## AST → HIR → MIR
+## Multi-Stage Compilation
+
+For more advanced compilers:
 
 ```cpp
 compiler.addPass<compiler::ParsePass>(
@@ -135,9 +169,13 @@ compiler.addPass<compiler::MIRLoweringPass>(
     "mir");
 ```
 
+This pipeline progressively lowers the program through multiple intermediate representations.
+
 ---
 
-# Run
+# Running the Compiler
+
+Compile and execute source code:
 
 ```cpp
 auto context{
@@ -146,7 +184,7 @@ auto context{
 };
 ```
 
-Retrieve result:
+Retrieve the execution result:
 
 ```cpp
 auto &result{
@@ -162,7 +200,9 @@ auto &result{
 
 Artifacts are named objects stored inside the compilation context.
 
-Example:
+Compiler passes communicate by producing and consuming artifacts rather than relying on fixed stages.
+
+Store an artifact:
 
 ```cpp
 context.setArtifact(
@@ -170,7 +210,7 @@ context.setArtifact(
     ast);
 ```
 
-Retrieve:
+Retrieve it later:
 
 ```cpp
 auto &ast{
@@ -180,24 +220,31 @@ auto &ast{
 };
 ```
 
-Artifacts replace hardcoded compiler stages.
+This design keeps compiler passes loosely coupled and highly reusable.
 
 ---
 
-# Designing Pipelines
+# Designing Your Own Pipeline
 
-NovaC does not require:
+NovaC does not enforce a particular compilation strategy.
 
+Traditional pipelines such as:
+
+```
 AST → HIR → MIR
+```
 
-You may implement:
+are fully supported, but they are not required.
 
+Depending on your language, you might build pipelines such as:
+
+```
 Source → Runtime
-
 AST → Bytecode
-
 AST → AST → AST
-
 Source → Custom VM
+```
 
-The framework does not impose a compilation model.
+NovaC provides the building blocks; the architecture is entirely up to you.
+
+Use as many intermediate representations, optimization passes, interpreters, or backends as your project requires.
