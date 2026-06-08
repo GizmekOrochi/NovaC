@@ -139,9 +139,9 @@ Value *Environment::resolve(const std::string &name) {
 RuntimeContext::RuntimeContext(const RuntimeRegistry &registry)
     : registry_{registry},
       scopes_{},
-      functions_{},
+      nodeBindings_{},
       hasReturn_{false},
-      returnValue_{}  {
+      returnValue_{} {
     scopes_.push_back(std::make_unique<Environment>(nullptr));
 }
 
@@ -158,9 +158,9 @@ void RuntimeContext::pushScope() {
 }
 
 void RuntimeContext::popScope() {
-    if (scopes_.empty()) {
+    if (scopes_.size() <= 1) {
         throw std::runtime_error(
-            "RuntimeContext::popScope: no scope to pop");
+            "RuntimeContext::popScope: cannot pop root scope");
     }
 
     scopes_.pop_back();
@@ -179,18 +179,23 @@ const RuntimeRegistry &RuntimeContext::registry() const {
     return registry_;
 }
 
-void RuntimeContext::registerFunction(const ast::NodePtr &function) {
-    functions_[function->str("name")] = function;
+void RuntimeContext::bindNode(std::string name, ast::NodePtr node) {
+    nodeBindings_[std::move(name)] = std::move(node);
 }
 
-ast::NodePtr RuntimeContext::function(const std::string &name) const {
-    const auto iter{functions_.find(name)};
+ast::NodePtr RuntimeContext::boundNode(const std::string &name) const {
+    const auto iter{nodeBindings_.find(name)};
 
-    if (iter == functions_.end()) {
+    if (iter == nodeBindings_.end()) {
         return nullptr;
     }
 
     return iter->second;
+}
+
+bool RuntimeContext::hasBoundNode(const std::string &name) const
+{
+    return nodeBindings_.find(name) != nodeBindings_.end();
 }
 
 void RuntimeContext::returnValue(Value value) {

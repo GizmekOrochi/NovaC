@@ -52,10 +52,6 @@ void LanguageFeature::lowering(ir::LoweringRegistry &lowering) const {
     static_cast<void>(lowering);
 }
 
-void LanguageFeature::backends(backend::BackendRegistry &backends) const {
-    static_cast<void>(backends);
-}
-
 bool Language::has(const std::string &name) const {
     for (const FeatureInfo &featureInfo : features) {
         if (featureInfo.name == name) {
@@ -87,6 +83,7 @@ const FeatureInfo *Language::feature(const std::string &name) const {
 
     return nullptr;
 }
+
 LanguageBuilder &LanguageBuilder::useObject(const LanguageFeature &feature) {
     const FeatureInfo info{feature.info()};
 
@@ -98,7 +95,8 @@ LanguageBuilder &LanguageBuilder::useObject(const LanguageFeature &feature) {
     for (const std::string &conflict : info.conflicts) {
         if (pending_.find(conflict) != pending_.end()) {
             throw std::runtime_error(
-                "LanguageBuilder::useObject: feature '" + info.name + "' conflicts with '" + conflict + "'");
+                "LanguageBuilder::useObject: feature '" + info.name
+                + "' conflicts with '" + conflict + "'");
         }
     }
 
@@ -190,11 +188,17 @@ void LanguageBuilder::validateVersions() const {
             const auto iter{pending_.find(requirement.feature)};
 
             if (iter == pending_.end()) {
-                throw std::runtime_error("LanguageBuilder::validateVersions: feature '" + name + "' requires versioned missing feature '" + requirement.feature + "'");
+                throw std::runtime_error(
+                    "LanguageBuilder::validateVersions: feature '" + name
+                    + "' requires versioned missing feature '" + requirement.feature + "'");
             }
 
-            if (!requirement.minVersion.empty() && iter->second.version < requirement.minVersion) {
-                throw std::runtime_error("LanguageBuilder::validateVersions: feature '" + name + "' requires '" + requirement.feature + "' >= " + requirement.minVersion + ", got " + iter->second.version);
+            if (!requirement.minVersion.empty()
+                && iter->second.version < requirement.minVersion) {
+                throw std::runtime_error(
+                    "LanguageBuilder::validateVersions: feature '" + name
+                    + "' requires '" + requirement.feature + "' >= "
+                    + requirement.minVersion + ", got " + iter->second.version);
             }
         }
     }
@@ -220,7 +224,6 @@ void LanguageBuilder::installFeature(const LanguageFeature &feature, const Featu
     feature.macros(lang_.macros);
     feature.runtime(lang_.runtime);
     feature.lowering(lang_.lowering);
-    feature.backends(lang_.backends);
 
     lang_.features.push_back(info);
 }

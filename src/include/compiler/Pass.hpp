@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace novac::compiler {
@@ -23,11 +24,8 @@ public:
     void add(std::unique_ptr<Pass> pass);
 
     template<class T, class... Args>
-    void add(Args &&...args)
-    {
-        add(
-            std::make_unique<T>(
-                std::forward<Args>(args)...));
+    void add(Args &&...args) {
+        add(std::make_unique<T>(std::forward<Args>(args)...));
     }
 
     void run(CompilationContext &context) const;
@@ -38,8 +36,7 @@ private:
 
 class ParsePass final : public Pass {
 public:
-    explicit ParsePass(
-        std::string outputArtifact = "ast");
+    explicit ParsePass(std::string outputArtifact = "ast");
 
     std::string name() const override;
 
@@ -64,9 +61,7 @@ private:
 
 class HIRLoweringPass final : public Pass {
 public:
-    HIRLoweringPass(
-        std::string inputAst = "ast",
-        std::string outputHir = "hir");
+    HIRLoweringPass(std::string inputAst = "ast", std::string outputHir = "hir");
 
     std::string name() const override;
 
@@ -79,9 +74,7 @@ private:
 
 class MIRLoweringPass final : public Pass {
 public:
-    MIRLoweringPass(
-        std::string inputHir = "hir",
-        std::string outputMir = "mir");
+    MIRLoweringPass(std::string inputHir = "hir", std::string outputMir = "mir");
 
     std::string name() const override;
 
@@ -94,9 +87,7 @@ private:
 
 class RuntimePass final : public Pass {
 public:
-    RuntimePass(
-        std::string inputAst = "ast",
-        std::string outputValue = "result");
+    RuntimePass(std::string inputAst = "ast", std::string outputValue = "result");
 
     std::string name() const override;
 
@@ -107,19 +98,4 @@ private:
     std::string outputValue_;
 };
 
-class BackendEmitPass final : public Pass {
-public:
-    BackendEmitPass(
-        std::string backendName,
-        std::string mirArtifact = "mir");
-
-    std::string name() const override;
-
-    void run(CompilationContext &context) const override;
-
-private:
-    std::string backendName_;
-    std::string mirArtifact_;
-};
-
-}
+} // namespace novac::compiler

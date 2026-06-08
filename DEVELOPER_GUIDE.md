@@ -1,70 +1,33 @@
 # NovaC Developer Guide
 
-## Framework Philosophy
+## Rule #1
 
-Before adding any code, ask:
+No language semantics in framework code.
 
-> Does this belong to the framework, or to a language?
-
-If the answer is "language", it must not be added to the framework.
-
-Examples:
-
-### Wrong
-
-```cpp
-Runtime::run()
-{
-    findMain();
-}
-```
-
-Why?
-
-Because not every language has a main function.
-
----
-
-### Correct
-
-```cpp
-runtime.expression(
-    "program",
-    executeProgram);
-```
-
-The language decides what a program means.
-
----
-
-## Rule #1: No Language Semantics in Core
-
-The core must never assume:
+Never assume:
 
 * program
 * function
-* main
 * variable
+* class
 * block
-* declaration
 * if
 * while
 * for
 * return
-* class
-
-Those belong to languages.
+* main
 
 ---
 
-## Rule #2: Prefer Registries
+## Rule #2
+
+Prefer registries over switch statements.
 
 Bad:
 
 ```cpp
 switch(node.kind())
 {
-    ...
 }
 ```
 
@@ -76,11 +39,11 @@ runtime.expression(
     handler);
 ```
 
-The framework should delegate behavior to registries.
-
 ---
 
-## Rule #3: Prefer Passes
+## Rule #3
+
+Prefer passes over pipelines.
 
 Bad:
 
@@ -98,31 +61,33 @@ compiler.addPass(...);
 compiler.addPass(...);
 ```
 
-The framework should not dictate compilation pipelines.
-
 ---
 
-## Rule #4: Artifacts are the Communication Layer
+## Rule #4
 
-Passes should communicate through artifacts.
+Artifacts are the communication layer.
 
 Bad:
 
 ```cpp
-passB(passAResult);
+setAst(...);
+setHIR(...);
+setMIR(...);
 ```
 
 Good:
 
 ```cpp
-context.setArtifact("hir", hir);
+setArtifact(...);
 ```
 
 ---
 
-## Rule #5: Validate Registrations
+## Rule #5
 
-All registries should support:
+Support DuplicatePolicy.
+
+Every registry should support:
 
 ```cpp
 DuplicatePolicy::Error
@@ -134,77 +99,99 @@ Silent overwrites are forbidden.
 
 ---
 
-## Rule #6: Diagnostics Over Exceptions
+## Rule #6
 
-Exceptions should represent framework failures.
+Diagnostics before exceptions.
 
 Language errors should be diagnostics.
 
-Preferred:
-
-```cpp
-context.diagnostics().error(...);
-```
-
-Avoid:
-
-```cpp
-throw std::runtime_error(...);
-```
-
-for user-facing language errors.
+Framework failures may throw exceptions.
 
 ---
 
-## Rule #7: Everything Should Be Replaceable
+## Rule #7
+
+Everything should be replaceable.
 
 If a subsystem cannot be replaced, it is probably too opinionated.
 
-Examples:
+---
 
-* Parser
-* Runtime
-* Lowering
-* Backend
-* Type system
+## Rule #8
 
-should all be replaceable or extensible.
+Prefer artifacts over specialized APIs.
+
+Bad:
+
+```cpp
+context.ast()
+context.hir()
+context.mir()
+```
+
+Good:
+
+```cpp
+context.requireArtifact(...)
+```
 
 ---
 
-## Architecture Vision
+## Rule #9
 
-Long-term NovaC architecture:
+Framework components must not encode pipelines.
 
-```txt
+Bad:
+
+AST → HIR → MIR
+
+Good:
+
+Pass → Artifact → Pass → Artifact
+
+---
+
+## Rule #10
+
+The framework owns infrastructure.
+
+The language owns semantics.
+
+When adding code, always ask:
+
+"Does this belong to the framework or to a language?"
+
+If the answer is language, it must not be added to NovaC core.
+
+---
+
+# Long-Term Vision
+
 Language
-    |
-    +-- Lexer
-    +-- AST
-    +-- Parser
-    +-- Runtime
-    +-- Types
-    +-- Traits
-    +-- Templates
-    +-- Macros
-    +-- Modules
-    +-- Lowering
-    +-- Backends
+|
++-- Lexer
++-- AST
++-- Parser
++-- Runtime
++-- Types
++-- Traits
++-- Templates
++-- Macros
++-- Modules
 
 Compiler
-    |
-    +-- PassManager
-            |
-            +-- Pass
-            +-- Pass
-            +-- Pass
-            +-- Pass
+|
++-- PassManager
+|
++-- Pass
++-- Pass
++-- Pass
++-- Pass
 
 CompilationContext
-    |
-    +-- Artifacts
-    +-- Diagnostics
-```
+|
++-- Artifacts
++-- Diagnostics
 
 The compiler should know nothing about the language.
 

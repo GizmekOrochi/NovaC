@@ -157,7 +157,13 @@ const token::Token &ParserContext::cur() const {
 }
 
 const token::Token &ParserContext::peek(std::size_t offset) const {
-    return tokens_[pos_ + offset];
+    const std::size_t index{pos_ + offset};
+
+    if (index >= tokens_.size()) {
+        return tokens_.back();
+    }
+
+    return tokens_[index];
 }
 
 bool ParserContext::end() const {

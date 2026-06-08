@@ -2,74 +2,40 @@
 
 ## Introduction
 
-NovaC is a framework for creating programming languages.
+NovaC is a framework for building programming languages.
 
-Instead of providing a single language, NovaC provides the infrastructure needed to build one:
-
-* Lexer
-* AST
-* Parser
-* Runtime
-* Type System
-* Traits
-* Templates
-* Macros
-* Modules
-* Lowering
-* Backends
-* Compiler Passes
-
-A language is simply a configured `Language` instance.
+A language is created by configuring a Language object.
 
 ---
 
-# Your First Language
+# Minimal Language
 
-Let's build a tiny language that supports:
+A minimal language requires:
 
-```text
-40 + 2 + 8
-```
-
-and evaluates to:
-
-```text
-50
-```
+* Tokens
+* AST Nodes
+* Parser Rules
+* Runtime Rules
 
 ---
 
-# Step 1: Create a Language
+# Create a Language
 
 ```cpp
 language::Language language{};
 ```
 
-Everything will be registered into this object.
-
 ---
 
-# Step 2: Register Tokens
-
-Tell the lexer which symbols exist.
+# Register Tokens
 
 ```cpp
 language.lexer.symbol("+");
 ```
 
-Now the lexer can recognize:
-
-```text
-+
-```
-
 ---
 
-# Step 3: Define AST Nodes
-
-An AST node is declared at runtime.
-
-## Integer
+# Register AST Nodes
 
 ```cpp
 language.nodes.registerNode({
@@ -79,8 +45,6 @@ language.nodes.registerNode({
     }
 });
 ```
-
-## Binary Expression
 
 ```cpp
 language.nodes.registerNode({
@@ -93,262 +57,44 @@ language.nodes.registerNode({
 });
 ```
 
-## Program
-
-```cpp
-language.nodes.registerNode({
-    "program",
-    {
-        {"expression", ast::FieldKind::Node}
-    }
-});
-```
-
 ---
 
-# Step 4: Define Parsing Rules
-
-NovaC uses parser domains.
-
-We create an expression domain named:
-
-```text
-expr
-```
-
-## Integer Parsing
+# Register Parser Rules
 
 ```cpp
 language.parser.prefix(
     "expr",
     "$int",
-    [](parser::ParserContext& ctx)
-    {
-        auto token{
-            ctx.consumeKind(token::Kind::Integer)
-        };
-
-        auto node{
-            ast::Node::make("integer")
-        };
-
-        node->set(
-            "value",
-            std::stoi(token.text));
-
-        return node;
-    });
+    parseInteger);
 ```
-
----
-
-## Addition Operator
 
 ```cpp
 language.parser.infix(
     "expr",
     "+",
     10,
-    [](parser::ParserContext& ctx,
-       ast::NodePtr left)
-    {
-        ctx.consume("+");
-
-        auto right{
-            ctx.parse("expr", 11)
-        };
-
-        auto node{
-            ast::Node::make("binary")
-        };
-
-        node->set("left", left);
-        node->set("right", right);
-        node->set("op", std::string{"+"});
-
-        return node;
-    });
+    parseAddition);
 ```
 
 ---
 
-## Program Rule
-
-```cpp
-language.parser.fallback(
-    "program",
-    [](parser::ParserContext& ctx)
-    {
-        auto expr{
-            ctx.parse("expr")
-        };
-
-        auto program{
-            ast::Node::make("program")
-        };
-
-        program->set(
-            "expression",
-            expr);
-
-        return program;
-    });
-```
-
----
-
-# Step 5: Runtime Evaluation
-
-## Integer Evaluation
+# Register Runtime Rules
 
 ```cpp
 language.runtime.expression(
     "integer",
-    [](const ast::Node& node,
-       const runtime::RuntimeContext&)
-    {
-        return runtime::Value::integer(
-            node.integer("value"));
-    });
+    evaluateInteger);
 ```
-
----
-
-## Addition Evaluation
 
 ```cpp
 language.runtime.binaryOperator(
     "+",
-    [](const ast::Node& node,
-       const runtime::RuntimeContext& ctx)
-    {
-        int lhs{
-            ctx.eval(*node.child("left")).asInt()
-        };
-
-        int rhs{
-            ctx.eval(*node.child("right")).asInt()
-        };
-
-        return runtime::Value::integer(
-            lhs + rhs);
-    });
+    evaluateAddition);
 ```
 
 ---
 
-## Program Evaluation
-
-```cpp
-language.runtime.expression(
-    "program",
-    [](const ast::Node& node,
-       const runtime::RuntimeContext& ctx)
-    {
-        return ctx.eval(
-            *node.child("expression"));
-    });
-```
-
----
-
-# Step 6: Define Lowering
-
-NovaC allows arbitrary lowering pipelines.
-
-Example:
-
-```text
-AST
- ↓
-HIR
- ↓
-MIR
-```
-
----
-
-## Integer → HIR
-
-```cpp
-language.lowering.hir(
-    "integer",
-    [](const ast::Node& node,
-       ir::HIRBuilder& builder,
-       const ir::LoweringRegistry&)
-    {
-        builder.emit(
-            "hir.const",
-            {
-                std::to_string(
-                    node.integer("value"))
-            });
-    });
-```
-
----
-
-## Binary → HIR
-
-```cpp
-language.lowering.hir(
-    "binary",
-    [](const ast::Node& node,
-       ir::HIRBuilder& builder,
-       const ir::LoweringRegistry& registry)
-    {
-        registry.lowerHIR(
-            *node.child("left"),
-            builder);
-
-        registry.lowerHIR(
-            *node.child("right"),
-            builder);
-
-        builder.emit("hir.add");
-    });
-```
-
----
-
-# Step 7: Create a Backend
-
-```cpp
-class DumpBackend final
-    : public backend::Backend
-{
-public:
-
-    std::string name() const override
-    {
-        return "dump";
-    }
-
-    void emit(
-        const ir::MIRModule& module) override
-    {
-        for (const auto& node : module.nodes) {
-            std::cout << node.op << '\n';
-        }
-    }
-};
-```
-
-Register it:
-
-```cpp
-language.backends.add(
-    "dump",
-    [] {
-        return std::make_unique<DumpBackend>();
-    });
-```
-
----
-
-# Step 8: Build a Compiler Pipeline
-
-NovaC compilers are pass-based.
+# Create a Compiler
 
 ```cpp
 compiler::Compiler compiler{
@@ -357,63 +103,80 @@ compiler::Compiler compiler{
 };
 ```
 
-Register passes:
+---
+
+# Create a Pipeline
+
+## Direct Interpretation
 
 ```cpp
-compiler.addPass<compiler::ParsePass>("ast");
-compiler.addPass<compiler::AstValidationPass>("ast");
-compiler.addPass<compiler::HIRLoweringPass>("ast", "hir");
-compiler.addPass<compiler::MIRLoweringPass>("hir", "mir");
-compiler.addPass<compiler::RuntimePass>("ast", "result");
+compiler.addPass<compiler::ParsePass>(
+    "ast");
+
+compiler.addPass<compiler::RuntimePass>(
+    "ast",
+    "result");
 ```
 
 ---
 
-# Step 9: Run Code
+## AST → HIR → MIR
+
+```cpp
+compiler.addPass<compiler::ParsePass>(
+    "ast");
+
+compiler.addPass<compiler::HIRLoweringPass>(
+    "ast",
+    "hir");
+
+compiler.addPass<compiler::MIRLoweringPass>(
+    "hir",
+    "mir");
+```
+
+---
+
+# Run
 
 ```cpp
 auto context{
-    compiler.run("40 + 2 + 8")
+    compiler.run(
+        "40 + 2 + 8")
 };
 ```
 
-Retrieve the result:
+Retrieve result:
 
 ```cpp
-const auto& result{
-    context.requireArtifact<runtime::Value>(
-        "result")
+auto &result{
+    context.requireArtifact<
+        runtime::Value>(
+            "result")
 };
-
-std::cout
-    << result.toString()
-    << '\n';
-```
-
-Output:
-
-```text
-50
 ```
 
 ---
 
-# Understanding Artifacts
+# Artifacts
 
-Passes communicate through artifacts.
+Artifacts are named objects stored inside the compilation context.
+
+Example:
 
 ```cpp
 context.setArtifact(
     "ast",
-    astRoot);
+    ast);
 ```
 
-Later:
+Retrieve:
 
 ```cpp
-auto& ast{
-    context.requireArtifact<ast::NodePtr>(
-        "ast")
+auto &ast{
+    context.requireArtifact<
+        ast::NodePtr>(
+            "ast")
 };
 ```
 
@@ -421,54 +184,20 @@ Artifacts replace hardcoded compiler stages.
 
 ---
 
-# Designing Your Own Pipeline
+# Designing Pipelines
 
 NovaC does not require:
 
-```text
-AST -> HIR -> MIR
-```
+AST → HIR → MIR
 
-You can do:
+You may implement:
 
-```text
-AST -> Bytecode
-```
+Source → Runtime
 
-or
+AST → Bytecode
 
-```text
-AST -> AST -> AST
-```
+AST → AST → AST
 
-or
+Source → Custom VM
 
-```text
-Source -> Interpreter
-```
-
-The framework does not enforce a compilation model.
-
----
-
-# Framework Philosophy
-
-If the framework assumes a language feature, it is probably wrong.
-
-Examples of concepts that should NOT exist in NovaC core:
-
-* main
-* function
-* variable
-* block
-* class
-* if
-* while
-* for
-* return
-
-These belong to languages.
-
-NovaC provides infrastructure.
-
-Languages provide semantics.
+The framework does not impose a compilation model.

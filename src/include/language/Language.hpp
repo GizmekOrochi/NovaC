@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../ast/Node.hpp"
-#include "../backend/Backend.hpp"
 #include "../ir/IR.hpp"
 #include "../lexer/Lexer.hpp"
 #include "../macro/Macro.hpp"
@@ -15,6 +14,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace novac::language {
@@ -52,7 +52,6 @@ public:
     virtual void macros(macro::MacroRegistry &macros) const;
     virtual void runtime(runtime::RuntimeRegistry &runtime) const;
     virtual void lowering(ir::LoweringRegistry &lowering) const;
-    virtual void backends(backend::BackendRegistry &backends) const;
 };
 
 class Language {
@@ -72,7 +71,6 @@ public:
     templates::SpecializationRegistry specializations{};
     macro::MacroRegistry macros{};
     ir::LoweringRegistry lowering{};
-    backend::BackendRegistry backends{};
     module::ImportResolver modules{};
     runtime::RuntimeRegistry runtime{};
     std::vector<FeatureInfo> features{};
@@ -81,7 +79,8 @@ public:
 class LanguageBuilder {
 public:
     template<class F, class... Args>
-    LanguageBuilder &use(Args &&...args) {
+    LanguageBuilder &use(Args &&...args)
+    {
         F feature{std::forward<Args>(args)...};
 
         return useObject(feature);

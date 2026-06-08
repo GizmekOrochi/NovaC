@@ -18,6 +18,7 @@ class RuntimeRegistry;
 
 using Array = std::vector<Value>;
 using Object = std::unordered_map<std::string, Value>;
+using BindingMap = std::unordered_map<std::string, ast::NodePtr>;
 
 class Value {
 public:
@@ -48,7 +49,6 @@ public:
 
     bool define(std::string name, Value value);
     bool assign(const std::string &name, Value value);
-
     Value *resolve(const std::string &name);
 
 private:
@@ -75,9 +75,9 @@ public:
 
     const RuntimeRegistry &registry() const;
 
-    void registerFunction(const ast::NodePtr &function);
-
-    ast::NodePtr function(const std::string &name) const;
+    void bindNode(std::string name, ast::NodePtr node);
+    ast::NodePtr boundNode(const std::string &name) const;
+    bool hasBoundNode(const std::string &name) const;
 
     void returnValue(Value value);
     bool hasReturn() const;
@@ -86,7 +86,7 @@ public:
 private:
     const RuntimeRegistry &registry_;
     mutable std::vector<std::unique_ptr<Environment>> scopes_;
-    std::unordered_map<std::string, ast::NodePtr> functions_;
+    BindingMap nodeBindings_;
     bool hasReturn_;
     Value returnValue_;
 };
@@ -121,7 +121,6 @@ public:
     explicit Runtime(const RuntimeRegistry &registry);
 
     Value eval(const ast::Node &root) const;
-
     void exec(const ast::Node &root) const;
 
 private:
