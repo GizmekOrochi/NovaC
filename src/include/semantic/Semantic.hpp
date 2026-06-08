@@ -1,8 +1,9 @@
 #pragma once
 
-#include "../ast/Node.hpp"
-#include "../ids/Ids.hpp"
-#include "../registry/Registry.hpp"
+#include "../syntax/Node.hpp"
+#include "../foundation/Ids.hpp"
+#include "../foundation/registry/Registry.hpp"
+#include "../foundation/registry/RegistryHelpers.hpp"
 
 #include <cstddef>
 #include <functional>

@@ -1,6 +1,6 @@
-#include "include/compiler/Compiler.hpp"
-#include "include/compiler/Pass.hpp"
-#include "include/language/Language.hpp"
+#include "include/compilation/compiler/Compiler.hpp"
+#include "include/compilation/compiler/Pass.hpp"
+#include "include/compilation/Language.hpp"
 #include "include/semantic/Semantic.hpp"
 
 #include <iostream>

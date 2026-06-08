@@ -1,7 +1,5 @@
 #include "../../include/semantic/Semantic.hpp"
 
-#include "../../include/registry/RegistryHelpers.hpp"
-
 #include <stdexcept>
 #include <utility>
 #include <variant>

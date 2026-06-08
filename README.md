@@ -259,45 +259,60 @@ This allows passes to remain loosely coupled and reusable.
 
 # Architecture ( TO REFARCTOR )
 
-Language
-│
-├── Lexer
-├── AST
-├── Parser
-├── Semantic
-├── Runtime
-├── Types
-├── Traits
-├── Templates
-├── Macros
-├── Modules
-└── IR
-
-Compiler
-│
-└── PassManager
-│
-├── ParsePass
-├── SemanticPass
-├── TypeCheckPass
-├── LoweringPass
-├── OptimizationPass
-└── BackendPass
-
-CompilationContext
-│
-├── Source
-├── Artifacts
-└── Diagnostics
-
-Artifacts
-│
-├── AST
-├── SemanticContext
-├── HIR
-├── MIR
-├── Bytecode
-└── RuntimeValue
+include/
+├── novac/
+│   ├── foundation/
+│   │   ├── ids/
+│   │   │   
+│   │   ├── registry/
+│   │   │   ├── Registry.hpp
+│   │   │   └── RegistryHelpers.hpp
+│   │   └── diagnostics
+│   │      
+│   │
+│   ├── syntax/
+│   │   ├── token
+│   │   │   
+│   │   ├── lexer
+│   │   │   
+│   │   ├── ast/
+│   │   │   
+│   │   └── parser
+│   │      
+│   │
+│   ├── semantic/
+│   │   ├── types/
+│   │   │   └── TypeSystem
+│   │   ├── traits/
+│   │   │   └── Traits
+│   │   ├── overload/
+│   │   │   └── Overload
+│   │   ├── templates/
+│   │   │   └── Templates
+│   │   └── semantic/
+│   │       └── Semantic
+│   │
+│   ├── transformation/
+│   │   ├── macro/
+│   │   │   └── Macro
+│   │   └── ir/
+│   │       └── IR
+│   │
+│   ├── execution/
+│   │   ├── runtime/
+│   │   │   └── Runtime
+│   │   └── backend/
+│   │       └── Backend
+│   │
+│   ├── compilation/
+│   │   ├── compiler/
+│   │   │   ├── CompilationContext
+│   │   │   ├── Compiler
+│   │   │   └── Pass
+│   │   ├── language
+│   │   │   
+│   │   └── module
+│   │      
 
 ---
 
