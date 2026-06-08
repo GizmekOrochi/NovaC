@@ -79,14 +79,28 @@ public:
 
         std::cout << "\n=== MIR ===\n";
 
-        for (const ir::MIRNode &node : module.nodes) {
-            std::cout << node.op;
+        for (const ir::BasicBlock &block : module.blocks) {
+            std::cout << block.name << ":\n";
 
-            for (const std::string &operand : node.operands) {
-                std::cout << " " << operand;
+            for (const ir::Instruction &instruction : block.instructions) {
+                if (instruction.result) {
+                    std::cout << "  v" << instruction.result->value << " = ";
+                } else {
+                    std::cout << "  ";
+                }
+
+                std::cout << instruction.op;
+
+                for (const ir::Operand &operand : instruction.operands) {
+                    std::cout << " " << operand.toString();
+                }
+
+                if (instruction.type) {
+                    std::cout << " : " << instruction.type->display();
+                }
+
+                std::cout << '\n';
             }
-
-            std::cout << '\n';
         }
     }
 };
@@ -97,6 +111,7 @@ int main()
         language::Language language{};
 
         language.lexer.symbol(testlang::ops::add.value);
+        language.types.primitive("int");
 
         language.nodes.registerNode({
             testlang::nodes::program.value,
@@ -128,10 +143,17 @@ int main()
             testlang::domains::expr,
             "$int",
             [](parser::ParserContext &context) {
-                const auto token{context.consumeKind(token::Kind::Integer)};
+                const auto token{
+                    context.consumeKind(token::Kind::Integer)
+                };
 
-                ast::NodePtr node{ast::Node::make(testlang::nodes::integer)};
-                node->set(testlang::fields::value, std::stoi(token.text));
+                ast::NodePtr node{
+                    ast::Node::make(testlang::nodes::integer)
+                };
+
+                node->set(
+                    testlang::fields::value,
+                    std::stoi(token.text));
 
                 return node;
             });
@@ -143,8 +165,13 @@ int main()
             [](parser::ParserContext &context, ast::NodePtr left) {
                 context.consume(testlang::ops::add.value);
 
-                ast::NodePtr right{context.parse(testlang::domains::expr, 11)};
-                ast::NodePtr node{ast::Node::make(testlang::nodes::binary)};
+                ast::NodePtr right{
+                    context.parse(testlang::domains::expr, 11)
+                };
+
+                ast::NodePtr node{
+                    ast::Node::make(testlang::nodes::binary)
+                };
 
                 node->set(testlang::fields::left, left);
                 node->set(testlang::fields::right, right);
@@ -156,10 +183,17 @@ int main()
         language.parser.fallback(
             testlang::domains::program,
             [](parser::ParserContext &context) {
-                ast::NodePtr expression{context.parse(testlang::domains::expr)};
-                ast::NodePtr program{ast::Node::make(testlang::nodes::program)};
+                ast::NodePtr expression{
+                    context.parse(testlang::domains::expr)
+                };
 
-                program->set(testlang::fields::expression, expression);
+                ast::NodePtr program{
+                    ast::Node::make(testlang::nodes::program)
+                };
+
+                program->set(
+                    testlang::fields::expression,
+                    expression);
 
                 return program;
             });
@@ -188,20 +222,22 @@ int main()
         language.runtime.expression(
             testlang::nodes::program,
             [](const ast::Node &node, const runtime::RuntimeContext &context) {
-                return context.eval(*node.child(testlang::fields::expression));
+                return context.eval(
+                    *node.child(testlang::fields::expression));
             });
 
         language.lowering.hir(
             testlang::nodes::integer,
-            [](const ast::Node &node,
-               ir::HIRBuilder &builder,
-               const ir::LoweringRegistry &) {
-                builder.emit(
+            [&language](const ast::Node &node,
+                        ir::HIRBuilder &builder,
+                        const ir::LoweringRegistry &) {
+                builder.emitValue(
                     testlang::ops::hirConst,
                     {
-                        std::to_string(
+                        ir::Operand::fromLiteral(
                             node.integer(testlang::fields::value))
-                    });
+                    },
+                    language.types.find("int"));
             });
 
         language.lowering.hir(
@@ -209,10 +245,15 @@ int main()
             [](const ast::Node &node,
                ir::HIRBuilder &builder,
                const ir::LoweringRegistry &registry) {
-                registry.lowerHIR(*node.child(testlang::fields::left), builder);
-                registry.lowerHIR(*node.child(testlang::fields::right), builder);
+                registry.lowerHIR(
+                    *node.child(testlang::fields::left),
+                    builder);
 
-                builder.emit(testlang::ops::hirAdd);
+                registry.lowerHIR(
+                    *node.child(testlang::fields::right),
+                    builder);
+
+                builder.emitValue(testlang::ops::hirAdd);
             });
 
         language.lowering.hir(
@@ -227,18 +268,24 @@ int main()
 
         language.lowering.mir(
             testlang::ops::hirConst,
-            [](const ir::HIRNode &node,
+            [](const ir::Instruction &instruction,
                ir::MIRBuilder &builder,
                const ir::LoweringRegistry &) {
-                builder.emit(testlang::ops::mirConst, node.operands);
+                builder.emitValue(
+                    testlang::ops::mirConst,
+                    instruction.operands,
+                    instruction.type);
             });
 
         language.lowering.mir(
             testlang::ops::hirAdd,
-            [](const ir::HIRNode &,
+            [](const ir::Instruction &instruction,
                ir::MIRBuilder &builder,
                const ir::LoweringRegistry &) {
-                builder.emit(testlang::ops::mirAdd);
+                builder.emitValue(
+                    testlang::ops::mirAdd,
+                    instruction.operands,
+                    instruction.type);
             });
 
         compiler::Compiler compiler{
@@ -255,19 +302,28 @@ int main()
         compiler.addPass<DumpMIRPass>();
         compiler.addPass<compiler::RuntimePass>("ast", "result");
 
-        const std::string source{"40 + 2 + 8"};
+        const std::string source{
+            "40 + 2 + 8"
+        };
 
-        compiler::CompilationContext context{compiler.run(source)};
+        compiler::CompilationContext context{
+            compiler.run(source)
+        };
 
         const runtime::Value &result{
             context.requireArtifact<runtime::Value>("result")
         };
 
-        std::cout << "\nResult = " << result.toString() << '\n';
+        std::cout
+            << "\nResult = "
+            << result.toString()
+            << '\n';
 
         return 0;
     } catch (const std::exception &exception) {
-        std::cerr << exception.what() << '\n';
+        std::cerr
+            << exception.what()
+            << '\n';
 
         return 1;
     }
