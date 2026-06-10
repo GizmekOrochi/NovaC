@@ -15,13 +15,20 @@ namespace novac::parser {
 
 class ParserContext;
 
+enum class Associativity {
+    Left,
+    Right,
+    None
+};
+
 using ParseFn = std::function<ast::NodePtr(ParserContext &)>;
 using PrefixFn = std::function<ast::NodePtr(ParserContext &)>;
-using InfixFn = std::function<ast::NodePtr(ParserContext &, ast::NodePtr)>;
-using PostfixFn = std::function<ast::NodePtr(ParserContext &, ast::NodePtr)>;
+using InfixFn = std::function<ast::NodePtr(ParserContext &, ast::NodePtr, const token::Token &, ast::NodePtr)>;
+using PostfixFn = std::function<ast::NodePtr(ParserContext &, ast::NodePtr, const token::Token &)>;
 
 struct InfixRule {
     int precedence{};
+    Associativity associativity{Associativity::Left};
     InfixFn fn{};
 };
 
@@ -53,7 +60,9 @@ public:
     registry::RegisterStatus prefix(const ids::ParseDomain &domain, std::string key, PrefixFn fn);
 
     registry::RegisterStatus infix(std::string domain, std::string op, int precedence, InfixFn fn);
+    registry::RegisterStatus infix(std::string domain, std::string op, int precedence, Associativity associativity, InfixFn fn);
     registry::RegisterStatus infix(const ids::ParseDomain &domain, std::string op, int precedence, InfixFn fn);
+    registry::RegisterStatus infix(const ids::ParseDomain &domain, std::string op, int precedence, Associativity associativity, InfixFn fn);
 
     registry::RegisterStatus postfix(std::string domain, std::string op, int precedence, PostfixFn fn);
     registry::RegisterStatus postfix(const ids::ParseDomain &domain, std::string op, int precedence, PostfixFn fn);
@@ -64,7 +73,7 @@ public:
 private:
     static std::string tokenKey(const token::Token &token);
 
-    ast::NodePtr parsePratt(ParserContext &context,const std::string &domain, const ParseDomain &rules, int minPrecedence) const;
+    ast::NodePtr parsePratt(ParserContext &context, const std::string &domain, const ParseDomain &rules, int minPrecedence) const;
 
     std::unordered_map<std::string, ParseDomain> domains_;
     registry::DuplicatePolicy duplicatePolicy_;
@@ -100,6 +109,7 @@ public:
     Parser(const ParserRegistry &registry, const ids::ParseDomain &startDomain);
 
     ast::NodePtr parse(std::vector<token::Token> tokens) const;
+    ast::NodePtr parsePartial(std::vector<token::Token> tokens) const;
 
 private:
     const ParserRegistry &registry_;

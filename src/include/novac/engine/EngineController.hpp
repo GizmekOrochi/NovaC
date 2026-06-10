@@ -27,7 +27,8 @@ public:
     EngineFeature &version(std::string value);
     EngineFeature &description(std::string value);
     EngineFeature &provides(std::string capability);
-    EngineFeature &requires(std::string capability);
+    EngineFeature &requiresCapability(std::string capability);
+    EngineFeature &dependsOn(std::string capability);
     EngineFeature &conflictsWith(std::string featureName);
     EngineFeature &onInstall(Installer installer);
 
@@ -74,7 +75,9 @@ public:
     registry::RegisterStatus prefix(const ids::ParseDomain &domain, std::string key, parser::PrefixFn fn);
 
     registry::RegisterStatus infix(std::string domain, std::string op, int precedence, parser::InfixFn fn);
+    registry::RegisterStatus infix(std::string domain, std::string op, int precedence, parser::Associativity associativity, parser::InfixFn fn);
     registry::RegisterStatus infix(const ids::ParseDomain &domain, std::string op, int precedence, parser::InfixFn fn);
+    registry::RegisterStatus infix(const ids::ParseDomain &domain, std::string op, int precedence, parser::Associativity associativity, parser::InfixFn fn);
 
     registry::RegisterStatus postfix(std::string domain, std::string op, int precedence, parser::PostfixFn fn);
     registry::RegisterStatus postfix(const ids::ParseDomain &domain, std::string op, int precedence, parser::PostfixFn fn);
@@ -90,6 +93,7 @@ public:
 
     registry::RegisterStatus binaryOperator(std::string op, runtime::BinaryHandler handler);
     registry::RegisterStatus binaryOperator(const ids::Operation &op, runtime::BinaryHandler handler);
+    void setBinaryNodeKind(std::string kind);
 
     registry::RegisterStatus hir(std::string nodeKind, ir::LoweringRegistry::HIRLowerer lowerer);
     registry::RegisterStatus hir(const ids::NodeKind &nodeKind, ir::LoweringRegistry::HIRLowerer lowerer);
@@ -116,6 +120,9 @@ public:
     ir::MIRModule lowerToMIR(const ast::Node &node) const;
 
     void install(const EngineFeature &feature);
+    EngineController snapshot() const;
+    void restore(const EngineController &snapshot);
+
     bool hasFeature(const std::string &name) const;
     bool hasCapability(const std::string &capability) const;
 

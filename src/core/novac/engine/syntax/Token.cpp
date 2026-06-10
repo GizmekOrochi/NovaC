@@ -1,4 +1,4 @@
-#include "../../../../include/novac/engine/syntax/Token.hpp"
+#include "novac/engine/syntax/Token.hpp"
 
 namespace novac::token {
 

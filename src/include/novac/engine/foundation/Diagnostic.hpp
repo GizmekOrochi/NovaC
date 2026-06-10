@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -13,13 +14,14 @@ enum class DiagnosticSeverity {
 
 struct SourceLocation {
     std::string file{};
+    std::size_t offset{};
     int line{1};
     int column{1};
 };
 
 struct SourceSpan {
     SourceLocation begin{};
-    int length{};
+    SourceLocation end{};
 };
 
 struct Diagnostic {
@@ -33,11 +35,17 @@ public:
     void report(Diagnostic diagnostic);
 
     void error(std::string message);
+    void error(std::string message, SourceSpan span);
+
     void warning(std::string message);
+    void warning(std::string message, SourceSpan span);
+
     void note(std::string message);
+    void note(std::string message, SourceSpan span);
 
     bool hasErrors() const;
     bool empty() const;
+    void clear();
 
     const std::vector<Diagnostic> &diagnostics() const;
 

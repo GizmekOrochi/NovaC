@@ -1,4 +1,4 @@
-#include "../../../include/novac/engine/EngineController.hpp"
+#include "novac/engine/EngineController.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -45,14 +45,18 @@ EngineFeature &EngineFeature::provides(std::string capability) {
     return *this;
 }
 
-EngineFeature &EngineFeature::requires(std::string capability) {
+EngineFeature &EngineFeature::requiresCapability(std::string capability) {
     if (capability.empty()) {
-        throw std::runtime_error("EngineFeature::requires: capability cannot be empty");
+        throw std::runtime_error("EngineFeature::requiresCapability: capability cannot be empty");
     }
 
     requiredCapabilities_.push_back(std::move(capability));
 
     return *this;
+}
+
+EngineFeature &EngineFeature::dependsOn(std::string capability) {
+    return requiresCapability(std::move(capability));
 }
 
 EngineFeature &EngineFeature::conflictsWith(std::string featureName) {
@@ -156,8 +160,16 @@ registry::RegisterStatus EngineController::infix(std::string domain, std::string
     return parser_.infix(std::move(domain), std::move(op), precedence, std::move(fn));
 }
 
+registry::RegisterStatus EngineController::infix(std::string domain, std::string op, int precedence, parser::Associativity associativity, parser::InfixFn fn) {
+    return parser_.infix(std::move(domain), std::move(op), precedence, associativity, std::move(fn));
+}
+
 registry::RegisterStatus EngineController::infix(const ids::ParseDomain &domain, std::string op, int precedence, parser::InfixFn fn) {
     return parser_.infix(domain, std::move(op), precedence, std::move(fn));
+}
+
+registry::RegisterStatus EngineController::infix(const ids::ParseDomain &domain, std::string op, int precedence, parser::Associativity associativity, parser::InfixFn fn) {
+    return parser_.infix(domain, std::move(op), precedence, associativity, std::move(fn));
 }
 
 registry::RegisterStatus EngineController::postfix(std::string domain, std::string op, int precedence, parser::PostfixFn fn) {
@@ -198,6 +210,10 @@ registry::RegisterStatus EngineController::binaryOperator(std::string op, runtim
 
 registry::RegisterStatus EngineController::binaryOperator(const ids::Operation &op, runtime::BinaryHandler handler) {
     return runtime_.binaryOperator(op, std::move(handler));
+}
+
+void EngineController::setBinaryNodeKind(std::string kind) {
+    runtime_.setBinaryNodeKind(std::move(kind));
 }
 
 registry::RegisterStatus EngineController::hir(std::string nodeKind, ir::LoweringRegistry::HIRLowerer lowerer) {
@@ -292,8 +308,20 @@ ir::MIRModule EngineController::lowerToMIR(const ast::Node &node) const {
 
 void EngineController::install(const EngineFeature &feature) {
     validateFeatureInstall(feature);
-    feature.install(*this);
-    rememberFeature(feature);
+
+    EngineController candidate{*this};
+    feature.install(candidate);
+    candidate.rememberFeature(feature);
+
+    *this = std::move(candidate);
+}
+
+EngineController EngineController::snapshot() const {
+    return *this;
+}
+
+void EngineController::restore(const EngineController &snapshot) {
+    *this = snapshot;
 }
 
 bool EngineController::hasFeature(const std::string &name) const {

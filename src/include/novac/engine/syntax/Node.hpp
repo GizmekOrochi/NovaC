@@ -25,19 +25,21 @@ enum class FieldKind {
     Bool,
     String,
     Node,
-    NodeList,
-    Optional
+    NodeList
 };
 
 struct FieldSchema {
     std::string name{};
     FieldKind kind{FieldKind::Any};
     bool required{true};
+    std::vector<std::string> allowedNodeKinds{};
+    std::vector<std::string> allowedNodeTraits{};
 };
 
 struct NodeSchema {
     std::string kind{};
     std::vector<FieldSchema> fields{};
+    std::vector<std::string> traits{};
     std::string doc{};
 };
 
@@ -88,6 +90,8 @@ public:
     const NodeSchema *find(const std::string &kind) const;
     const NodeSchema *find(const ids::NodeKind &kind) const;
 
+    bool hasTrait(const std::string &nodeKind, const std::string &trait) const;
+
     void validate(const Node &node) const;
 
 private:
@@ -96,6 +100,7 @@ private:
     void validateFieldKnown(const NodeSchema &schema, const std::string &fieldName, const Node &node) const;
     void validateRequiredFields(const NodeSchema &schema, const Node &node) const;
     void validateFieldTypes(const NodeSchema &schema, const Node &node) const;
+    void validateChildConstraints(const FieldSchema &fieldSchema, const Node &child, const Node &owner) const;
     void validateChildren(const Node &node) const;
 
     const FieldSchema *findFieldSchema(const NodeSchema &schema, const std::string &fieldName) const;

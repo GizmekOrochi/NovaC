@@ -1,4 +1,4 @@
-#include "../../../../../include/novac/engine/foundation/registry/Registry.hpp"
+#include "novac/engine/foundation/registry/Registry.hpp"
 
 namespace novac::registry {
 

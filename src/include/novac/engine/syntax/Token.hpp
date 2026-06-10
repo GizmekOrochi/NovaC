@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../foundation/Diagnostic.hpp"
+
 #include <string>
 
 namespace novac::token {
@@ -9,12 +11,16 @@ enum class Kind {
     Keyword,
     Symbol,
     Integer,
+    Float,
+    String,
     End
 };
 
 struct Token {
     Kind kind{Kind::End};
     std::string text{};
+    diagnostics::SourceSpan span{};
+
     int line{1};
     int column{1};
 };
