@@ -3,10 +3,10 @@
 #include "../../engine/syntax/Node.hpp"
 #include "../../engine/transformation/IR.hpp"
 #include "../../engine/syntax/Lexer.hpp"
-#include "../../engine/compilation/Module.hpp"
 #include "../../engine/syntax/Parser.hpp"
 #include "../../engine/execution/Runtime.hpp"
 
+#include "../../assets/compilation/Module.hpp"
 #include "../../assets/semantic/Semantic.hpp"
 #include "../../assets/semantic/Templates.hpp"
 #include "../../assets/semantic/Traits.hpp"
