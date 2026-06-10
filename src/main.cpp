@@ -1,7 +1,7 @@
-#include "include/compilation/compiler/Compiler.hpp"
-#include "include/compilation/compiler/Pass.hpp"
-#include "include/compilation/Language.hpp"
-#include "include/semantic/Semantic.hpp"
+#include "include/novac/engine/compilation/compiler/Compiler.hpp"
+#include "include/novac/engine/compilation/compiler/Pass.hpp"
+#include "include/novac/assets/language/Language.hpp"
+#include "include/novac/assets/semantic/Semantic.hpp"
 
 #include <iostream>
 #include <stdexcept>

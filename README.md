@@ -261,58 +261,66 @@ This allows passes to remain loosely coupled and reusable.
 
 include/
 ├── novac/
-│   ├── foundation/
-│   │   ├── ids/
-│   │   │   
-│   │   ├── registry/
-│   │   │   ├── Registry.hpp
-│   │   │   └── RegistryHelpers.hpp
-│   │   └── diagnostics
-│   │      
+│   ├── engine/
+│   │   ├── foundation/
+│   │   │   ├── Diagnostic.hpp
+│   │   │   ├── Ids.hpp
+│   │   │   └── registry/
+│   │   │
+│   │   ├── syntax/
+│   │   │   ├── Token.hpp
+│   │   │   ├── Lexer.hpp
+│   │   │   ├── Node.hpp
+│   │   │   └── Parser.hpp
+│   │   │
+│   │   ├── semantic/
+│   │   │   ├── Semantic.hpp
+│   │   │   ├── TypeSystem.hpp
+│   │   │   └── Overload.hpp
+│   │   │
+│   │   ├── execution/
+│   │   │   └── Runtime.hpp
+│   │   │
+│   │   ├── transformation/
+│   │   │   └── IR.hpp
+│   │   │
+│   │   └── compilation/
+│   │       ├── CompilationContext.hpp
+│   │       ├── Compiler.hpp
+│   │       └── Pass.hpp
 │   │
-│   ├── syntax/
-│   │   ├── token
-│   │   │   
-│   │   ├── lexer
-│   │   │   
-│   │   ├── ast/
-│   │   │   
-│   │   └── parser
-│   │      
+│   ├── assets/
+│   │   ├── language/
+│   │   │   ├── Language.hpp
+│   │   │   ├── LanguageFeature.hpp
+│   │   │   └── LanguageBuilder.hpp
+│   │   │
+│   │   ├── modules/
+│   │   │   └── Module.hpp
+│   │   │
+│   │   ├── generics/
+│   │   │   ├── Templates.hpp
+│   │   │   └── Traits.hpp
+│   │   │
+│   │   ├── macros/
+│   │   │   └── Macro.hpp
+│   │   │
+│   │   ├── passes/
+│   │   │   ├── ParsePass.hpp
+│   │   │   ├── SemanticPass.hpp
+│   │   │   ├── LoweringPass.hpp
+│   │   │   └── RuntimePass.hpp
+│   │   │
+│   │   └── standard/
+│   │       ├── StandardTokens.hpp
+│   │       ├── StandardNodes.hpp
+│   │       ├── StandardTypes.hpp
+│   │       └── StandardRuntime.hpp
 │   │
-│   ├── semantic/
-│   │   ├── types/
-│   │   │   └── TypeSystem
-│   │   ├── traits/
-│   │   │   └── Traits
-│   │   ├── overload/
-│   │   │   └── Overload
-│   │   ├── templates/
-│   │   │   └── Templates
-│   │   └── semantic/
-│   │       └── Semantic
-│   │
-│   ├── transformation/
-│   │   ├── macro/
-│   │   │   └── Macro
-│   │   └── ir/
-│   │       └── IR
-│   │
-│   ├── execution/
-│   │   ├── runtime/
-│   │   │   └── Runtime
-│   │   └── backend/
-│   │       └── Backend
-│   │
-│   ├── compilation/
-│   │   ├── compiler/
-│   │   │   ├── CompilationContext
-│   │   │   ├── Compiler
-│   │   │   └── Pass
-│   │   ├── language
-│   │   │   
-│   │   └── module
-│   │      
+│   └── controller/
+│       ├── EngineController.hpp
+│       ├── AssetController.hpp
+│       └── NovaController.hpp 
 
 ---
 
