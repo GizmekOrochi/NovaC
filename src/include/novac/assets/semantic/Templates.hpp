@@ -1,6 +1,6 @@
 #pragma once
 
-#include "novac/engine/syntax/Node.hpp"
+#include "../../engine/syntax/Node.hpp"
 #include "Traits.hpp"
 #include "TypeSystem.hpp"
 

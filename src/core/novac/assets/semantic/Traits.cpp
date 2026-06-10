@@ -1,4 +1,4 @@
-#include "novac/assets/semantic/Traits.hpp"
+#include "../../../../include/novac/assets/semantic/Traits.hpp"
 
 #include <stdexcept>
 #include <utility>

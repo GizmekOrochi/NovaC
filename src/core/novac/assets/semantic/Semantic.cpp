@@ -1,4 +1,4 @@
-#include "novac/assets/semantic/Semantic.hpp"
+#include "../../../../include/novac/assets/semantic/Semantic.hpp"
 
 #include <stdexcept>
 #include <utility>
