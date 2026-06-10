@@ -1,4 +1,4 @@
-#include "../../../../../include/novac/engine/compilation/compiler/Pass.hpp"
+#include "novac/assets/compilation/compiler/Pass.hpp"
 
 #include <stdexcept>
 #include <utility>

@@ -1,4 +1,4 @@
-#include "../../../../../include/novac/engine/compilation/compiler/CompilationContext.hpp"
+#include "novac/assets/compilation/compiler/CompilationContext.hpp"
 
 namespace novac::compiler {
 

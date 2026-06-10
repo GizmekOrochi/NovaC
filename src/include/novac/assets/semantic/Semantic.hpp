@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../engine/syntax/Node.hpp"
+#include "novac/engine/syntax/Node.hpp"
 #include "../../engine/foundation/Ids.hpp"
 #include "../../engine/foundation/registry/Registry.hpp"
 #include "../../engine/foundation/registry/RegistryHelpers.hpp"

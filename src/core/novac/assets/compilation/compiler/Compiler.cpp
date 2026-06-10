@@ -1,4 +1,4 @@
-#include "../../../../../include/novac/engine/compilation/compiler/Compiler.hpp"
+#include "novac/assets/compilation/compiler/Compiler.hpp"
 
 #include <utility>
 

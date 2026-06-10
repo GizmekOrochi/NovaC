@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../engine/syntax/Node.hpp"
+#include "novac/engine/syntax/Node.hpp"
 
 #include <functional>
 #include <string>

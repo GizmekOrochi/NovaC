@@ -1,4 +1,4 @@
-#include "../../../../include/novac/assets/semantic/TypeSystem.hpp"
+#include "novac/assets/semantic/TypeSystem.hpp"
 
 #include <utility>
 

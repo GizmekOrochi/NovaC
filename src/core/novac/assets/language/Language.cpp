@@ -1,4 +1,4 @@
-#include "../../../../include/novac/assets/language/Language.hpp"
+#include "novac/assets/language/Language.hpp"
 
 #include <functional>
 #include <stdexcept>

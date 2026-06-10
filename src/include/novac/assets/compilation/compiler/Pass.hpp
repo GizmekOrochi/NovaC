@@ -1,11 +1,11 @@
 #pragma once
 
 #include "CompilationContext.hpp"
-#include "../../../assets/semantic/Semantic.hpp"
 
-#include "../../syntax/Lexer.hpp"
-#include "../../syntax/Parser.hpp"
-#include "../../execution/Runtime.hpp"
+#include "novac/assets/semantic/Semantic.hpp"
+#include "novac/engine/syntax/Lexer.hpp"
+#include "novac/engine/syntax/Parser.hpp"
+#include "novac/engine/execution/Runtime.hpp"
 
 #include <memory>
 #include <string>

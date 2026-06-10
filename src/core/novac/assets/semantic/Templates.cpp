@@ -1,4 +1,4 @@
-#include "../../../../include/novac/assets/semantic/Templates.hpp"
+#include "novac/assets/semantic/Templates.hpp"
 
 #include <cctype>
 #include <sstream>

@@ -3,7 +3,7 @@
 #include "CompilationContext.hpp"
 #include "Pass.hpp"
 
-#include "../../../assets/language/Language.hpp"
+#include "novac/assets/language/Language.hpp"
 
 #include <memory>
 #include <string>
