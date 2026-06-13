@@ -244,7 +244,7 @@ std::string ParserRegistry::tokenKey(const token::Token &token) {
 ParserContext::ParserContext(std::vector<token::Token> tokens, const ParserRegistry &registry)
     : tokens_{std::move(tokens)}, pos_{}, registry_{registry} {
     if (tokens_.empty()) {
-        tokens_.push_back({token::Kind::End, "", {}, 1, 1});
+        tokens_.push_back({token::Kind::End, "", "", {}, 1, 1});
     }
 }
 

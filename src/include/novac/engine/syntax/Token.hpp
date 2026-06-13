@@ -19,6 +19,7 @@ enum class Kind {
 struct Token {
     Kind kind{Kind::End};
     std::string text{};
+    std::string suffix{};
     diagnostics::SourceSpan span{};
 
     int line{1};

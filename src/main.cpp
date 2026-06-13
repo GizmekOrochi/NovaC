@@ -1,98 +1,115 @@
 #include <iostream>
 #include <string>
-#include <vector>
 
-#include "novac/assets/language/LanguageOptionsController.hpp"
-#include "novac/assets/language/features/presets/StandardExpressionFeatures.hpp"
 #include "novac/engine/EngineController.hpp"
-#include "novac/engine/execution/Runtime.hpp"
+
+#include "novac/assets/atomic/AtomicController.hpp"
+#include "novac/assets/atomic/AtomicPattern.hpp"
+
+#include "novac/assets/atomic/literals/BooleanLiteralAtomic.hpp"
+#include "novac/assets/atomic/literals/FloatLiteralAtomic.hpp"
+#include "novac/assets/atomic/literals/IntegerLiteralAtomic.hpp"
+#include "novac/assets/atomic/literals/StringLiteralAtomic.hpp"
+
+#include "novac/assets/atomic/operations/ComparisonOperations.hpp"
+#include "novac/assets/atomic/operations/LogicalOperations.hpp"
+#include "novac/assets/atomic/operations/NumericOperations.hpp"
 
 namespace {
 
-void printTitle(const std::string &title) {
-    std::cout << "\n== " << title << " ==\n";
-}
+void printExpression(
+    const novac::controllers::EngineController& engine,
+    const std::string& source)
+{
+    const novac::ast::NodePtr root{engine.parse(source)};
+    engine.validate(*root);
 
-void printInstalledFeatures(const novac::language::LanguageOptionsController &language) {
-    printTitle("installed language features");
+    const novac::runtime::Value value{engine.eval(*root)};
 
-    for (const novac::language::LanguageFeatureInfo &feature : language.features()) {
-        std::cout << "- " << feature.name << " v" << feature.version;
-
-        if (!feature.description.empty()) {
-            std::cout << " : " << feature.description;
-        }
-
-        std::cout << '\n';
-    }
-}
-
-void runExpressionShowcase(
-    const novac::controllers::EngineController &engine,
-    const std::vector<std::string> &sources) {
-    printTitle("expressions");
-
-    for (const std::string &source : sources) {
-        const novac::ast::NodePtr root{engine.parse(source)};
-        engine.validate(*root);
-        const novac::runtime::Value result{engine.eval(*root)};
-        std::cout << source << " => " << result.toString() << '\n';
-    }
-}
-
-void runStatementShowcase(
-    const novac::controllers::EngineController &engine,
-    const std::vector<std::string> &sources) {
-    printTitle("statements with shared RuntimeContext");
-
-    novac::runtime::RuntimeContext context{engine.runtime()};
-
-    for (const std::string &source : sources) {
-        const novac::ast::NodePtr root{engine.parse(source, "stmt")};
-        engine.validate(*root);
-        context.exec(*root);
-        std::cout << "exec: " << source << '\n';
-    }
-
-    const novac::ast::NodePtr expression{engine.parse("answer + 2")};
-    engine.validate(*expression);
-    const novac::runtime::Value value{context.eval(*expression)};
-    std::cout << "answer + 2 => " << value.toString() << '\n';
+    std::cout << source << " => " << value.toString() << '\n';
 }
 
 } // namespace
 
-int main() {
+int main()
+{
+    using novac::assets::atomic::TokenPattern;
+
     novac::controllers::EngineController engine{};
-    novac::language::LanguageOptionsController language{engine};
+    novac::assets::atomic::AtomicController atomics{engine};
 
-    novac::language::features::installStandardExpressionFeatures(language, "expr");
-    novac::language::features::installStandardStatementFeatures(language, "stmt", "expr");
+    auto integerLiteral{
+        novac::assets::atomic::literals::IntegerLiteralAtomic{
+            "IntegerLiteral",
+            TokenPattern::suffixRegex(
+                "$int",
+                R"(_(int|i32|i64))")
+        }
+    };
 
-    printInstalledFeatures(language);
+    auto floatLiteral{
+        novac::assets::atomic::literals::FloatLiteralAtomic{
+            "FloatLiteral",
+            TokenPattern::suffixRegex(
+                "$float",
+                R"(_(float|f32|f64))")
+        }
+    };
 
-    runExpressionShowcase(
-        engine,
-        {
-            "10 + 20 * (3 + 2)",
-            "-10 + 4 * 3",
-            "-3.5 + 2.25",
-            "!(false) && true",
-            "10 > 3 && 2 <= 2",
-            "3.5 + 2.25",
-            "10 / 4",
-            "10 / 4.0",
-            "10 % 4",
-            "10.5 % 4.0",
-            "\"nova\""
-        });
+    auto stringLiteral{
+        novac::assets::atomic::literals::StringLiteralAtomic{
+            "StringLiteral",
+            TokenPattern::suffixRegex(
+                "$string",
+                R"(_(string|str|char))")
+        }
+    };
 
-    runStatementShowcase(
-        engine,
-        {
-            "let answer = 40;",
-            "answer + 1;"
-        });
+    auto booleanLiteral{novac::assets::atomic::literals::BooleanLiteralAtomic{"BooleanLiteral", {.trueToken = "yes", .falseToken = "no"}}};
+
+    auto add{novac::assets::atomic::operations::AddOperationAtomic{TokenPattern::text("plus")}};
+    auto subtract{novac::assets::atomic::operations::SubtractOperationAtomic{TokenPattern::text("minus")}};
+    auto multiply{novac::assets::atomic::operations::MultiplyOperationAtomic{TokenPattern::text("mul")}};
+    auto divide{novac::assets::atomic::operations::DivideOperationAtomic{TokenPattern::text("div")}};
+    auto modulo{novac::assets::atomic::operations::ModuloOperationAtomic{TokenPattern::text("mod")}};
+    auto equal{novac::assets::atomic::operations::EqualOperationAtomic{TokenPattern::text("is")}};
+    auto lessEqual{novac::assets::atomic::operations::LessEqualOperationAtomic{TokenPattern::text("at_most")}};
+    auto greater{novac::assets::atomic::operations::GreaterOperationAtomic{TokenPattern::text("above")}};
+    auto logicalAnd{novac::assets::atomic::operations::LogicalAndOperationAtomic{TokenPattern::text("and")}};
+    auto logicalOr{novac::assets::atomic::operations::LogicalOrOperationAtomic{TokenPattern::text("or")}};
+    auto logicalNot{novac::assets::atomic::operations::LogicalNotOperationAtomic{TokenPattern::text("not")}};
+    auto negate{novac::assets::atomic::operations::NumericNegateOperationAtomic{TokenPattern::text("neg")}};
+
+    atomics.use(integerLiteral);
+    atomics.use(floatLiteral);
+    atomics.use(stringLiteral);
+    atomics.use(booleanLiteral);
+
+    atomics.use(add);
+    atomics.use(subtract);
+    atomics.use(multiply);
+    atomics.use(divide);
+    atomics.use(modulo);
+
+    atomics.use(equal);
+    atomics.use(lessEqual);
+    atomics.use(greater);
+
+    atomics.use(logicalAnd);
+    atomics.use(logicalOr);
+    atomics.use(logicalNot);
+    atomics.use(negate);
+
+    std::cout << "== atomic expressions with custom tokens ==\n";
+
+    printExpression(engine, "10_i32 plus 20_int mul 3_i64");
+    printExpression(engine, "3.5_f32 plus 2.25_float");
+    printExpression(engine, "neg 10_int plus 4_i32");
+    printExpression(engine, "10_i64 above 3_int and yes");
+    printExpression(engine, "not no or no");
+    printExpression(engine, "10_int at_most 10_i32");
+    printExpression(engine, "42_i64 is 42_int");
+    printExpression(engine, "\"nova\"_str");
 
     return 0;
 }

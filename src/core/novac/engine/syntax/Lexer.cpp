@@ -34,13 +34,8 @@ std::string escapeMessage(char value) {
 } // namespace
 
 LexerRegistry::LexerRegistry(registry::DuplicatePolicy duplicatePolicy)
-    : keywords_{},
-      symbols_{},
-      identifierStart_{defaultIdentifierStart},
-      identifierContinue_{defaultIdentifierContinue},
-      lineCommentPrefix_{"//"},
-      blockCommentBegin_{"/*"},
-      blockCommentEnd_{"*/"},
+    : keywords_{}, symbols_{}, identifierStart_{defaultIdentifierStart},
+      identifierContinue_{defaultIdentifierContinue}, lineCommentPrefix_{"//"}, blockCommentBegin_{"/*"}, blockCommentEnd_{"*/"},
       duplicatePolicy_{duplicatePolicy} {}
 
 registry::RegisterStatus LexerRegistry::keyword(std::string keyword) {
@@ -65,7 +60,8 @@ registry::RegisterStatus LexerRegistry::symbol(std::string symbol) {
     }
 
     const auto iter{
-        std::find(symbols_.begin(), symbols_.end(), symbol)};
+        std::find(symbols_.begin(), symbols_.end(), symbol)
+    };
 
     if (iter != symbols_.end()) {
         return registry::RegisterStatus::Ignored;
@@ -73,7 +69,10 @@ registry::RegisterStatus LexerRegistry::symbol(std::string symbol) {
 
     symbols_.push_back(std::move(symbol));
 
-    std::sort(symbols_.begin(), symbols_.end(), [](const std::string& left, const std::string& right) {
+    std::sort(
+        symbols_.begin(),
+        symbols_.end(),
+        [](const std::string &left, const std::string &right) {
             if (left.size() == right.size()) {
                 return left < right;
             }
@@ -84,7 +83,9 @@ registry::RegisterStatus LexerRegistry::symbol(std::string symbol) {
     return registry::RegisterStatus::Inserted;
 }
 
-void LexerRegistry::setIdentifierRules(IdentifierStartPredicate start, IdentifierContinuePredicate continuation) {
+void LexerRegistry::setIdentifierRules(
+    IdentifierStartPredicate start,
+    IdentifierContinuePredicate continuation) {
     if (!start || !continuation) {
         throw std::runtime_error("LexerRegistry::setIdentifierRules: predicates cannot be empty");
     }
@@ -148,13 +149,8 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
     int line{1};
     int column{1};
 
-    const auto location{[&]() {
-        return diagnostics::SourceLocation{fileName, index, line, column};
-    }};
-
-    const auto spanFrom{[](diagnostics::SourceLocation begin, diagnostics::SourceLocation end) {
-        return diagnostics::SourceSpan{std::move(begin), std::move(end)};
-    }};
+    const auto location{[&]() {return diagnostics::SourceLocation{fileName, index, line, column};}};
+    const auto spanFrom{[](diagnostics::SourceLocation begin, diagnostics::SourceLocation end) {return diagnostics::SourceSpan{std::move(begin), std::move(end)};}};
 
     const auto advance{[&]() {
         if (index >= source.size()) {
@@ -171,8 +167,30 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
         ++index;
     }};
 
-    const auto pushToken{[&](token::Kind kind, std::string text, diagnostics::SourceLocation begin, int tokenLine, int tokenColumn) {
-        tokens.push_back({kind, std::move(text), spanFrom(std::move(begin), location()), tokenLine, tokenColumn});
+    const auto pushToken{
+        [&](token::Kind kind, std::string text, std::string suffix, diagnostics::SourceLocation begin, int tokenLine, int tokenColumn) {
+            tokens.push_back({kind, std::move(text), std::move(suffix), spanFrom(std::move(begin), location()), tokenLine, tokenColumn});
+        }
+    };
+
+    const auto readSuffix{[&]() {
+        std::string suffix{};
+
+        if (index < source.size() && source[index] == '_') {
+            suffix += source[index];
+            advance();
+
+            if (index >= source.size() || !registry_.isIdentifierStart(static_cast<unsigned char>(source[index]))) {
+                throw std::runtime_error("Lexer::tokenize: invalid literal suffix at line " + std::to_string(line) + ", column " + std::to_string(column));
+            }
+
+            while (index < source.size() && registry_.isIdentifierContinue(static_cast<unsigned char>(source[index]))) {
+                suffix += source[index];
+                advance();
+            }
+        }
+
+        return suffix;
     }};
 
     while (index < source.size()) {
@@ -187,6 +205,7 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
             while (index < source.size() && source[index] != '\n') {
                 advance();
             }
+
             continue;
         }
 
@@ -202,9 +221,7 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
             }
 
             if (index >= source.size()) {
-                throw std::runtime_error(
-                    "Lexer::tokenize: unterminated block comment at line " + std::to_string(begin.line)
-                    + ", column " + std::to_string(begin.column));
+                throw std::runtime_error("Lexer::tokenize: unterminated block comment at line " + std::to_string(begin.line)  + ", column " + std::to_string(begin.column));
             }
 
             for (std::size_t count{}; count < registry_.blockCommentEnd().size(); ++count) {
@@ -220,12 +237,13 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
             const int tokenColumn{column};
             std::string text{};
 
-            while (index < source.size() && registry_.isIdentifierContinue(static_cast<unsigned char>(source[index]))) {
+            while (index < source.size()
+                && registry_.isIdentifierContinue(static_cast<unsigned char>(source[index]))) {
                 text += source[index];
                 advance();
             }
 
-            pushToken(registry_.isKeyword(text) ? token::Kind::Keyword : token::Kind::Identifier, text, begin, tokenLine, tokenColumn);
+            pushToken(registry_.isKeyword(text) ? token::Kind::Keyword : token::Kind::Identifier, text, "", begin, tokenLine, tokenColumn);
             continue;
         }
 
@@ -236,24 +254,25 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
             std::string text{};
             bool isFloat{};
 
-            while (index < source.size() && std::isdigit(static_cast<unsigned char>(source[index])) != 0) {
+            while (index < source.size()
+                && std::isdigit(static_cast<unsigned char>(source[index])) != 0) {
                 text += source[index];
                 advance();
             }
 
-            if (index < source.size() && source[index] == '.' && index + 1 < source.size()
-                && std::isdigit(static_cast<unsigned char>(source[index + 1])) != 0) {
+            if (index < source.size() && source[index] == '.' && index + 1 < source.size() && std::isdigit(static_cast<unsigned char>(source[index + 1])) != 0) {
                 isFloat = true;
                 text += source[index];
                 advance();
 
-                while (index < source.size() && std::isdigit(static_cast<unsigned char>(source[index])) != 0) {
+                while (index < source.size()
+                    && std::isdigit(static_cast<unsigned char>(source[index])) != 0) {
                     text += source[index];
                     advance();
                 }
             }
 
-            pushToken(isFloat ? token::Kind::Float : token::Kind::Integer, text, begin, tokenLine, tokenColumn);
+            pushToken(isFloat ? token::Kind::Float : token::Kind::Integer, text, readSuffix(), begin, tokenLine, tokenColumn);
             continue;
         }
 
@@ -266,9 +285,7 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
 
             while (index < source.size() && source[index] != '"') {
                 if (source[index] == '\n') {
-                    throw std::runtime_error(
-                        "Lexer::tokenize: unterminated string literal at line " + std::to_string(tokenLine)
-                        + ", column " + std::to_string(tokenColumn));
+                    throw std::runtime_error("Lexer::tokenize: unterminated string literal at line " + std::to_string(tokenLine) + ", column " + std::to_string(tokenColumn));
                 }
 
                 if (source[index] == '\\') {
@@ -285,8 +302,7 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
                         case '"': text += '"'; break;
                         case '\\': text += '\\'; break;
                         default:
-                            throw std::runtime_error(
-                                "Lexer::tokenize: unsupported escape sequence '\\" + escapeMessage(source[index]) + "'");
+                            throw std::runtime_error("Lexer::tokenize: unsupported escape sequence '\\" + escapeMessage(source[index]) + "'");
                     }
 
                     advance();
@@ -298,13 +314,11 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
             }
 
             if (index >= source.size()) {
-                throw std::runtime_error(
-                    "Lexer::tokenize: unterminated string literal at line " + std::to_string(tokenLine)
-                    + ", column " + std::to_string(tokenColumn));
+                throw std::runtime_error("Lexer::tokenize: unterminated string literal at line " + std::to_string(tokenLine) + ", column " + std::to_string(tokenColumn));
             }
 
             advance();
-            pushToken(token::Kind::String, text, begin, tokenLine, tokenColumn);
+            pushToken(token::Kind::String, text, readSuffix(), begin, tokenLine, tokenColumn);
             continue;
         }
 
@@ -320,20 +334,18 @@ std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string
                     advance();
                 }
 
-                pushToken(token::Kind::Symbol, symbol, begin, tokenLine, tokenColumn);
+                pushToken( token::Kind::Symbol, symbol, "", begin, tokenLine, tokenColumn);
                 matched = true;
                 break;
             }
         }
 
         if (!matched) {
-            throw std::runtime_error(
-                "Lexer::tokenize: unexpected character '" + escapeMessage(source[index])
-                + "' at line " + std::to_string(line) + ", column " + std::to_string(column));
+            throw std::runtime_error("Lexer::tokenize: unexpected character '" + escapeMessage(source[index]) + "' at line " + std::to_string(line) + ", column " + std::to_string(column));
         }
     }
 
-    tokens.push_back({token::Kind::End, "", spanFrom(location(), location()), line, column});
+    tokens.push_back({token::Kind::End, "", "", spanFrom(location(), location()), line, column});
 
     return tokens;
 }
