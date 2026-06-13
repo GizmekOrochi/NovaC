@@ -12,7 +12,9 @@ LanguageOptionsController::LanguageOptionsController(
     : engine_{engine},
       options_{options},
       features_{},
-      ownedFeatures_{} {
+      ownedFeatures_{},
+      registeredKeywords_{},
+      registeredSymbols_{} {
 }
 
 LanguageOptionsController &LanguageOptionsController::use(const LanguageFeature &feature) {
@@ -92,11 +94,33 @@ const std::vector<LanguageFeatureInfo> &LanguageOptionsController::features() co
 }
 
 registry::RegisterStatus LanguageOptionsController::keyword(std::string keyword) {
-    return engine_.keyword(std::move(keyword));
+    if (keyword.empty()) {
+        throw std::runtime_error("LanguageOptionsController::keyword: keyword cannot be empty");
+    }
+
+    if (registeredKeywords_.find(keyword) != registeredKeywords_.end()) {
+        return registry::RegisterStatus::Ignored;
+    }
+
+    registry::RegisterStatus status{engine_.keyword(keyword)};
+    registeredKeywords_.insert(std::move(keyword));
+
+    return status;
 }
 
 registry::RegisterStatus LanguageOptionsController::symbol(std::string symbol) {
-    return engine_.symbol(std::move(symbol));
+    if (symbol.empty()) {
+        throw std::runtime_error("LanguageOptionsController::symbol: symbol cannot be empty");
+    }
+
+    if (registeredSymbols_.find(symbol) != registeredSymbols_.end()) {
+        return registry::RegisterStatus::Ignored;
+    }
+
+    registry::RegisterStatus status{engine_.symbol(symbol)};
+    registeredSymbols_.insert(std::move(symbol));
+
+    return status;
 }
 
 registry::RegisterStatus LanguageOptionsController::node(ast::NodeSchema schema) {
@@ -119,12 +143,7 @@ registry::RegisterStatus LanguageOptionsController::infix(std::string domain, st
     return engine_.infix(std::move(domain), std::move(op), precedence, std::move(fn));
 }
 
-registry::RegisterStatus LanguageOptionsController::infix(
-    std::string domain,
-    std::string op,
-    int precedence,
-    parser::Associativity associativity,
-    parser::InfixFn fn) {
+registry::RegisterStatus LanguageOptionsController::infix(std::string domain, std::string op, int precedence, parser::Associativity associativity, parser::InfixFn fn) {
     return engine_.infix(std::move(domain), std::move(op), precedence, associativity, std::move(fn));
 }
 
@@ -207,13 +226,17 @@ void LanguageOptionsController::rememberFeature(LanguageFeatureInfo info) {
 }
 
 void LanguageOptionsController::installTransactional(const LanguageFeature &feature, const LanguageFeatureInfo &info) {
-    controllers::EngineController snapshot{engine_.snapshot()};
+    controllers::EngineController engineSnapshot{engine_.snapshot()};
+    const std::unordered_set<std::string> keywordSnapshot{registeredKeywords_};
+    const std::unordered_set<std::string> symbolSnapshot{registeredSymbols_};
 
     try {
         feature.install(*this);
         rememberFeature(info);
     } catch (...) {
-        engine_.restore(snapshot);
+        engine_.restore(engineSnapshot);
+        registeredKeywords_ = keywordSnapshot;
+        registeredSymbols_ = symbolSnapshot;
         throw;
     }
 }

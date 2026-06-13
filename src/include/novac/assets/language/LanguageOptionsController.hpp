@@ -1,11 +1,12 @@
 #pragma once
 
-#include "../../engine/EngineController.hpp"
-#include "LanguageFeature.hpp"
+#include "novac/assets/language/LanguageFeature.hpp"
+#include "novac/engine/EngineController.hpp"
 
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace novac::language {
@@ -64,6 +65,8 @@ private:
     LanguageOptionsControllerOptions options_;
     std::vector<LanguageFeatureInfo> features_;
     std::unordered_map<std::string, std::unique_ptr<LanguageFeature>> ownedFeatures_;
+    std::unordered_set<std::string> registeredKeywords_;
+    std::unordered_set<std::string> registeredSymbols_;
 };
 
 } // namespace novac::language
