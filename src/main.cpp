@@ -17,10 +17,7 @@
 
 namespace {
 
-void printExpression(
-    const novac::controllers::EngineController& engine,
-    const std::string& source)
-{
+void printExpression(const novac::controllers::EngineController& engine, const std::string& source) {
     const novac::ast::NodePtr root{engine.parse(source)};
     engine.validate(*root);
 
@@ -31,39 +28,15 @@ void printExpression(
 
 } // namespace
 
-int main()
-{
+int main() {
     using novac::assets::atomic::TokenPattern;
 
     novac::controllers::EngineController engine{};
     novac::assets::atomic::AtomicController atomics{engine};
 
-    auto integerLiteral{
-        novac::assets::atomic::literals::IntegerLiteralAtomic{
-            "IntegerLiteral",
-            TokenPattern::suffixRegex(
-                "$int",
-                R"(_(int|i32|i64))")
-        }
-    };
-
-    auto floatLiteral{
-        novac::assets::atomic::literals::FloatLiteralAtomic{
-            "FloatLiteral",
-            TokenPattern::suffixRegex(
-                "$float",
-                R"(_(float|f32|f64))")
-        }
-    };
-
-    auto stringLiteral{
-        novac::assets::atomic::literals::StringLiteralAtomic{
-            "StringLiteral",
-            TokenPattern::suffixRegex(
-                "$string",
-                R"(_(string|str|char))")
-        }
-    };
+    auto integerLiteral{novac::assets::atomic::literals::IntegerLiteralAtomic{"IntegerLiteral", TokenPattern::suffixRegex("$int", R"(_(int|i32|i64))")}};
+    auto floatLiteral{novac::assets::atomic::literals::FloatLiteralAtomic{"FloatLiteral", TokenPattern::suffixRegex("$float", R"(_(float|f32|f64))")}};
+    auto stringLiteral{novac::assets::atomic::literals::StringLiteralAtomic{"StringLiteral", TokenPattern::suffixRegex("$string", R"(_(string|str|char))")}};
 
     auto booleanLiteral{novac::assets::atomic::literals::BooleanLiteralAtomic{"BooleanLiteral", {.trueToken = "yes", .falseToken = "no"}}};
 
