@@ -1,215 +1,110 @@
 #include <iostream>
-#include <memory>
+#include <string>
+#include <vector>
 
-#include "include/novac/engine/EngineController.hpp"
+#include "novac/engine/EngineController.hpp"
+#include "novac/engine/execution/Runtime.hpp"
+#include "novac/assets/language/LanguageOptionsController.hpp"
+#include "novac/assets/language/features/ExpressionStatementFeature.hpp"
+#include "novac/assets/language/features/StandardExpressionFeatures.hpp"
+#include "novac/assets/language/features/VariableDeclarationFeature.hpp"
 
-using namespace novac;
+namespace {
 
-int main()
-{
-    controllers::EngineController engine{};
+void printTitle(const std::string &title) {
+    std::cout << "\n== " << title << " ==\n";
+}
 
-    engine.setStartDomain("expr");
+novac::ast::NodePtr parseWithDomain(
+    const novac::controllers::EngineController &engine,
+    const std::string &source,
+    const std::string &domain) {
+    return engine.parse(source, domain);
+}
 
-    //
-    // Lexer
-    //
-    engine.symbol("+");
-    engine.symbol("-");
-    engine.symbol("*");
-    engine.symbol("/");
-    engine.symbol("(");
-    engine.symbol(")");
+void runExpressionShowcase(
+    const novac::controllers::EngineController &engine,
+    const std::vector<std::string> &sources) {
+    printTitle("expressions");
 
-    //
-    // AST
-    //
-    engine.node({
-        .kind = "IntegerLiteral",
-        .fields = {
-            {
-                .name = "value",
-                .kind = ast::FieldKind::Int,
-                .required = true
-            }
+    for (const std::string &source : sources) {
+        const novac::ast::NodePtr root{engine.parse(source)};
+
+        engine.validate(*root);
+
+        const novac::runtime::Value result{engine.eval(*root)};
+
+        std::cout << source << " => " << result.toString() << '\n';
+    }
+}
+
+void runStatementShowcase(
+    const novac::controllers::EngineController &engine,
+    const std::vector<std::string> &sources) {
+    printTitle("statements with shared RuntimeContext");
+
+    novac::runtime::RuntimeContext context{engine.runtime()};
+
+    for (const std::string &source : sources) {
+        const novac::ast::NodePtr root{parseWithDomain(engine, source, "stmt")};
+
+        engine.validate(*root);
+        context.exec(*root);
+
+        std::cout << "exec: " << source << '\n';
+    }
+
+    const novac::ast::NodePtr expression{engine.parse("answer + 2")};
+    engine.validate(*expression);
+
+    const novac::runtime::Value value{context.eval(*expression)};
+
+    std::cout << "answer + 2 => " << value.toString() << '\n';
+}
+
+void printInstalledFeatures(const novac::language::LanguageOptionsController &language) {
+    printTitle("installed language features");
+
+    for (const novac::language::LanguageFeatureInfo &feature : language.features()) {
+        std::cout << "- " << feature.name << " v" << feature.version;
+
+        if (!feature.description.empty()) {
+            std::cout << " : " << feature.description;
         }
-    });
 
-    engine.node({
-        .kind = "BinaryExpr",
-        .fields = {
-            {
-                .name = "op",
-                .kind = ast::FieldKind::String,
-                .required = true
-            },
-            {
-                .name = "left",
-                .kind = ast::FieldKind::Node,
-                .required = true
-            },
-            {
-                .name = "right",
-                .kind = ast::FieldKind::Node,
-                .required = true
-            }
-        }
-    });
+        std::cout << '\n';
+    }
+}
 
-    //
-    // Parser : integer literal
-    //
-    engine.prefix(
-        "expr",
-        "$int",
-        [&](parser::ParserContext& ctx)
+} // namespace
+
+int main() {
+    novac::controllers::EngineController engine{};
+    novac::language::LanguageOptionsController language{engine};
+
+    novac::language::features::installStandardExpressionFeatures(language, "expr");
+    language.use(novac::language::features::VariableDeclarationFeature{"stmt", "expr"});
+    language.use(novac::language::features::ExpressionStatementFeature{"stmt", "expr"});
+
+    printInstalledFeatures(language);
+
+    runExpressionShowcase(
+        engine,
         {
-            const auto token =
-                ctx.consumeKind(token::Kind::Integer);
-
-            auto node =
-                engine.makeNode("IntegerLiteral");
-
-            node->set(
-                "value",
-                std::stoi(token.text));
-
-            return node;
+            "10 + 20 * (3 + 2)",
+            "-10 + 4 * 3",
+            "!(false) && true",
+            "10 > 3 && 2 <= 2",
+            "\"nova\"",
+            "3.5 + 2.25"
         });
 
-    //
-    // Parser : parenthesis
-    //
-    engine.prefix(
-        "expr",
-        "(",
-        [&](parser::ParserContext& ctx)
+    runStatementShowcase(
+        engine,
         {
-            ctx.consume("(");
-
-            auto expr = ctx.parse("expr");
-
-            ctx.consume(")");
-
-            return expr;
+            "let answer = 40;",
+            "answer + 1;"
         });
-
-    //
-    // Pratt helpers
-    //
-    auto binaryBuilder =
-        [&](parser::ParserContext&,
-            ast::NodePtr left,
-            const token::Token& op,
-            ast::NodePtr right)
-        {
-            auto node =
-                engine.makeNode("BinaryExpr");
-
-            node->set("op", op.text);
-            node->set("left", left);
-            node->set("right", right);
-
-            return node;
-        };
-
-    engine.infix("expr", "+", 10, binaryBuilder);
-    engine.infix("expr", "-", 10, binaryBuilder);
-
-    engine.infix("expr", "*", 20, binaryBuilder);
-    engine.infix("expr", "/", 20, binaryBuilder);
-
-    //
-    // Runtime
-    //
-    engine.expression(
-        "IntegerLiteral",
-        [](const ast::Node& node,
-           runtime::RuntimeContext&)
-        {
-            return runtime::Value::integer(
-                node.integer("value"));
-        });
-
-    //
-    // IMPORTANT
-    //
-    engine.setBinaryNodeKind("BinaryExpr");
-
-    engine.binaryOperator(
-        "+",
-        [](const ast::Node& node,
-           runtime::RuntimeContext& ctx)
-        {
-            const int lhs = ctx.eval(*node.child("left")).asInt();
-            const int rhs = ctx.eval(*node.child("right")).asInt();
-
-            return runtime::Value::integer(
-                lhs + rhs);
-        });
-
-    engine.binaryOperator(
-        "-",
-        [](const ast::Node& node,
-           runtime::RuntimeContext& ctx)
-        {
-            const int lhs = ctx.eval(*node.child("left")).asInt();
-            const int rhs = ctx.eval(*node.child("right")).asInt();
-
-            return runtime::Value::integer(lhs - rhs);
-        });
-
-    engine.binaryOperator(
-        "*",
-        [](const ast::Node& node,
-           runtime::RuntimeContext& ctx)
-        {
-            const int lhs =
-                ctx.eval(*node.child("left"))
-                    .asInt();
-
-            const int rhs =
-                ctx.eval(*node.child("right"))
-                    .asInt();
-
-            return runtime::Value::integer(
-                lhs * rhs);
-        });
-
-    engine.binaryOperator(
-        "/",
-        [](const ast::Node& node,
-           runtime::RuntimeContext& ctx)
-        {
-            const int lhs =
-                ctx.eval(*node.child("left"))
-                    .asInt();
-
-            const int rhs =
-                ctx.eval(*node.child("right"))
-                    .asInt();
-
-            return runtime::Value::integer(
-                lhs / rhs);
-        });
-
-    //
-    // Test
-    //
-    const std::string source =
-        "10 + 20 * (3 + 2)";
-
-    auto ast = engine.parse(source);
-
-    engine.validate(*ast);
-
-    auto result = engine.eval(*ast);
-
-    std::cout
-        << source
-        << " = "
-        << result.asInt()
-        << '\n';
 
     return 0;
 }
