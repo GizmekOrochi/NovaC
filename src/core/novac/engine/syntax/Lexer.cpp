@@ -51,11 +51,7 @@ registry::RegisterStatus LexerRegistry::keyword(std::string keyword) {
     const auto iter{keywords_.find(keyword)};
 
     if (iter != keywords_.end()) {
-        if (duplicatePolicy_ == registry::DuplicatePolicy::Ignore || duplicatePolicy_ == registry::DuplicatePolicy::Replace) {
-            return registry::RegisterStatus::Ignored;
-        }
-
-        throw std::runtime_error("LexerRegistry::keyword: duplicate keyword '" + keyword + "'");
+        return registry::RegisterStatus::Ignored;
     }
 
     keywords_.insert(std::move(keyword));
@@ -68,25 +64,22 @@ registry::RegisterStatus LexerRegistry::symbol(std::string symbol) {
         throw std::runtime_error("LexerRegistry::symbol: symbol cannot be empty");
     }
 
-    const auto iter{std::find(symbols_.begin(), symbols_.end(), symbol)};
+    const auto iter{
+        std::find(symbols_.begin(), symbols_.end(), symbol)};
 
     if (iter != symbols_.end()) {
-        if (duplicatePolicy_ == registry::DuplicatePolicy::Ignore || duplicatePolicy_ == registry::DuplicatePolicy::Replace) {
-            return registry::RegisterStatus::Ignored;
-        }
-
-        throw std::runtime_error("LexerRegistry::symbol: duplicate symbol '" + symbol + "'");
+        return registry::RegisterStatus::Ignored;
     }
 
     symbols_.push_back(std::move(symbol));
 
-    std::sort(symbols_.begin(), symbols_.end(), [](const std::string &left, const std::string &right) {
-        if (left.size() == right.size()) {
-            return left < right;
-        }
+    std::sort(symbols_.begin(), symbols_.end(), [](const std::string& left, const std::string& right) {
+            if (left.size() == right.size()) {
+                return left < right;
+            }
 
-        return left.size() > right.size();
-    });
+            return left.size() > right.size();
+        });
 
     return registry::RegisterStatus::Inserted;
 }
