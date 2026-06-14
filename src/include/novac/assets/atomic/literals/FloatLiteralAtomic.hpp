@@ -31,9 +31,7 @@ public:
      *
      * @throws std::runtime_error If the node kind is empty.
      */
-    explicit FloatLiteralAtomic(
-        std::string nodeKind = "FloatLiteral",
-        TokenPattern pattern = TokenPattern::key("$float"));
+    explicit FloatLiteralAtomic(std::string nodeKind = "FloatLiteral", TokenPattern pattern = TokenPattern::key("$float"));
 
     /**
      * @brief Returns metadata describing this literal feature.

@@ -31,9 +31,7 @@ public:
      *
      * @throws std::runtime_error If the node kind is empty.
      */
-    explicit StringLiteralAtomic(
-        std::string nodeKind = "StringLiteral",
-        TokenPattern pattern = TokenPattern::key("$string"));
+    explicit StringLiteralAtomic(std::string nodeKind = "StringLiteral", TokenPattern pattern = TokenPattern::key("$string"));
 
     /**
      * @brief Returns metadata describing this literal feature.

@@ -39,9 +39,7 @@ public:
      * @throws std::runtime_error If the node kind is empty.
      * @throws std::runtime_error If either boolean token is empty.
      */
-    explicit BooleanLiteralAtomic(
-        std::string nodeKind = "BooleanLiteral",
-        BooleanLiteralTokens tokens = {});
+    explicit BooleanLiteralAtomic(std::string nodeKind = "BooleanLiteral", BooleanLiteralTokens tokens = {});
 
     /**
      * @brief Returns metadata describing this literal feature.
