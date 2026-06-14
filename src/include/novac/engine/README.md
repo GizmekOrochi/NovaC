@@ -236,12 +236,15 @@ The Engine includes a lightweight modular feature system.
 
 Architecture schematic:
 
+
+```text
                     EngineController
                            │
       ┌────────────┬───────┼────────────┬────────────┐
       ▼            ▼       ▼            ▼            ▼
    Lexer       Parser     AST       Runtime         IR
  Registry     Registry  Registry   Registry     Registry
+```
 
 This allows language functionality to be packaged as reusable modules.
 
@@ -325,7 +328,7 @@ while remaining completely independent from any particular language design.
 
 # Exemple 
 
-```text
+```cpp
 #include "novac/engine/EngineController.hpp"
 
 #include <iostream>
