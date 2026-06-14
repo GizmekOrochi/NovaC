@@ -12,9 +12,7 @@ Its purpose is to provide reusable infrastructure while leaving language semanti
 
 The Engine is built around a simple principle:
 
-> The framework provides infrastructure. The language provides behavior.
-
-Most components inside the Engine are registries, dispatchers, validators, and execution pipelines. The Engine itself contains almost no language-specific logic.
+The framework provides infrastructure. The language provides behavior. Most components inside the Engine are registries, dispatchers, validators, and execution pipelines. The Engine itself contains almost no language-specific logic.
 
 Instead, users register:
 
@@ -148,10 +146,12 @@ Supported handler categories include:, expression handlers, statement handlers, 
 
 The runtime also provides:
 
-* environments
-* scope management
-* value representation
-* return propagation
+- environments
+- hierarchical environments
+- lexical scopes
+- value representation
+- node bindings
+- return propagation
 
 while remaining independent from any particular language.
 
@@ -234,12 +234,14 @@ This architecture allows systems to remain decoupled and extensible.
 
 The Engine includes a lightweight modular feature system.
 
-Features can be installed into an EngineController and may declare:
+Architecture schematic:
 
-* capabilities
-* dependencies
-* conflicts
-* installation callbacks
+                    EngineController
+                           │
+      ┌────────────┬───────┼────────────┬────────────┐
+      ▼            ▼       ▼            ▼            ▼
+   Lexer       Parser     AST       Runtime         IR
+ Registry     Registry  Registry   Registry     Registry
 
 This allows language functionality to be packaged as reusable modules.
 
@@ -318,3 +320,261 @@ Its responsibility is to provide reusable infrastructure for:
 * modular extensions
 
 while remaining completely independent from any particular language design.
+
+---
+
+# Exemple 
+
+```text
+#include "novac/engine/EngineController.hpp"
+
+#include <iostream>
+#include <stdexcept>
+#include <string>
+
+int main() {
+    using namespace novac;
+
+    try {
+        /*---------------------------------------------------------------------
+        Engine bootstrap.
+
+        The EngineController is the main entry point of the engine.
+        It owns and coordinates:
+
+        - Lexer registries
+        - Parser registries
+        - AST schemas
+        - Runtime handlers
+        - Lowering pipelines
+        - Diagnostics
+
+        The start domain defines the parser entry point.
+        ---------------------------------------------------------------------*/
+
+        controllers::EngineControllerOptions options{};
+        options.startDomain = "expression";
+
+        controllers::EngineController engine{options};
+
+        /*---------------------------------------------------------------------
+        Features are modular installation units.
+
+        A feature may register:
+
+        - Lexer rules
+        - Parser rules
+        - AST schemas
+        - Runtime handlers
+        - IR lowerers
+
+        This allows language functionality to be packaged and installed
+        independently.
+        ---------------------------------------------------------------------*/
+
+        controllers::EngineFeature arithmetic{"toy-arithmetic"};
+
+        arithmetic
+            .version("0.1.0")
+            .description("Minimal arithmetic language showcase.")
+            .provides("arithmetic")
+            .onInstall([](controllers::EngineController &engine) {
+
+                /*---------------------------------------------------------------------
+                LEXER CONFIGURATION
+                
+                Register '+' as a recognized symbol.
+
+                After this registration the lexer can tokenize:
+                    2 + 3
+
+                into:
+                    [2] [+] [3]
+
+                ---------------------------------------------------------------------*/
+
+                engine.symbol("+");
+
+                /*---------------------------------------------------------------------
+                AST SCHEMA CONFIGURATION
+                
+                Define the node types used by the language.
+
+                IntegerLiteral:
+                    42
+
+                BinaryExpression:
+                    left + right
+
+                Schemas allow the engine to validate AST correctness.
+                ---------------------------------------------------------------------*/
+
+                engine.node({
+                    "IntegerLiteral",
+                    {
+                        {"value", ast::FieldKind::Int, true, {}, {}}
+                    },
+                    {"Expression"},
+                    "Integer literal expression."
+                });
+
+                engine.node({
+                    "BinaryExpression",
+                    {
+                        {"left", ast::FieldKind::Node, true, {}, {"Expression"}},
+                        {"op", ast::FieldKind::String, true, {}, {}},
+                        {"right", ast::FieldKind::Node, true, {}, {"Expression"}}
+                    },
+                    {"Expression"},
+                    "Binary expression."
+                });
+
+                /*---------------------------------------------------------------------
+                RUNTIME CONFIGURATION
+
+                The runtime contains a generic binary-expression dispatcher.
+                We tell it which AST node kind represents binary operators.
+                ---------------------------------------------------------------------*/
+
+                engine.setBinaryNodeKind("BinaryExpression");
+
+                /*--------------------------------------------------------------------- 
+                PARSER CONFIGURATION
+                
+                Prefix rule:
+                    Integer token -> IntegerLiteral AST node
+
+                Example:
+                    42
+
+                becomes:
+                    IntegerLiteral(value = 42)
+                ---------------------------------------------------------------------*/
+
+                engine.prefix("expression", "$int", [](parser::ParserContext &context) {
+                        const token::Token token{context.consumeKind(token::Kind::Integer)};
+
+                        ast::NodePtr node{ast::Node::make("IntegerLiteral")};
+
+                        node->set("value", std::stoi(token.text));
+
+                        return node;
+                    });
+
+                /*---------------------------------------------------------------------
+                Pratt infix rule.
+
+                Parse:
+                    left + right
+
+                into:
+                    BinaryExpression
+                    ├── left
+                    ├── op = "+"
+                    └── right
+                ---------------------------------------------------------------------*/
+
+                engine.infix("expression", "+", 10, parser::Associativity::Left, 
+                    [](parser::ParserContext &, ast::NodePtr left, const token::Token &op, ast::NodePtr right) {
+                        ast::NodePtr node{ast::Node::make("BinaryExpression")};
+
+                        node->set("left", left);
+                        node->set("op", op.text);
+                        node->set("right", right);
+
+                        return node;
+                    });
+
+                /*---------------------------------------------------------------------
+                RUNTIME EXPRESSION HANDLER
+
+                Evaluate:
+                    IntegerLiteral(value = N)
+
+                into:
+                    Runtime Value(N)
+                ---------------------------------------------------------------------*/
+
+                engine.expression("IntegerLiteral", [](const ast::Node &node, runtime::RuntimeContext &) {
+                    return runtime::Value::integer(node.integer("value"));
+                });
+
+                /*---------------------------------------------------------------------
+                BINARY OPERATOR HANDLER
+
+                Execute:
+                    left + right
+
+                by:
+                1. Evaluating both operands
+                2. Extracting their integer values
+                3. Returning the sum
+               --------------------------------------------------------------------- */
+
+                engine.binaryOperator("+", [](const ast::Node &node, runtime::RuntimeContext &context) {
+                    const runtime::Value left{context.eval(*node.child("left"))};
+                    const runtime::Value right{context.eval(*node.child("right"))};
+
+                    return runtime::Value::integer(left.asInt() + right.asInt());
+                });
+            }); // onInstall([](controllers::EngineController &engine)
+
+        /*---------------------------------------------------------------------
+        Install the feature.
+        This mutates the engine by registering all language components.
+        ---------------------------------------------------------------------*/
+
+        engine.install(arithmetic);
+
+        /*---------------------------------------------------------------------
+        Source code.
+        ---------------------------------------------------------------------*/
+
+        const std::string source{"2 + 3"};
+
+        /*---------------------------------------------------------------------
+        Parsing phase.
+
+        Source
+          ↓
+        Lexer
+          ↓
+        Tokens
+          ↓
+        Parser
+          ↓
+        AST
+        ---------------------------------------------------------------------*/
+
+        const ast::NodePtr root{engine.parse(source)};
+
+        /*---------------------------------------------------------------------
+        AST validation.
+        Ensures the produced tree respects registered schemas.
+        ---------------------------------------------------------------------*/
+
+        engine.validate(*root);
+
+        /*---------------------------------------------------------------------
+        Runtime execution.
+
+        AST
+          ↓
+        Runtime dispatch
+          ↓
+        Value
+        ---------------------------------------------------------------------*/
+
+        const runtime::Value result{engine.eval(*root)};
+
+        std::cout << source << " = " << result.toString() << '\n';
+
+    } catch (const std::exception &exception) {
+        std::cerr << "error: " << exception.what() << '\n';
+
+        return 1;
+    }
+
+    return 0;
+}
+```
