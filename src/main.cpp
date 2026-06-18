@@ -22,25 +22,54 @@ int main() {
     novac::controllers::EngineController engine{};
     novac::assets::atomic::AtomicController atomics{engine};
 
-    atomics.integer("IntegerLiteral", {"int", "i32", "i64"});
-    atomics.floating("FloatLiteral", {"float", "f32", "f64"});
-    atomics.stringLiteral("StringLiteral", {"string", "str", "char"});
-    atomics.boolean("BooleanLiteral", "yes", "no");
+    atomics.use(novac::assets::atomic::literals::integer(
+            "IntegerLiteral",
+            {"int", "i32", "i64"}
+        )
+    );
 
-    atomics.add("plus");
-    atomics.subtract("minus");
-    atomics.multiply("mul");
-    atomics.divide("div");
-    atomics.modulo("mod");
+    atomics.use(novac::assets::atomic::literals::floating(
+            "FloatLiteral",
+            {"float", "f32", "f64"}
+        )
+    );
 
-    atomics.equal("is");
-    atomics.lessEqual("at_most");
-    atomics.greater("above");
+    atomics.use(novac::assets::atomic::literals::stringLiteral(
+            "StringLiteral",
+            {"string", "str", "char"}
+        )
+    );
 
-    atomics.logicalAnd("and");
-    atomics.logicalOr("or");
-    atomics.logicalNot("not");
-    atomics.negate("neg");
+    atomics.use(novac::assets::atomic::literals::boolean(
+            "BooleanLiteral",
+            "yes",
+            "no"
+        )
+    );
+
+    atomics.use(novac::assets::atomic::operations::numeric({
+            .add = "plus",
+            .subtract = "minus",
+            .multiply = "mul",
+            .divide = "div",
+            .modulo = "mod",
+            .negate = "neg"
+        })
+    );
+
+    atomics.use(novac::assets::atomic::operations::comparison({
+            .equal = "is",
+            .lessEqual = "at_most",
+            .greater = "above"
+        })
+    );
+
+    atomics.use(novac::assets::atomic::operations::logical({
+            .andToken = "and",
+            .orToken = "or",
+            .notToken = "not"
+        })
+    );
 
     std::cout << "== atomic expressions with custom tokens ==\n";
 
