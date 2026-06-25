@@ -1,167 +1,170 @@
 #include "novac/assets/essentials/functions/Functions.hpp"
 
+#include "novac/assets/essentials/functions/ReturnStatements.hpp"
 #include "novac/assets/essentials/EssentialTraits.hpp"
 #include "novac/assets/essentials/EssentialsController.hpp"
-#include "novac/assets/essentials/internal/ParsingHelpers.hpp"
-#include "novac/assets/essentials/internal/SchemaHelpers.hpp"
+#include "novac/assets/essentials/helpers/ParsingHelpers.hpp"
+#include "novac/assets/essentials/helpers/SchemaHelpers.hpp"
 
+#include <iostream>
 #include <stdexcept>
-#include <utility>
-#include <vector>
 
 namespace novac::assets::essentials::functions {
 
-namespace {
-
-ast::NodeList makeParameterNodes(EssentialsController &controller, std::vector<std::string> names) {
-    const auto &options{controller.options()};
-
-    ast::NodeList parameters{};
-    parameters.reserve(names.size());
-
-    for (std::string &name : names) {
-        ast::NodePtr parameter{controller.engine().makeNode(options.parameterNodeKind)};
-        parameter->set(options.nameField, std::move(name));
-        parameters.push_back(std::move(parameter));
-    }
-
-    return parameters;
+EssentialInfo FunctionsFeature::info() const {
+    return {
+        "essentials.functions",
+        "0.1.0",
+        "Function declarations, calls, and native print",
+        {"FunctionDeclaration", "FunctionCall", "FunctionParameter"},
+        {traits::Declaration, traits::Expression, traits::Callable},
+        {}
+    };
 }
 
-std::vector<std::string> parameterNames(const ast::NodeList &parameters, const std::string &nameField) {
-    std::vector<std::string> names{};
-    names.reserve(parameters.size());
-
-    for (const ast::NodePtr &parameter : parameters) {
-        if (!parameter)
-            throw std::runtime_error("Functions: function declaration contains null parameter");
-
-        names.push_back(parameter->str(nameField));
-    }
-
-    return names;
-}
-
-} // namespace
-
-void installFunctions(EssentialsController &controller) {
-    if (controller.hasFeature("essentials.functions"))
-        return;
-
-    const auto &options{controller.options()};
+void FunctionsFeature::install(EssentialsController &controller) const {
+    const CoreSyntaxOptions core{controller.core()};
+    const FunctionSyntaxOptions options{controller.functions()};
+    const bool enforce{controller.options().enforceChildTraits};
 
     controller.engine().keyword(options.functionKeyword);
-    controller.engine().symbol(options.leftParenToken);
-    controller.engine().symbol(options.rightParenToken);
-    controller.engine().symbol(options.commaToken);
-
-    controller.engine().node({options.parameterNodeKind, {{options.nameField, ast::FieldKind::String, true, {}, {}}}, {}, "Function parameter."});
+    controller.engine().symbol(core.leftParenToken);
+    controller.engine().symbol(core.rightParenToken);
+    controller.engine().symbol(core.commaToken);
 
     controller.engine().node({
-        options.functionDeclarationNodeKind,
+        options.parameterNodeKind,
         {
-            {options.nameField, ast::FieldKind::String, true, {}, {}},
-            {options.parametersField, ast::FieldKind::NodeList, true, {options.parameterNodeKind}, {}},
-            {options.bodyField, ast::FieldKind::Node, true, {}, internal::statementTraits(controller)}
+            helpers::stringField(options.nameField, true)
         },
-        {traits::Statement, traits::Declaration, traits::Function},
+        {},
+        "Function parameter."
+    });
+
+    controller.engine().node({
+        options.declarationNodeKind,
+        {
+            helpers::stringField(options.nameField, true),
+            helpers::nodeListField(options.parametersField, true, {options.parameterNodeKind}, {}),
+            helpers::nodeField(options.bodyField, true, {}, helpers::maybeTraits(enforce, {traits::Statement}))
+        },
+        {traits::Declaration, traits::Statement, traits::Callable},
         "Function declaration."
     });
 
     controller.engine().node({
-        options.functionCallNodeKind,
+        options.callNodeKind,
         {
-            {options.nameField, ast::FieldKind::String, true, {}, {}},
-            {options.argumentsField, ast::FieldKind::NodeList, true, {}, internal::expressionTraits(controller)}
+            helpers::stringField(options.nameField, true),
+            helpers::nodeListField(options.argumentsField, true, {}, helpers::maybeTraits(enforce, {traits::Expression}))
         },
-        {traits::Expression, traits::Function},
+        {traits::Expression},
         "Function call expression."
     });
 
-    controller.engine().parseRule(
-        options.statementDomain,
-        options.functionKeyword,
-        [&controller](parser::ParserContext &context) {
-            const auto &options{controller.options()};
+    controller.engine().parseRule(core.statementDomain, options.functionKeyword, [core, options](parser::ParserContext &context) {
+        context.consume(options.functionKeyword);
 
-            context.consume(options.functionKeyword);
-            const token::Token &name = context.consumeKind(token::Kind::Identifier);
+        const std::string name{
+            helpers::consumeIdentifier(context, "FunctionsFeature::declaration")
+        };
 
-            std::vector<std::string> parsedParameters{internal::parseParameterList(context, controller)};
-            ast::NodeList parameters{makeParameterNodes(controller, std::move(parsedParameters))};
-            ast::NodePtr body{context.parse(controller.statementDomain())};
+        std::vector<std::string> parameterNames{
+            helpers::parseIdentifierList(
+                context,
+                core.leftParenToken,
+                core.rightParenToken,
+                core.commaToken
+            )
+        };
 
-            ast::NodePtr node{controller.engine().makeNode(options.functionDeclarationNodeKind)};
-            node->set(options.nameField, name.text);
-            node->set(options.parametersField, std::move(parameters));
-            node->set(options.bodyField, body);
+        ast::NodeList parameters{};
 
-            return node;
+        for (const std::string &parameterName : parameterNames) {
+            ast::NodePtr parameter{ast::Node::make(options.parameterNodeKind)};
+            parameter->set(options.nameField, parameterName);
+            parameters.push_back(parameter);
         }
-    );
 
-    controller.engine().statement(
-        options.functionDeclarationNodeKind,
-        [&options](const ast::Node &node, runtime::RuntimeContext &context) {
-            context.bindNode(node.str(options.nameField), std::make_shared<ast::Node>(node));
-        }
-    );
+        ast::NodePtr body{context.parse(core.statementDomain)};
 
-    controller.engine().expression(
-        options.functionCallNodeKind,
-        [&options](const ast::Node &node, runtime::RuntimeContext &context) {
-            const std::string &name{node.str(options.nameField)};
-            ast::NodePtr function{context.boundNode(name)};
+        ast::NodePtr node{ast::Node::make(options.declarationNodeKind)};
+        node->set(options.nameField, name);
+        node->set(options.parametersField, std::move(parameters));
+        node->set(options.bodyField, body);
+        return node;
+    });
 
-            if (!function) {
-                throw std::runtime_error("Functions: unknown function '" + name + "'");
-            }
+    controller.engine().statement(options.declarationNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {
+        ast::NodePtr function{ast::Node::make(options.declarationNodeKind)};
+        function->set(options.nameField, node.str(options.nameField));
+        function->set(options.parametersField, node.list(options.parametersField));
+        function->set(options.bodyField, node.child(options.bodyField));
+        context.bindNode(node.str(options.nameField), function);
+    });
 
-            std::vector<std::string> parameters{parameterNames(function->list(options.parametersField), options.nameField)};
-            const ast::NodeList &arguments{node.list(options.argumentsField)};
+    controller.engine().expression(options.callNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {
+        const std::string name{node.str(options.nameField)};
+        const ast::NodeList &arguments{node.list(options.argumentsField)};
 
-            if (parameters.size() != arguments.size()) {
-                throw std::runtime_error("Functions: invalid argument count for function '" + name + "'");
-            }
-
-            std::vector<runtime::Value> values{};
-            values.reserve(arguments.size());
-
+        if (name == options.printFunctionName) {
             for (const ast::NodePtr &argument : arguments) {
-                if (!argument) {
-                    throw std::runtime_error("Functions: null argument in function call '" + name + "'");
-                }
-
-                values.push_back(context.eval(*argument));
+                std::cout << context.eval(*argument).toString() << '\n';
             }
 
-            context.pushScope();
-
-            try {
-                for (std::size_t i{}; i < parameters.size(); ++i) {
-                    if (!context.env().define(parameters[i], std::move(values[i]))) {
-                        throw std::runtime_error("Functions: duplicate parameter '" + parameters[i] + "'");
-                    }
-                }
-
-                context.exec(*function->child(options.bodyField));
-
-                runtime::Value result{context.hasReturn()
-                    ? context.takeReturn()
-                    : runtime::Value::voidValue()
-                };
-
-                context.popScope();
-
-                return result;
-            } catch (...) {
-                context.popScope();
-                throw;
-            }
+            return runtime::Value::voidValue();
         }
-    );
 
-    controller.registerFeature({"essentials.functions", "0.1.0", "Function declarations and calls", {options.functionDeclarationNodeKind, options.functionCallNodeKind, options.parameterNodeKind}, {traits::Statement, traits::Expression, traits::Declaration, traits::Function}, {}});
+        ast::NodePtr function{context.boundNode(name)};
+
+        if (!function) {
+            throw std::runtime_error("FunctionsFeature: unknown function '" + name + "'");
+        }
+
+        const ast::NodeList &parameters{function->list(options.parametersField)};
+
+        if (parameters.size() != arguments.size()) {
+            throw std::runtime_error("FunctionsFeature: wrong argument count for function '" + name + "'");
+        }
+
+        context.pushScope();
+
+        try {
+            for (std::size_t index{}; index < parameters.size(); ++index) {
+                const std::string parameterName{parameters[index]->str(options.nameField)};
+                runtime::Value argumentValue{context.eval(*arguments[index])};
+                context.env().define(parameterName, std::move(argumentValue));
+            }
+
+            context.exec(*function->child(options.bodyField));
+
+            runtime::Value result{runtime::Value::voidValue()};
+
+            if (context.hasReturn()) {
+                result = context.takeReturn();
+            }
+
+            context.popScope();
+
+            return result;
+        } catch (...) {
+            context.popScope();
+            throw;
+        }
+    });
+}
+
+EssentialPack functions() {
+    EssentialPack pack{};
+    pack.add<FunctionsFeature>();
+    return pack;
+}
+
+EssentialPack standard() {
+    EssentialPack pack{};
+    pack.merge(returnStatements());
+    pack.merge(functions());
+    return pack;
 }
 
 } // namespace novac::assets::essentials::functions

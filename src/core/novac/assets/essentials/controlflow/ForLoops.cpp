@@ -1,131 +1,139 @@
 #include "novac/assets/essentials/controlflow/ForLoops.hpp"
 
+#include "novac/assets/essentials/controlflow/IfStatements.hpp"
+#include "novac/assets/essentials/controlflow/WhileLoops.hpp"
 #include "novac/assets/essentials/EssentialTraits.hpp"
 #include "novac/assets/essentials/EssentialsController.hpp"
-#include "novac/assets/essentials/internal/ParsingHelpers.hpp"
-#include "novac/assets/essentials/internal/SchemaHelpers.hpp"
+#include "novac/assets/essentials/helpers/SchemaHelpers.hpp"
 
 #include <stdexcept>
-#include <variant>
 
 namespace novac::assets::essentials::controlflow {
 
 namespace {
 
-ast::NodePtr parseOptionalStatementUntilSemicolon(EssentialsController &controller, parser::ParserContext &context) {
-    const auto &options{controller.options()};
+ast::NodePtr parseAssignmentNoSemicolon(parser::ParserContext &context, const CoreSyntaxOptions &core, const VariableSyntaxOptions &variables) {
+    const token::Token name{context.consumeKind(token::Kind::Identifier)};
 
-    if (context.check(options.semicolonToken)) {
-        context.advance();
-        return nullptr;
-    }
+    context.consume(variables.assignToken);
 
-    ast::NodePtr statement{context.parse(controller.statementDomain())};
+    ast::NodePtr value{context.parse(core.expressionDomain)};
 
-    if (!context.check(options.semicolonToken))
-        return statement;
+    ast::NodePtr node{ast::Node::make(variables.assignmentNodeKind)};
+    node->set(variables.nameField, name.text);
+    node->set(variables.valueField, value);
 
-    context.advance();
-    return statement;
+    return node;
 }
 
 } // namespace
 
-void installForLoops(EssentialsController &controller) {
-    if (controller.hasFeature("essentials.control.for"))
-        return;
+EssentialInfo ForLoopsFeature::info() const {
+    return {"essentials.controlflow.for", "0.1.0", "For loops",
+        {"ForStatement"}, {traits::Statement}, {}
+    };
+}
 
-    const auto &options{controller.options()};
+void ForLoopsFeature::install(EssentialsController &controller) const {
+    const CoreSyntaxOptions core{controller.core()};
+    const VariableSyntaxOptions variables{controller.variables()};
+    const ControlFlowSyntaxOptions options{controller.controlFlow()};
+    const bool enforce{controller.options().enforceChildTraits};
 
     controller.engine().keyword(options.forKeyword);
-    controller.engine().symbol(options.leftParenToken);
-    controller.engine().symbol(options.rightParenToken);
-    controller.engine().symbol(options.semicolonToken);
 
     controller.engine().node({
         options.forNodeKind,
         {
-            {options.initializerField, ast::FieldKind::Node, false, {}, internal::statementTraits(controller)},
-            {options.conditionField, ast::FieldKind::Node, false, {}, internal::expressionTraits(controller)},
-            {options.stepField, ast::FieldKind::Node, false, {}, internal::statementTraits(controller)},
-            {options.bodyField, ast::FieldKind::Node, true, {}, internal::statementTraits(controller)}
+            helpers::nodeField(options.initializerField, false, {}, helpers::maybeTraits(enforce, {traits::Statement})),
+            helpers::nodeField(options.conditionField, false, {}, helpers::maybeTraits(enforce, {traits::Expression})),
+            helpers::nodeField(options.stepField, false, {}, helpers::maybeTraits(enforce, {traits::Statement})),
+            helpers::nodeField(options.bodyField, true, {}, helpers::maybeTraits(enforce, {traits::Statement}))
         },
-        {traits::Statement, traits::ControlFlow},
-        "For loop statement."
+        {traits::Statement},
+        "For loop."
     });
 
-    controller.engine().parseRule(
-        options.statementDomain,
-        options.forKeyword,
-        [&controller](parser::ParserContext &context) {
-            const auto &options{controller.options()};
+    controller.engine().parseRule(core.statementDomain, options.forKeyword, [core, variables, options](parser::ParserContext &context) {
+        context.consume(options.forKeyword);
+        context.consume(core.leftParenToken);
 
-            context.consume(options.forKeyword);
-            context.consume(options.leftParenToken);
+        ast::NodePtr initializer{};
 
-            ast::NodePtr initializer{parseOptionalStatementUntilSemicolon(controller, context)};
+        if (!context.check(core.semicolonToken))
+            initializer = parseAssignmentNoSemicolon(context, core, variables);
 
-            ast::NodePtr condition{};
-            if (!context.check(options.semicolonToken))
-                condition = context.parse(controller.expressionDomain());
+        context.consume(core.semicolonToken);
 
-            context.consume(options.semicolonToken);
+        ast::NodePtr condition{};
 
-            ast::NodePtr step{};
-            if (!context.check(options.rightParenToken))
-                step = context.parse(controller.statementDomain());
+        if (!context.check(core.semicolonToken))
+            condition = context.parse(core.expressionDomain);
 
-            context.consume(options.rightParenToken);
+        context.consume(core.semicolonToken);
 
-            ast::NodePtr body{context.parse(controller.statementDomain())};
+        ast::NodePtr step{};
 
-            ast::NodePtr node{controller.engine().makeNode(options.forNodeKind)};
-            node->set(options.initializerField, initializer ? ast::Field{initializer} : ast::Field{std::monostate{}});
-            node->set(options.conditionField, condition ? ast::Field{condition} : ast::Field{std::monostate{}});
-            node->set(options.stepField, step ? ast::Field{step} : ast::Field{std::monostate{}});
-            node->set(options.bodyField, body);
+        if (!context.check(core.rightParenToken))
+            step = parseAssignmentNoSemicolon(context, core, variables);
 
-            return node;
-        }
-    );
+        context.consume(core.rightParenToken);
 
-    controller.engine().statement(
-        options.forNodeKind,
-        [&options](const ast::Node &node, runtime::RuntimeContext &context) {
-            context.pushScope();
+        ast::NodePtr body{context.parse(core.statementDomain)};
+        ast::NodePtr node{ast::Node::make(options.forNodeKind)};
 
-            try {
-                if (node.has(options.initializerField) && !std::holds_alternative<std::monostate>(node.field(options.initializerField)))
-                    context.exec(*node.child(options.initializerField));
+        if (initializer) node->set(options.initializerField, initializer);
+        if (condition) node->set(options.conditionField, condition);
+        if (step) node->set(options.stepField, step);
 
-                int iterations{};
+        node->set(options.bodyField, body);
 
-                while (true) {
-                    if (node.has(options.conditionField) && !std::holds_alternative<std::monostate>(node.field(options.conditionField)))
-                        if (!context.eval(*node.child(options.conditionField)).truthy())
-                            break;
+        return node;
+    });
 
-                    if (options.maxLoopIterations > 0 && iterations++ >= options.maxLoopIterations)
-                        throw std::runtime_error("ForLoops: maximum loop iteration count exceeded");
+    controller.engine().statement(options.forNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {
+        context.pushScope();
 
-                    context.exec(*node.child(options.bodyField));
-
-                    if (context.hasReturn())
-                        break;
-
-                    if (node.has(options.stepField) && !std::holds_alternative<std::monostate>(node.field(options.stepField)))
-                        context.exec(*node.child(options.stepField));
-                }
-
-                context.popScope();
-            } catch (...) {
-                context.popScope();
-                throw;
+        try {
+            if (node.has(options.initializerField)) {
+                context.exec(*node.child(options.initializerField));
             }
-        }
-    );
 
-    controller.registerFeature({"essentials.control.for", "0.1.0", "For loops", {options.forNodeKind}, {traits::Statement, traits::ControlFlow}, {}});
+            int iterations{};
+
+            while (!node.has(options.conditionField) || context.eval(*node.child(options.conditionField)).truthy()) {
+                if (options.maxLoopIterations > 0 && iterations++ >= options.maxLoopIterations)
+                    throw std::runtime_error("ForLoopsFeature: maximum loop iteration count exceeded");
+
+                context.exec(*node.child(options.bodyField));
+
+                if (context.hasReturn())
+                    break;
+
+                if (node.has(options.stepField))
+                    context.exec(*node.child(options.stepField));
+            }
+
+            context.popScope();
+        } catch (...) {
+            context.popScope();
+            throw;
+        }
+    });
+}
+
+EssentialPack forLoops() {
+    EssentialPack pack{};
+    pack.add<ForLoopsFeature>();
+    return pack;
+}
+
+EssentialPack standard() {
+    EssentialPack pack{};
+    pack.merge(ifStatements());
+    pack.merge(whileLoops());
+    pack.merge(forLoops());
+    return pack;
 }
 
 } // namespace novac::assets::essentials::controlflow

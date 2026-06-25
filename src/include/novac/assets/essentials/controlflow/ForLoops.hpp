@@ -1,13 +1,16 @@
 #pragma once
 
-namespace novac::assets::essentials {
+#include "novac/assets/essentials/EssentialFeature.hpp"
 
-class EssentialsController;
+namespace novac::assets::essentials::controlflow {
 
-namespace controlflow {
+class ForLoopsFeature final : public EssentialFeature {
+public:
+    EssentialInfo info() const override;
+    void install(EssentialsController &controller) const override;
+};
 
-void installForLoops(EssentialsController &controller);
+EssentialPack forLoops();
+EssentialPack standard();
 
-} // namespace controlflow
-
-} // namespace novac::assets::essentials
+} // namespace novac::assets::essentials::controlflow

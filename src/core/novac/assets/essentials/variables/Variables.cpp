@@ -1,181 +1,175 @@
 #include "novac/assets/essentials/variables/Variables.hpp"
 
+#include "novac/assets/essentials/variables/ExpressionStatements.hpp"
 #include "novac/assets/essentials/EssentialTraits.hpp"
 #include "novac/assets/essentials/EssentialsController.hpp"
-#include "novac/assets/essentials/internal/ParsingHelpers.hpp"
-#include "novac/assets/essentials/internal/SchemaHelpers.hpp"
+#include "novac/assets/essentials/helpers/ParsingHelpers.hpp"
+#include "novac/assets/essentials/helpers/SchemaHelpers.hpp"
 
 #include <stdexcept>
-#include <utility>
 
 namespace novac::assets::essentials::variables {
 
-namespace {
-
-ast::NodePtr parseVariableDeclaration(EssentialsController &controller, parser::ParserContext &context, bool consumeSemicolon) {
-    const auto &options{controller.options()};
-
-    context.consume(options.letKeyword);
-    const token::Token &name{context.consumeKind(token::Kind::Identifier)};
-    context.consume(options.assignToken);
-
-    ast::NodePtr value{context.parse(controller.expressionDomain())};
-
-    if (consumeSemicolon)
-        internal::maybeConsumeSemicolon(context, controller);
-
-    ast::NodePtr node{controller.engine().makeNode(options.variableDeclarationNodeKind)};
-    node->set(options.nameField, name.text);
-    node->set(options.valueField, value);
-
-    return node;
+EssentialInfo VariablesFeature::info() const {
+    return {
+        "essentials.variables",
+        "0.1.0",
+        "Variable declarations, assignments, and lookups",
+        {"VariableDeclaration", "VariableExpression", "AssignmentStatement"},
+        {traits::Expression, traits::Statement},
+        {}
+    };
 }
 
-ast::NodePtr parseAssignment(EssentialsController &controller, parser::ParserContext &context, bool consumeSemicolon) {
-    const auto &options{controller.options()};
-
-    const token::Token &name{context.consumeKind(token::Kind::Identifier)};
-    context.consume(options.assignToken);
-
-    ast::NodePtr value{context.parse(controller.expressionDomain())};
-
-    if (consumeSemicolon)
-        internal::maybeConsumeSemicolon(context, controller);
-
-    ast::NodePtr node{controller.engine().makeNode(options.assignmentNodeKind)};
-    node->set(options.nameField, name.text);
-    node->set(options.valueField, value);
-
-    return node;
-}
-
-} // namespace
-
-void installVariables(EssentialsController &controller) {
-    if (controller.hasFeature("essentials.variables"))
-        return;
-
-    const auto &options{controller.options()};
+void VariablesFeature::install(EssentialsController &controller) const {
+    const CoreSyntaxOptions core{controller.core()};
+    const VariableSyntaxOptions options{controller.variables()};
+    const bool enforce{controller.options().enforceChildTraits};
 
     controller.engine().keyword(options.letKeyword);
     controller.engine().symbol(options.assignToken);
-    controller.engine().symbol(options.semicolonToken);
+    controller.engine().symbol(core.semicolonToken);
 
     controller.engine().node({
-        options.variableDeclarationNodeKind,
+        options.declarationNodeKind,
         {
-            {options.nameField, ast::FieldKind::String, true, {}, {}},
-            {options.valueField, ast::FieldKind::Node, true, {}, internal::expressionTraits(controller)}
+            helpers::stringField(options.nameField, true),
+            helpers::nodeField(
+                options.valueField,
+                true,
+                {},
+                helpers::maybeTraits(enforce, {traits::Expression})
+            )
         },
-        {traits::Statement, traits::Declaration, traits::Variable},
-        "Variable declaration statement."
+        {traits::Statement, traits::Declaration},
+        "Variable declaration."
     });
 
     controller.engine().node({
-        options.variableExpressionNodeKind,
+        options.expressionNodeKind,
         {
-            {options.nameField, ast::FieldKind::String, true, {}, {}}
+            helpers::stringField(options.nameField, true)
         },
-        {traits::Expression, traits::Variable},
-        "Variable reference expression."
+        {traits::Expression},
+        "Variable lookup expression."
     });
 
     controller.engine().node({
         options.assignmentNodeKind,
         {
-            {options.nameField, ast::FieldKind::String, true, {}, {}},
-            {options.valueField, ast::FieldKind::Node, true, {}, internal::expressionTraits(controller)}
+            helpers::stringField(options.nameField, true),
+            helpers::nodeField(
+                options.valueField,
+                true,
+                {},
+                helpers::maybeTraits(enforce, {traits::Expression})
+            )
         },
-        {traits::Statement, traits::Variable},
+        {traits::Statement},
         "Variable assignment statement."
     });
 
-    controller.engine().parseRule(
-        options.statementDomain,
-        options.letKeyword,
-        [&controller](parser::ParserContext &context) {
-            return parseVariableDeclaration(controller, context, true);
-        }
-    );
+    controller.engine().parseRule(core.statementDomain, options.letKeyword, [core, options](parser::ParserContext &context) {
+        context.consume(options.letKeyword);
 
-    controller.engine().fallback(
-        options.statementDomain,
-        [&controller](parser::ParserContext &context) -> ast::NodePtr {
-            const auto &options{controller.options()};
+        const std::string name{
+            helpers::consumeIdentifier(context, "VariablesFeature::declaration")
+        };
 
-            if (context.cur().kind == token::Kind::Identifier && context.peek().text == options.assignToken) {
-                return parseAssignment(controller, context, true);
-            }
+        context.consume(options.assignToken);
+        ast::NodePtr value{context.parse(core.expressionDomain)};
+        context.consume(core.semicolonToken);
 
+        ast::NodePtr node{ast::Node::make(options.declarationNodeKind)};
+        node->set(options.nameField, name);
+        node->set(options.valueField, value);
+        return node;
+    });
+
+    controller.engine().fallback(core.statementDomain, [core, options](parser::ParserContext &context) -> ast::NodePtr {
+        if (context.cur().kind != token::Kind::Identifier || context.peek().text != options.assignToken) {
             return nullptr;
         }
-    );
 
-    controller.engine().prefix(
-        options.expressionDomain,
-        "$identifier",
-        [&controller](parser::ParserContext &context) {
-            const auto &options{controller.options()};
-            const token::Token &name{context.consumeKind(token::Kind::Identifier)};
+        const std::string name{context.advance().text};
+        context.consume(options.assignToken);
+        ast::NodePtr value{context.parse(core.expressionDomain)};
+        context.consume(core.semicolonToken);
 
-            if (context.check(options.leftParenToken)) {
-                ast::NodeList arguments{internal::parseArgumentList(context, controller)};
-
-                ast::NodePtr call{controller.engine().makeNode(options.functionCallNodeKind)};
-                call->set(options.nameField, name.text);
-                call->set(options.argumentsField, std::move(arguments));
-                return call;
-            }
-
-            ast::NodePtr node{controller.engine().makeNode(options.variableExpressionNodeKind)};
-            node->set(options.nameField, name.text);
-            return node;
-        }
-    );
-
-    controller.engine().statement(
-        options.variableDeclarationNodeKind,
-        [&options](const ast::Node &node, runtime::RuntimeContext &context) {
-            const std::string &name{node.str(options.nameField)};
-            runtime::Value value{context.eval(*node.child(options.valueField))};
-
-            if (!context.env().define(name, std::move(value))) {
-                throw std::runtime_error("Variables: variable '" + name + "' is already defined in this scope");
-            }
-        }
-    );
-
-    controller.engine().statement(
-        options.assignmentNodeKind,
-        [&options](const ast::Node &node, runtime::RuntimeContext &context) {
-            const std::string &name{node.str(options.nameField)};
-            runtime::Value value{context.eval(*node.child(options.valueField))};
-
-            if (!context.env().assign(name, std::move(value))) {
-                throw std::runtime_error("Variables: cannot assign unknown variable '" + name + "'");
-            }
-        }
-    );
-
-    controller.engine().expression(
-        options.variableExpressionNodeKind,
-        [&options](const ast::Node &node, runtime::RuntimeContext &context) {
-            const std::string &name{node.str(options.nameField)};
-            const runtime::Value *value{context.env().resolve(name)};
-
-            if (!value) {
-                throw std::runtime_error("Variables: unknown variable '" + name + "'");
-            }
-
-            return *value;
-        }
-    );
-
-    controller.registerFeature({"essentials.variables", "0.1.0", "Variable declarations, references, and assignments",
-        {options.variableDeclarationNodeKind, options.variableExpressionNodeKind, options.assignmentNodeKind},
-        {traits::Statement, traits::Expression, traits::Declaration, traits::Variable},
-        {}
+        ast::NodePtr node{ast::Node::make(options.assignmentNodeKind)};
+        node->set(options.nameField, name);
+        node->set(options.valueField, value);
+        return node;
     });
+
+    controller.engine().prefix(core.expressionDomain, "$identifier", [core, options](parser::ParserContext &context) {
+        const std::string name{
+            helpers::consumeIdentifier(context, "VariablesFeature::expression")
+        };
+
+        if (context.check(core.leftParenToken)) {
+            ast::NodeList arguments{
+                helpers::parseExpressionList(
+                    context,
+                    core.expressionDomain,
+                    core.leftParenToken,
+                    core.rightParenToken,
+                    core.commaToken
+                )
+            };
+
+            ast::NodePtr call{ast::Node::make("FunctionCall")};
+            call->set("name", name);
+            call->set("arguments", std::move(arguments));
+            return call;
+        }
+
+        ast::NodePtr node{ast::Node::make(options.expressionNodeKind)};
+        node->set(options.nameField, name);
+        return node;
+    });
+
+    controller.engine().statement(options.declarationNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {
+        const std::string name{node.str(options.nameField)};
+        runtime::Value value{context.eval(*node.child(options.valueField))};
+
+        if (!context.env().define(name, std::move(value))) {
+            throw std::runtime_error("VariablesFeature: duplicate variable '" + name + "'");
+        }
+    });
+
+    controller.engine().statement(options.assignmentNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {
+        const std::string name{node.str(options.nameField)};
+        runtime::Value value{context.eval(*node.child(options.valueField))};
+
+        if (!context.env().assign(name, value)) {
+            context.env().define(name, std::move(value));
+        }
+    });
+
+    controller.engine().expression(options.expressionNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {
+        const std::string name{node.str(options.nameField)};
+        const runtime::Value *value{context.env().resolve(name)};
+
+        if (!value) {
+            throw std::runtime_error("VariablesFeature: unknown variable '" + name + "'");
+        }
+
+        return *value;
+    });
+}
+
+EssentialPack variables() {
+    EssentialPack pack{};
+    pack.add<VariablesFeature>();
+    return pack;
+}
+
+EssentialPack standard() {
+    EssentialPack pack{};
+    pack.merge(variables());
+    pack.merge(expressionStatements());
+    return pack;
 }
 
 } // namespace novac::assets::essentials::variables

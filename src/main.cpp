@@ -5,175 +5,177 @@
 #include "novac/assets/essentials/EssentialsController.hpp"
 #include "novac/engine/EngineController.hpp"
 
-namespace {
-
-void printExpression(
-    const novac::controllers::EngineController &engine,
-    const std::string &source
-) {
-    const novac::ast::NodePtr root{engine.parse(source)};
-
-    engine.validate(*root);
-
-    const novac::runtime::Value value{engine.eval(*root)};
-
-    std::cout << source << " => " << value.toString() << '\n';
-}
-
-novac::ast::NodePtr printStmt(
-    novac::controllers::EngineController &engine,
-    const std::string &expressionSource
-) {
-    novac::ast::NodePtr statement{engine.makeNode("PrintStatement")};
-    statement->set("expression", engine.parse(expressionSource));
-    return statement;
-}
-
-novac::ast::NodePtr blockStmt(
-    novac::controllers::EngineController &engine,
-    novac::ast::NodeList statements
-) {
-    novac::ast::NodePtr block{engine.makeNode("BlockStmt")};
-    block->set("statements", std::move(statements));
-    return block;
-}
-
-void installPrintStatement(novac::controllers::EngineController &engine) {
-    engine.node({
-        "PrintStatement",
-        {
-            {"expression", novac::ast::FieldKind::Node, true, {}, {}}
-        },
-        {"Statement"},
-        "Print expression statement."
-    });
-
-    engine.statement(
-        "PrintStatement",
-        [](const novac::ast::Node &node, novac::runtime::RuntimeContext &context) {
-            const novac::runtime::Value value{
-                context.eval(*node.child("expression"))
-            };
-
-            std::cout << "print => " << value.toString() << '\n';
-        }
-    );
-}
-
-void runNovaProgramDemo(novac::controllers::EngineController &engine) {
-    std::cout << "\n== Nova program demo ==\n";
-
-    /*
-        Future Nova source equivalent:
-
-        {
-            print 10_i32 plus 20_int mul 3_i64;
-
-            {
-                print "Hello Nova"_str;
-                print not no;
-            }
-
-            print 10_i64 above 3_int and yes;
-        }
-    */
-
-    novac::ast::NodePtr root{
-        blockStmt(
-            engine,
-            {
-                printStmt(engine, "10_i32 plus 20_int mul 3_i64"),
-
-                blockStmt(
-                    engine,
-                    {
-                        printStmt(engine, "\"Hello Nova\"_str"),
-                        printStmt(engine, "not no")
-                    }
-                ),
-
-                printStmt(engine, "10_i64 above 3_int and yes")
-            }
-        )
-    };
-
-    engine.validate(*root);
-    engine.exec(*root);
-}
-
-} // namespace
-
 int main() {
     novac::controllers::EngineController engine{};
 
     novac::assets::atomic::AtomicController atomics{engine};
-    novac::assets::essentials::EssentialsController essentials{engine};
 
-    essentials.installStandardScopes();
-
-    atomics.use(novac::assets::atomic::literals::integer(
-            "IntegerLiteral",
-            {"int", "i32", "i64"}
-        )
-    );
-
-    atomics.use(novac::assets::atomic::literals::floating(
-            "FloatLiteral",
-            {"float", "f32", "f64"}
-        )
-    );
-
-    atomics.use(novac::assets::atomic::literals::stringLiteral(
-            "StringLiteral",
-            {"string", "str", "char"}
-        )
-    );
-
-    atomics.use(novac::assets::atomic::literals::boolean(
-            "BooleanLiteral",
-            "yes",
-            "no"
-        )
-    );
+    atomics.use(novac::assets::atomic::literals::standard());
 
     atomics.use(novac::assets::atomic::operations::numeric({
-            .add = "plus",
-            .subtract = "minus",
-            .multiply = "mul",
-            .divide = "div",
-            .modulo = "mod",
-            .negate = "neg"
-        })
-    );
+        .add = "+",
+        .subtract = "-",
+        .multiply = "*",
+        .divide = "/",
+        .modulo = "%",
+        .negate = "-"
+    }));
 
     atomics.use(novac::assets::atomic::operations::comparison({
-            .equal = "is",
-            .lessEqual = "at_most",
-            .greater = "above"
-        })
-    );
+        .equal = "==",
+        .notEqual = "!=",
+        .less = "<",
+        .lessEqual = "<=",
+        .greater = ">",
+        .greaterEqual = ">="
+    }));
 
     atomics.use(novac::assets::atomic::operations::logical({
-            .andToken = "and",
-            .orToken = "or",
-            .notToken = "not"
-        })
-    );
+        .andToken = "&&",
+        .orToken = "||",
+        .notToken = "!"
+    }));
 
-    installPrintStatement(engine);
+    novac::assets::essentials::EssentialsControllerOptions essentialsOptions{};
 
-    std::cout << "== atomic expressions with custom tokens ==\n";
+    essentialsOptions.core.programDomain = "program";
+    essentialsOptions.core.statementDomain = "stmt";
+    essentialsOptions.core.expressionDomain = "expr";
 
-    printExpression(engine, "10_i32 plus 20_int mul 3_i64");
-    printExpression(engine, "3.5_f32 plus 2.25_float");
-    printExpression(engine, "neg 10_int plus 4_i32");
-    printExpression(engine, "10_i64 above 3_int and yes");
-    printExpression(engine, "not no or no");
-    printExpression(engine, "10_int at_most 10_i32");
-    printExpression(engine, "42_i64 is 42_int");
-    printExpression(engine, "\"nova\"_str");
+    essentialsOptions.core.programNodeKind = "Program";
+    essentialsOptions.core.blockNodeKind = "BlockStmt";
+    essentialsOptions.core.expressionStatementNodeKind = "ExpressionStatement";
 
-    runNovaProgramDemo(engine);
+    essentialsOptions.core.statementsField = "statements";
+    essentialsOptions.core.expressionField = "expression";
+
+    essentialsOptions.core.semicolonToken = ";";
+    essentialsOptions.core.commaToken = ",";
+    essentialsOptions.core.leftBraceToken = "{";
+    essentialsOptions.core.rightBraceToken = "}";
+    essentialsOptions.core.leftParenToken = "(";
+    essentialsOptions.core.rightParenToken = ")";
+
+    essentialsOptions.variables.declarationNodeKind = "VariableDeclaration";
+    essentialsOptions.variables.expressionNodeKind = "VariableExpression";
+    essentialsOptions.variables.assignmentNodeKind = "AssignmentStatement";
+    essentialsOptions.variables.letKeyword = "let";
+    essentialsOptions.variables.assignToken = "=";
+    essentialsOptions.variables.nameField = "name";
+    essentialsOptions.variables.valueField = "value";
+
+    essentialsOptions.controlFlow.ifNodeKind = "IfStatement";
+    essentialsOptions.controlFlow.whileNodeKind = "WhileStatement";
+    essentialsOptions.controlFlow.forNodeKind = "ForStatement";
+    essentialsOptions.controlFlow.ifKeyword = "if";
+    essentialsOptions.controlFlow.elseKeyword = "else";
+    essentialsOptions.controlFlow.whileKeyword = "while";
+    essentialsOptions.controlFlow.forKeyword = "for";
+    essentialsOptions.controlFlow.conditionField = "condition";
+    essentialsOptions.controlFlow.thenField = "thenBranch";
+    essentialsOptions.controlFlow.elseField = "elseBranch";
+    essentialsOptions.controlFlow.bodyField = "body";
+    essentialsOptions.controlFlow.initializerField = "initializer";
+    essentialsOptions.controlFlow.stepField = "step";
+    essentialsOptions.controlFlow.maxLoopIterations = 100000;
+
+    essentialsOptions.functions.declarationNodeKind = "FunctionDeclaration";
+    essentialsOptions.functions.callNodeKind = "FunctionCall";
+    essentialsOptions.functions.parameterNodeKind = "FunctionParameter";
+    essentialsOptions.functions.returnNodeKind = "ReturnStatement";
+    essentialsOptions.functions.functionKeyword = "func";
+    essentialsOptions.functions.returnKeyword = "return";
+    essentialsOptions.functions.printFunctionName = "print";
+    essentialsOptions.functions.mainFunctionName = "main";
+    essentialsOptions.functions.nameField = "name";
+    essentialsOptions.functions.bodyField = "body";
+    essentialsOptions.functions.parametersField = "parameters";
+    essentialsOptions.functions.argumentsField = "arguments";
+    essentialsOptions.functions.valueField = "value";
+
+    essentialsOptions.enforceChildTraits = false;
+
+    novac::assets::essentials::EssentialsController essentials{
+        engine,
+        essentialsOptions
+    };
+
+    essentials.installStandardCore();
+
+    const std::string source{
+R"(
+
+func add(a, b) {
+    return a + b;
+}
+
+func factorial(n) {
+
+    result = 1;
+
+    while n > 1 {
+
+        result = result * n;
+        n = n - 1;
+
+    }
+
+    return result;
+}
+
+func main() {
+
+    x = 5;
+    y = 6;
+
+    z = add(x, y);
+
+    print("x =");
+    print(x);
+
+    print("y =");
+    print(y);
+
+    print("z =");
+    print(z);
+
+    if z > 10 {
+
+        print("greater than ten");
+
+    } else {
+
+        print("ten or below");
+
+    }
+
+    sum = 0;
+
+    for(i = 0; i < 5; i = i + 1) {
+
+        sum = sum + i;
+
+    }
+
+    print("sum =");
+    print(sum);
+
+    print("factorial =");
+    print(factorial(5));
+
+    return z + sum;
+}
+
+)"
+    };
+
+    const novac::ast::NodePtr program{engine.parse(source)};
+
+    engine.validate(*program);
+
+    const novac::runtime::Value result{engine.eval(*program)};
+
+    std::cout << "Program returned: " << result.toString() << '\n';
 
     return 0;
 }

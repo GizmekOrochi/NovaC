@@ -1,13 +1,16 @@
 #pragma once
 
-namespace novac::assets::essentials {
+#include "novac/assets/essentials/EssentialFeature.hpp"
 
-class EssentialsController;
+namespace novac::assets::essentials::functions {
 
-namespace functions {
+class ReturnStatementsFeature final : public EssentialFeature {
+public:
+    EssentialInfo info() const override;
+    void install(EssentialsController &controller) const override;
+};
 
-void installReturnStatements(EssentialsController &controller);
+EssentialPack returnStatements();
+EssentialPack standard();
 
-} // namespace functions
-
-} // namespace novac::assets::essentials
+} // namespace novac::assets::essentials::functions
