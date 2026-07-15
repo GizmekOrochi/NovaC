@@ -7,14 +7,7 @@
 namespace novac::assets::essentials::functions {
 
 EssentialInfo ReturnStatementsFeature::info() const {
-    return {
-        "essentials.functions.return",
-        "0.1.0",
-        "Return statements",
-        {"ReturnStatement"},
-        {traits::Statement},
-        {}
-    };
+    return {"essentials.functions.return", "0.1.0", "Return statements", {"ReturnStatement"}, {traits::Statement}, {}};
 }
 
 void ReturnStatementsFeature::install(EssentialsController &controller) const {
@@ -27,14 +20,7 @@ void ReturnStatementsFeature::install(EssentialsController &controller) const {
 
     controller.engine().node({
         options.returnNodeKind,
-        {
-            helpers::nodeField(
-                options.valueField,
-                false,
-                {},
-                helpers::maybeTraits(enforce, {traits::Expression})
-            )
-        },
+        {helpers::nodeField(options.valueField, false, {}, helpers::maybeTraits(enforce, {traits::Expression}))},
         {traits::Statement},
         "Return statement."
     });
@@ -44,27 +30,22 @@ void ReturnStatementsFeature::install(EssentialsController &controller) const {
 
         ast::NodePtr value{};
 
-        if (!context.check(core.semicolonToken)) {
+        if (!context.check(core.semicolonToken))
             value = context.parse(core.expressionDomain);
-        }
 
         context.consume(core.semicolonToken);
 
         ast::NodePtr node{ast::Node::make(options.returnNodeKind)};
 
-        if (value) {
+        if (value)
             node->set(options.valueField, value);
-        }
 
         return node;
     });
 
     controller.engine().statement(options.returnNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {
-        if (node.has(options.valueField)) {
-            context.returnValue(context.eval(*node.child(options.valueField)));
-        } else {
-            context.returnValue(runtime::Value::voidValue());
-        }
+        if (node.has(options.valueField)) context.returnValue(context.eval(*node.child(options.valueField)));
+        else context.returnValue(runtime::Value::voidValue());
     });
 }
 

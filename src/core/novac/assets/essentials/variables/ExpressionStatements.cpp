@@ -7,14 +7,7 @@
 namespace novac::assets::essentials::variables {
 
 EssentialInfo ExpressionStatementsFeature::info() const {
-    return {
-        "essentials.variables.expression-statements",
-        "0.1.0",
-        "Expression statements",
-        {"ExpressionStatement"},
-        {traits::Statement},
-        {}
-    };
+    return {"essentials.variables.expression-statements", "0.1.0", "Expression statements", {"ExpressionStatement"}, {traits::Statement}, {}};
 }
 
 void ExpressionStatementsFeature::install(EssentialsController &controller) const {
@@ -25,14 +18,7 @@ void ExpressionStatementsFeature::install(EssentialsController &controller) cons
 
     controller.engine().node({
         options.expressionStatementNodeKind,
-        {
-            helpers::nodeField(
-                options.expressionField,
-                true,
-                {},
-                helpers::maybeTraits(enforce, {traits::Expression})
-            )
-        },
+        {helpers::nodeField(options.expressionField, true, {}, helpers::maybeTraits(enforce, {traits::Expression}))},
         {traits::Statement},
         "Expression statement."
     });
@@ -40,9 +26,8 @@ void ExpressionStatementsFeature::install(EssentialsController &controller) cons
     controller.engine().fallback(options.statementDomain, [options](parser::ParserContext &context) -> ast::NodePtr {
         ast::NodePtr expression{context.parse(options.expressionDomain)};
 
-        if (!context.check(options.semicolonToken)) {
+        if (!context.check(options.semicolonToken))
             return nullptr;
-        }
 
         context.consume(options.semicolonToken);
 

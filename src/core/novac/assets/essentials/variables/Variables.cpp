@@ -11,14 +11,7 @@
 namespace novac::assets::essentials::variables {
 
 EssentialInfo VariablesFeature::info() const {
-    return {
-        "essentials.variables",
-        "0.1.0",
-        "Variable declarations, assignments, and lookups",
-        {"VariableDeclaration", "VariableExpression", "AssignmentStatement"},
-        {traits::Expression, traits::Statement},
-        {}
-    };
+    return {"essentials.variables", "0.1.0", "Variable declarations, assignments, and lookups", {"VariableDeclaration", "VariableExpression", "AssignmentStatement"}, {traits::Expression, traits::Statement}, {}};
 }
 
 void VariablesFeature::install(EssentialsController &controller) const {
@@ -32,39 +25,21 @@ void VariablesFeature::install(EssentialsController &controller) const {
 
     controller.engine().node({
         options.declarationNodeKind,
-        {
-            helpers::stringField(options.nameField, true),
-            helpers::nodeField(
-                options.valueField,
-                true,
-                {},
-                helpers::maybeTraits(enforce, {traits::Expression})
-            )
-        },
+        {helpers::stringField(options.nameField, true), helpers::nodeField(options.valueField, true, {},helpers::maybeTraits(enforce, {traits::Expression}))},
         {traits::Statement, traits::Declaration},
         "Variable declaration."
     });
 
     controller.engine().node({
         options.expressionNodeKind,
-        {
-            helpers::stringField(options.nameField, true)
-        },
+        {helpers::stringField(options.nameField, true)},
         {traits::Expression},
         "Variable lookup expression."
     });
 
     controller.engine().node({
         options.assignmentNodeKind,
-        {
-            helpers::stringField(options.nameField, true),
-            helpers::nodeField(
-                options.valueField,
-                true,
-                {},
-                helpers::maybeTraits(enforce, {traits::Expression})
-            )
-        },
+        {helpers::stringField(options.nameField, true), helpers::nodeField(options.valueField, true, {}, helpers::maybeTraits(enforce, {traits::Expression}))},
         {traits::Statement},
         "Variable assignment statement."
     });
@@ -72,9 +47,7 @@ void VariablesFeature::install(EssentialsController &controller) const {
     controller.engine().parseRule(core.statementDomain, options.letKeyword, [core, options](parser::ParserContext &context) {
         context.consume(options.letKeyword);
 
-        const std::string name{
-            helpers::consumeIdentifier(context, "VariablesFeature::declaration")
-        };
+        const std::string name{helpers::consumeIdentifier(context, "VariablesFeature::declaration")};
 
         context.consume(options.assignToken);
         ast::NodePtr value{context.parse(core.expressionDomain)};
@@ -87,9 +60,8 @@ void VariablesFeature::install(EssentialsController &controller) const {
     });
 
     controller.engine().fallback(core.statementDomain, [core, options](parser::ParserContext &context) -> ast::NodePtr {
-        if (context.cur().kind != token::Kind::Identifier || context.peek().text != options.assignToken) {
+        if (context.cur().kind != token::Kind::Identifier || context.peek().text != options.assignToken)
             return nullptr;
-        }
 
         const std::string name{context.advance().text};
         context.consume(options.assignToken);
@@ -103,21 +75,10 @@ void VariablesFeature::install(EssentialsController &controller) const {
     });
 
     controller.engine().prefix(core.expressionDomain, "$identifier", [core, options](parser::ParserContext &context) {
-        const std::string name{
-            helpers::consumeIdentifier(context, "VariablesFeature::expression")
-        };
+        const std::string name{helpers::consumeIdentifier(context, "VariablesFeature::expression")};
 
         if (context.check(core.leftParenToken)) {
-            ast::NodeList arguments{
-                helpers::parseExpressionList(
-                    context,
-                    core.expressionDomain,
-                    core.leftParenToken,
-                    core.rightParenToken,
-                    core.commaToken
-                )
-            };
-
+            ast::NodeList arguments{helpers::parseExpressionList(context, core.expressionDomain, core.leftParenToken, core.rightParenToken, core.commaToken)};
             ast::NodePtr call{ast::Node::make("FunctionCall")};
             call->set("name", name);
             call->set("arguments", std::move(arguments));
@@ -133,18 +94,16 @@ void VariablesFeature::install(EssentialsController &controller) const {
         const std::string name{node.str(options.nameField)};
         runtime::Value value{context.eval(*node.child(options.valueField))};
 
-        if (!context.env().define(name, std::move(value))) {
+        if (!context.env().define(name, std::move(value)))
             throw std::runtime_error("VariablesFeature: duplicate variable '" + name + "'");
-        }
     });
 
     controller.engine().statement(options.assignmentNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {
         const std::string name{node.str(options.nameField)};
         runtime::Value value{context.eval(*node.child(options.valueField))};
 
-        if (!context.env().assign(name, value)) {
+        if (!context.env().assign(name, value))
             context.env().define(name, std::move(value));
-        }
     });
 
     controller.engine().expression(options.expressionNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {

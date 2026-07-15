@@ -5,102 +5,85 @@
 #include "novac/assets/essentials/EssentialsController.hpp"
 #include "novac/engine/EngineController.hpp"
 
-int main() {
-    novac::controllers::EngineController engine{};
 
+int main() {
+
+    novac::controllers::EngineController engine{};
     novac::assets::atomic::AtomicController atomics{engine};
 
     atomics.use(novac::assets::atomic::literals::standard());
+    atomics.use(
+        novac::assets::atomic::operations::numeric({
+            .add = "+",
+            .subtract = "-",
+            .multiply = "*",
+            .divide = "/",
+            .modulo = "%",
+            .negate = "-"
+        })
+    );
 
-    atomics.use(novac::assets::atomic::operations::numeric({
-        .add = "+",
-        .subtract = "-",
-        .multiply = "*",
-        .divide = "/",
-        .modulo = "%",
-        .negate = "-"
-    }));
+    atomics.use(
+        novac::assets::atomic::operations::comparison({
+            .equal = "==",
+            .notEqual = "!=",
+            .less = "<",
+            .lessEqual = "<=",
+            .greater = ">",
+            .greaterEqual = ">="
+        })
+    );
 
-    atomics.use(novac::assets::atomic::operations::comparison({
-        .equal = "==",
-        .notEqual = "!=",
-        .less = "<",
-        .lessEqual = "<=",
-        .greater = ">",
-        .greaterEqual = ">="
-    }));
+    atomics.use(
+        novac::assets::atomic::operations::logical({
+            .andToken = "&&",
+            .orToken = "||",
+            .notToken = "!"
+        })
+    );
 
-    atomics.use(novac::assets::atomic::operations::logical({
-        .andToken = "&&",
-        .orToken = "||",
-        .notToken = "!"
-    }));
+    novac::assets::essentials::EssentialsControllerOptions options{};
 
-    novac::assets::essentials::EssentialsControllerOptions essentialsOptions{};
+    options.core.programDomain = "program";
+    options.core.statementDomain = "stmt";
+    options.core.expressionDomain = "expr";
 
-    essentialsOptions.core.programDomain = "program";
-    essentialsOptions.core.statementDomain = "stmt";
-    essentialsOptions.core.expressionDomain = "expr";
+    options.core.programNodeKind = "Program";
+    options.core.blockNodeKind = "BlockStmt";
+    options.core.expressionStatementNodeKind = "ExpressionStatement";
 
-    essentialsOptions.core.programNodeKind = "Program";
-    essentialsOptions.core.blockNodeKind = "BlockStmt";
-    essentialsOptions.core.expressionStatementNodeKind = "ExpressionStatement";
+    options.core.statementsField = "statements";
+    options.core.expressionField = "expression";
 
-    essentialsOptions.core.statementsField = "statements";
-    essentialsOptions.core.expressionField = "expression";
+    options.core.semicolonToken = ";";
+    options.core.commaToken = ",";
+    options.core.leftBraceToken = "{";
+    options.core.rightBraceToken = "}";
+    options.core.leftParenToken = "(";
+    options.core.rightParenToken = ")";
 
-    essentialsOptions.core.semicolonToken = ";";
-    essentialsOptions.core.commaToken = ",";
-    essentialsOptions.core.leftBraceToken = "{";
-    essentialsOptions.core.rightBraceToken = "}";
-    essentialsOptions.core.leftParenToken = "(";
-    essentialsOptions.core.rightParenToken = ")";
+    options.functions.functionKeyword = "func";
+    options.functions.returnKeyword = "return";
+    options.functions.mainFunctionName = "main";
 
-    essentialsOptions.variables.declarationNodeKind = "VariableDeclaration";
-    essentialsOptions.variables.expressionNodeKind = "VariableExpression";
-    essentialsOptions.variables.assignmentNodeKind = "AssignmentStatement";
-    essentialsOptions.variables.letKeyword = "let";
-    essentialsOptions.variables.assignToken = "=";
-    essentialsOptions.variables.nameField = "name";
-    essentialsOptions.variables.valueField = "value";
-
-    essentialsOptions.controlFlow.ifNodeKind = "IfStatement";
-    essentialsOptions.controlFlow.whileNodeKind = "WhileStatement";
-    essentialsOptions.controlFlow.forNodeKind = "ForStatement";
-    essentialsOptions.controlFlow.ifKeyword = "if";
-    essentialsOptions.controlFlow.elseKeyword = "else";
-    essentialsOptions.controlFlow.whileKeyword = "while";
-    essentialsOptions.controlFlow.forKeyword = "for";
-    essentialsOptions.controlFlow.conditionField = "condition";
-    essentialsOptions.controlFlow.thenField = "thenBranch";
-    essentialsOptions.controlFlow.elseField = "elseBranch";
-    essentialsOptions.controlFlow.bodyField = "body";
-    essentialsOptions.controlFlow.initializerField = "initializer";
-    essentialsOptions.controlFlow.stepField = "step";
-    essentialsOptions.controlFlow.maxLoopIterations = 100000;
-
-    essentialsOptions.functions.declarationNodeKind = "FunctionDeclaration";
-    essentialsOptions.functions.callNodeKind = "FunctionCall";
-    essentialsOptions.functions.parameterNodeKind = "FunctionParameter";
-    essentialsOptions.functions.returnNodeKind = "ReturnStatement";
-    essentialsOptions.functions.functionKeyword = "func";
-    essentialsOptions.functions.returnKeyword = "return";
-    essentialsOptions.functions.printFunctionName = "print";
-    essentialsOptions.functions.mainFunctionName = "main";
-    essentialsOptions.functions.nameField = "name";
-    essentialsOptions.functions.bodyField = "body";
-    essentialsOptions.functions.parametersField = "parameters";
-    essentialsOptions.functions.argumentsField = "arguments";
-    essentialsOptions.functions.valueField = "value";
-
-    essentialsOptions.enforceChildTraits = false;
-
-    novac::assets::essentials::EssentialsController essentials{
-        engine,
-        essentialsOptions
-    };
+    novac::assets::essentials::EssentialsController essentials{engine, options};
 
     essentials.installStandardCore();
+    essentials.functionRegistry().native("print", [](const novac::ast::NodeList &arguments, novac::runtime::RuntimeContext &context) -> novac::runtime::Value {
+            for(const auto &argument : arguments) {
+                std::cout << context.eval(*argument).toString();
+            }
+
+            std::cout << '\n';
+            return novac::runtime::Value::voidValue();
+        }
+    );
+
+    essentials.functionRegistry().native("toto", [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) -> novac::runtime::Value {
+            std::cout << "toto" << '\n';
+            return novac::runtime::Value::voidValue();
+        }
+    );
 
     const std::string source{
 R"(
@@ -163,10 +146,13 @@ func main() {
     print("factorial =");
     print(factorial(5));
 
+    toto();
+
     return z + sum;
 }
 
 )"
+
     };
 
     const novac::ast::NodePtr program{engine.parse(source)};

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "novac/assets/essentials/EssentialFeature.hpp"
+#include "novac/assets/essentials/functions/FunctionRegistry.hpp"
 #include "novac/engine/EngineController.hpp"
 
 #include <memory>
@@ -70,7 +71,6 @@ struct FunctionSyntaxOptions {
 
     std::string functionKeyword{"func"};
     std::string returnKeyword{"return"};
-    std::string printFunctionName{"print"};
     std::string mainFunctionName{"main"};
 
     std::string nameField{"name"};
@@ -125,6 +125,9 @@ public:
     const ControlFlowSyntaxOptions &controlFlow() const;
     const FunctionSyntaxOptions &functions() const;
 
+    functions::FunctionRegistry &functionRegistry();
+    const functions::FunctionRegistry &functionRegistry() const;
+
     bool hasFeature(const std::string &id) const;
     const std::vector<EssentialInfo> &features() const;
 
@@ -133,6 +136,7 @@ private:
     void validateFeature(const EssentialInfo &info) const;
     void rememberFeature(EssentialInfo info);
 
+    functions::FunctionRegistry functionRegistry_;
     controllers::EngineController &engine_;
     EssentialsControllerOptions options_;
     std::vector<EssentialInfo> features_;

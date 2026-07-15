@@ -21,21 +21,11 @@ inline std::vector<std::string> maybeTraits(bool enabled, std::initializer_list<
     return result;
 }
 
-inline ast::FieldSchema nodeField(
-    std::string name,
-    bool required,
-    std::vector<std::string> allowedKinds = {},
-    std::vector<std::string> allowedTraits = {}
-) {
+inline ast::FieldSchema nodeField(std::string name, bool required, std::vector<std::string> allowedKinds = {}, std::vector<std::string> allowedTraits = {}) {
     return {std::move(name), ast::FieldKind::Node, required, std::move(allowedKinds), std::move(allowedTraits)};
 }
 
-inline ast::FieldSchema nodeListField(
-    std::string name,
-    bool required,
-    std::vector<std::string> allowedKinds = {},
-    std::vector<std::string> allowedTraits = {}
-) {
+inline ast::FieldSchema nodeListField(std::string name, bool required, std::vector<std::string> allowedKinds = {}, std::vector<std::string> allowedTraits = {}) {
     return {std::move(name), ast::FieldKind::NodeList, required, std::move(allowedKinds), std::move(allowedTraits)};
 }
 

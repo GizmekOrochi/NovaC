@@ -9,14 +9,7 @@
 namespace novac::assets::essentials::scopes {
 
 EssentialInfo ScopedBlocksFeature::info() const {
-    return {
-        "essentials.scopes.blocks",
-        "0.1.0",
-        "Lexical scoped blocks",
-        {"BlockStmt"},
-        {traits::Statement, traits::Scope},
-        {}
-    };
+    return {"essentials.scopes.blocks", "0.1.0", "Lexical scoped blocks", {"BlockStmt"}, {traits::Statement, traits::Scope}, {}};
 }
 
 void ScopedBlocksFeature::install(EssentialsController &controller) const {
@@ -28,14 +21,7 @@ void ScopedBlocksFeature::install(EssentialsController &controller) const {
 
     controller.engine().node({
         options.blockNodeKind,
-        {
-            helpers::nodeListField(
-                options.statementsField,
-                true,
-                {},
-                helpers::maybeTraits(enforce, {traits::Statement})
-            )
-        },
+        {helpers::nodeListField(options.statementsField, true, {}, helpers::maybeTraits(enforce, {traits::Statement}))},
         {traits::Statement, traits::Scope},
         "Lexical scoped block."
     });
@@ -46,9 +32,8 @@ void ScopedBlocksFeature::install(EssentialsController &controller) const {
         ast::NodeList statements{};
 
         while (!context.check(options.rightBraceToken)) {
-            if (context.end()) {
+            if (context.end())
                 throw std::runtime_error("ScopedBlocksFeature: unterminated block");
-            }
 
             statements.push_back(context.parse(options.statementDomain));
         }
@@ -65,15 +50,13 @@ void ScopedBlocksFeature::install(EssentialsController &controller) const {
 
         try {
             for (const ast::NodePtr &statement : node.list(options.statementsField)) {
-                if (!statement) {
+                if (!statement)
                     throw std::runtime_error("ScopedBlocksFeature: null statement");
-                }
 
                 context.exec(*statement);
 
-                if (context.hasReturn()) {
+                if (context.hasReturn())
                     break;
-                }
             }
 
             context.popScope();
