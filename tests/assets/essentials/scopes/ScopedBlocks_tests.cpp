@@ -68,9 +68,7 @@ TEST(ScopedBlocksFeature, LocalVariableDoesNotEscape) {
 x;
 )")};
 
-    CHECK(throwsRuntimeError([&]() {
-        engine.eval(*program);
-    }));
+    CHECK(throwsRuntimeError([&]() {engine.eval(*program);}));
 }
 
 } // namespace

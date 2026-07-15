@@ -59,9 +59,7 @@ TEST(EssentialsController, EmptyProgramDomainThrows) {
     EssentialsControllerOptions options{};
     options.core.programDomain.clear();
 
-    CHECK(throwsRuntimeError([&]() {
-        EssentialsController controller{engine, options};
-    }));
+    CHECK(throwsRuntimeError([&]() {EssentialsController controller{engine, options};}));
 }
 
 TEST(EssentialsController, EmptyStatementDomainThrows) {
@@ -69,9 +67,7 @@ TEST(EssentialsController, EmptyStatementDomainThrows) {
     EssentialsControllerOptions options{};
     options.core.statementDomain.clear();
 
-    CHECK(throwsRuntimeError([&]() {
-        EssentialsController controller{engine, options};
-    }));
+    CHECK(throwsRuntimeError([&]() {EssentialsController controller{engine, options};}));
 }
 
 TEST(EssentialsController, EmptyExpressionDomainThrows) {
@@ -79,9 +75,7 @@ TEST(EssentialsController, EmptyExpressionDomainThrows) {
     EssentialsControllerOptions options{};
     options.core.expressionDomain.clear();
 
-    CHECK(throwsRuntimeError([&]() {
-        EssentialsController controller{engine, options};
-    }));
+    CHECK(throwsRuntimeError([&]() {EssentialsController controller{engine, options};}));
 }
 
 TEST(EssentialsController, UseFeatureRemembersMetadata) {
@@ -101,18 +95,14 @@ TEST(EssentialsController, DuplicatePackFeatureThrows) {
 
     controller.use(novac::assets::essentials::variables::variables());
 
-    CHECK(throwsRuntimeError([&]() {
-        controller.use(novac::assets::essentials::variables::variables());
-    }));
+    CHECK(throwsRuntimeError([&]() {controller.use(novac::assets::essentials::variables::variables());}));
 }
 
 TEST(EssentialsController, OwnNullFeatureThrows) {
     EngineController engine{};
     EssentialsController controller{engine};
 
-    CHECK(throwsRuntimeError([&]() {
-        controller.own(nullptr);
-    }));
+    CHECK(throwsRuntimeError([&]() {controller.own(nullptr);}));
 }
 
 TEST(EssentialsController, FunctionRegistryIsAccessible) {

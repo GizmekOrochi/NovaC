@@ -22,12 +22,7 @@ using novac::assets::essentials::functions::FunctionRegistry;
 TEST(FunctionRegistry, NativeRegistration) {
     FunctionRegistry registry{};
 
-    registry.native(
-        "answer",
-        [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {
-            return novac::runtime::Value::integer(42);
-        }
-    );
+    registry.native("answer", [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {return novac::runtime::Value::integer(42);});
 
     CHECK(registry.hasNative("answer"));
     CHECK(!registry.hasNative("missing"));
@@ -36,46 +31,29 @@ TEST(FunctionRegistry, NativeRegistration) {
 TEST(FunctionRegistry, EmptyNativeNameThrows) {
     FunctionRegistry registry{};
 
-    CHECK(throwsRuntimeError([&]() {
-        registry.native(
-            "",
-            [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {
-                return novac::runtime::Value::voidValue();
-            }
-        );
-    }));
+    CHECK(throwsRuntimeError([&]() {registry.native("", [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {return novac::runtime::Value::voidValue();});}));
 }
 
 TEST(FunctionRegistry, EmptyNativeHandlerThrows) {
     FunctionRegistry registry{};
 
-    CHECK(throwsRuntimeError([&]() {
-        registry.native("empty", {});
-    }));
+    CHECK(throwsRuntimeError([&]() {registry.native("empty", {});}));
 }
 
 TEST(FunctionRegistry, DuplicateNativeThrows) {
     FunctionRegistry registry{};
 
-    auto handler{
-        [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {
-            return novac::runtime::Value::voidValue();
-        }
-    };
+    auto handler{[](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {return novac::runtime::Value::voidValue();}};
 
     registry.native("duplicate", handler);
 
-    CHECK(throwsRuntimeError([&]() {
-        registry.native("duplicate", handler);
-    }));
+    CHECK(throwsRuntimeError([&]() {registry.native("duplicate", handler);}));
 }
 
 TEST(FunctionRegistry, UnknownNativeThrows) {
     FunctionRegistry registry{};
 
-    CHECK(throwsRuntimeError([&]() {
-        (void)registry.getNative("missing");
-    }));
+    CHECK(throwsRuntimeError([&]() {(void)registry.getNative("missing");}));
 }
 
 TEST(FunctionRegistry, EntryPointCanBeConfigured) {
@@ -89,9 +67,7 @@ TEST(FunctionRegistry, EntryPointCanBeConfigured) {
 TEST(FunctionRegistry, EmptyEntryPointThrows) {
     FunctionRegistry registry{};
 
-    CHECK(throwsRuntimeError([&]() {
-        registry.entryPoint("");
-    }));
+    CHECK(throwsRuntimeError([&]() {registry.entryPoint("");}));
 }
 
 } // namespace

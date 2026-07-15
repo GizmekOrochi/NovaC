@@ -71,13 +71,7 @@ TEST(FunctionsFeature, NativeFunctionExecutes) {
 
     novac::assets::essentials::EssentialsController essentials{engine};
     essentials.installStandardCore();
-
-    essentials.functionRegistry().native(
-        "answer",
-        [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {
-            return novac::runtime::Value::integer(42);
-        }
-    );
+    essentials.functionRegistry().native("answer", [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {return novac::runtime::Value::integer(42);});
 
     const auto program{engine.parse(R"(
 func main() {
@@ -126,9 +120,7 @@ func main() {
 }
 )")};
 
-    CHECK(throwsRuntimeError([&]() {
-        engine.eval(*program);
-    }));
+    CHECK(throwsRuntimeError([&]() {engine.eval(*program);}));
 }
 
 } // namespace

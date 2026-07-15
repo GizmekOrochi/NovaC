@@ -33,14 +33,7 @@ public:
 class TestFeature final : public novac::assets::essentials::EssentialFeature {
 public:
     novac::assets::essentials::EssentialInfo info() const override {
-        return {
-            "test.essential",
-            "1.0.0",
-            "Test essential feature",
-            {"TestNode"},
-            {"test.trait"},
-            {"test.requirement"}
-        };
+        return {"test.essential", "1.0.0", "Test essential feature", {"TestNode"}, {"test.trait"}, {"test.requirement"}};
     }
 
     void install(novac::assets::essentials::EssentialsController &) const override {
@@ -94,9 +87,7 @@ TEST(EssentialFeature, EmptyIdIsRejectedByController) {
     EssentialsController controller{engine};
     test::EmptyIdFeature feature{};
 
-    CHECK(throwsRuntimeError([&]() {
-        controller.use(feature);
-    }));
+    CHECK(throwsRuntimeError([&]() {controller.use(feature);}));
 }
 
 TEST(EssentialFeature, DuplicateFeatureIsRejected) {
@@ -107,9 +98,7 @@ TEST(EssentialFeature, DuplicateFeatureIsRejected) {
 
     controller.use(first);
 
-    CHECK(throwsRuntimeError([&]() {
-        controller.use(second);
-    }));
+    CHECK(throwsRuntimeError([&]() {controller.use(second);}));
 }
 
 } // namespace

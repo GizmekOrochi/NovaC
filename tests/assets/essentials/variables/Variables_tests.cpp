@@ -71,9 +71,7 @@ TEST(VariablesFeature, UnknownVariableThrows) {
 
     const auto program{engine.parse("unknown;")};
 
-    CHECK(throwsRuntimeError([&]() {
-        engine.eval(*program);
-    }));
+    CHECK(throwsRuntimeError([&]() {engine.eval(*program);}));
 }
 
 TEST(VariablesFeature, CustomSyntax) {
