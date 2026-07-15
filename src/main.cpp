@@ -2,85 +2,166 @@
 #include <string>
 
 #include "novac/assets/atomic/AtomicController.hpp"
+#include "novac/assets/essentials/EssentialsController.hpp"
 #include "novac/engine/EngineController.hpp"
 
-namespace {
-
-void printExpression(const novac::controllers::EngineController &engine, const std::string &source) {
-    const novac::ast::NodePtr root{engine.parse(source)};
-
-    engine.validate(*root);
-
-    const novac::runtime::Value value{engine.eval(*root)};
-
-    std::cout << source << " => " << value.toString() << '\n';
-}
-
-} // namespace
 
 int main() {
+
     novac::controllers::EngineController engine{};
     novac::assets::atomic::AtomicController atomics{engine};
 
-    atomics.use(novac::assets::atomic::literals::integer(
-            "IntegerLiteral",
-            {"int", "i32", "i64"}
-        )
-    );
-
-    atomics.use(novac::assets::atomic::literals::floating(
-            "FloatLiteral",
-            {"float", "f32", "f64"}
-        )
-    );
-
-    atomics.use(novac::assets::atomic::literals::stringLiteral(
-            "StringLiteral",
-            {"string", "str", "char"}
-        )
-    );
-
-    atomics.use(novac::assets::atomic::literals::boolean(
-            "BooleanLiteral",
-            "yes",
-            "no"
-        )
-    );
-
-    atomics.use(novac::assets::atomic::operations::numeric({
-            .add = "plus",
-            .subtract = "minus",
-            .multiply = "mul",
-            .divide = "div",
-            .modulo = "mod",
-            .negate = "neg"
+    atomics.use(novac::assets::atomic::literals::standard());
+    atomics.use(
+        novac::assets::atomic::operations::numeric({
+            .add = "+",
+            .subtract = "-",
+            .multiply = "*",
+            .divide = "/",
+            .modulo = "%",
+            .negate = "-"
         })
     );
 
-    atomics.use(novac::assets::atomic::operations::comparison({
-            .equal = "is",
-            .lessEqual = "at_most",
-            .greater = "above"
+    atomics.use(
+        novac::assets::atomic::operations::comparison({
+            .equal = "==",
+            .notEqual = "!=",
+            .less = "<",
+            .lessEqual = "<=",
+            .greater = ">",
+            .greaterEqual = ">="
         })
     );
 
-    atomics.use(novac::assets::atomic::operations::logical({
-            .andToken = "and",
-            .orToken = "or",
-            .notToken = "not"
+    atomics.use(
+        novac::assets::atomic::operations::logical({
+            .andToken = "&&",
+            .orToken = "||",
+            .notToken = "!"
         })
     );
 
-    std::cout << "== atomic expressions with custom tokens ==\n";
+    novac::assets::essentials::EssentialsControllerOptions options{};
 
-    printExpression(engine, "10_i32 plus 20_int mul 3_i64");
-    printExpression(engine, "3.5_f32 plus 2.25_float");
-    printExpression(engine, "neg 10_int plus 4_i32");
-    printExpression(engine, "10_i64 above 3_int and yes");
-    printExpression(engine, "not no or no");
-    printExpression(engine, "10_int at_most 10_i32");
-    printExpression(engine, "42_i64 is 42_int");
-    printExpression(engine, "\"nova\"_str");
+    options.core.programDomain = "program";
+    options.core.statementDomain = "stmt";
+    options.core.expressionDomain = "expr";
+
+    options.core.programNodeKind = "Program";
+    options.core.blockNodeKind = "BlockStmt";
+    options.core.expressionStatementNodeKind = "ExpressionStatement";
+
+    options.core.statementsField = "statements";
+    options.core.expressionField = "expression";
+
+    options.core.semicolonToken = ";";
+    options.core.commaToken = ",";
+    options.core.leftBraceToken = "{";
+    options.core.rightBraceToken = "}";
+    options.core.leftParenToken = "(";
+    options.core.rightParenToken = ")";
+
+    options.functions.functionKeyword = "func";
+    options.functions.returnKeyword = "return";
+    options.functions.mainFunctionName = "main";
+
+    novac::assets::essentials::EssentialsController essentials{engine, options};
+
+    essentials.installStandardCore();
+    essentials.functionRegistry().native("print", [](const novac::ast::NodeList &arguments, novac::runtime::RuntimeContext &context) -> novac::runtime::Value {
+            for(const auto &argument : arguments) {
+                std::cout << context.eval(*argument).toString();
+            }
+
+            std::cout << '\n';
+            return novac::runtime::Value::voidValue();
+        }
+    );
+
+    essentials.functionRegistry().native("toto", [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) -> novac::runtime::Value {
+            std::cout << "toto" << '\n';
+            return novac::runtime::Value::voidValue();
+        }
+    );
+
+    const std::string source{
+R"(
+
+func add(a, b) {
+    return a + b;
+}
+
+func factorial(n) {
+
+    result = 1;
+
+    while n > 1 {
+
+        result = result * n;
+        n = n - 1;
+
+    }
+
+    return result;
+}
+
+func main() {
+
+    x = 5;
+    y = 6;
+
+    z = add(x, y);
+
+    print("x =");
+    print(x);
+
+    print("y =");
+    print(y);
+
+    print("z =");
+    print(z);
+
+    if z > 10 {
+
+        print("greater than ten");
+
+    } else {
+
+        print("ten or below");
+
+    }
+
+    sum = 0;
+
+    for(i = 0; i < 5; i = i + 1) {
+
+        sum = sum + i;
+
+    }
+
+    print("sum =");
+    print(sum);
+
+    print("factorial =");
+    print(factorial(5));
+
+    toto();
+
+    return z + sum;
+}
+
+)"
+
+    };
+
+    const novac::ast::NodePtr program{engine.parse(source)};
+
+    engine.validate(*program);
+
+    const novac::runtime::Value result{engine.eval(*program)};
+
+    std::cout << "Program returned: " << result.toString() << '\n';
 
     return 0;
 }

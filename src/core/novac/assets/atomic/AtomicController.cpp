@@ -208,6 +208,81 @@ AtomicController &AtomicController::own(std::unique_ptr<OperationFeature> featur
     return *this;
 }
 
+AtomicController &AtomicController::integer() {
+    return use(literals::integer());
+}
+
+AtomicController &AtomicController::integer(std::string nodeKind, std::vector<std::string> suffixes) {
+    return use(literals::integer(std::move(nodeKind), std::move(suffixes)));
+}
+
+AtomicController &AtomicController::floating() {
+    return use(literals::floating());
+}
+
+AtomicController &AtomicController::floating(std::string nodeKind, std::vector<std::string> suffixes) {
+    return use(literals::floating(std::move(nodeKind), std::move(suffixes)));
+}
+
+AtomicController &AtomicController::stringLiteral() {
+    return use(literals::stringLiteral());
+}
+
+AtomicController &AtomicController::stringLiteral(std::string nodeKind, std::vector<std::string> suffixes) {
+    return use(literals::stringLiteral(std::move(nodeKind), std::move(suffixes)));
+}
+
+AtomicController &AtomicController::boolean() {
+    return use(literals::boolean());
+}
+
+AtomicController &AtomicController::boolean(std::string nodeKind, std::string trueToken, std::string falseToken) {
+    return use(literals::boolean(std::move(nodeKind), std::move(trueToken), std::move(falseToken)));
+}
+
+AtomicController &AtomicController::add(std::string token) {
+    OperationPack pack{};
+    pack.add<operations::AddOperationAtomic>(detail::TokenPatternFactory::token(std::move(token)));
+    return use(std::move(pack));
+}
+
+AtomicController &AtomicController::subtract(std::string token) {
+    OperationPack pack{};
+    pack.add<operations::SubtractOperationAtomic>(detail::TokenPatternFactory::token(std::move(token)));
+    return use(std::move(pack));
+}
+
+AtomicController &AtomicController::standardLiterals() {
+    return use(literals::standard());
+}
+
+AtomicController &AtomicController::standardNumericOperations() {
+    return use(operations::numeric());
+}
+
+AtomicController &AtomicController::standardComparisonOperations() {
+    return use(operations::comparison());
+}
+
+AtomicController &AtomicController::standardLogicalOperations() {
+    return use(operations::logical());
+}
+
+AtomicController &AtomicController::standardOperations() {
+    return use(operations::standard());
+}
+
+AtomicController &AtomicController::standardCore() {
+    standardLiterals();
+    standardOperations();
+
+    return *this;
+}
+
+AtomicController &AtomicController::installStandardCore() {
+    return standardCore();
+}
+
 controllers::EngineController &AtomicController::engine() {
     return engine_;
 }

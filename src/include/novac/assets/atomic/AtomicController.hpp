@@ -101,6 +101,19 @@ struct OperationPack {
 class AtomicController {
 public:
     /**
+    * @brief Installs the standard atomic language core.
+    *
+    * Installs:
+    * - standard literals
+    * - standard numeric operations
+    * - standard comparison operations
+    * - standard logical operations
+    *
+    * @return This controller, for fluent chaining.
+    */
+    AtomicController &installStandardCore();
+
+    /**
     * @brief Creates a controller bound to an engine.
     *
     * The engine reference is stored and the configured expression domain is set as
@@ -168,6 +181,86 @@ public:
     * @throws std::runtime_error If the feature pointer is null or invalid.
     */
     AtomicController &own(std::unique_ptr<OperationFeature> feature);
+
+    /**
+    * @brief Compatibility helper installing integer literal support.
+    */
+    AtomicController &integer();
+
+    /**
+    * @brief Compatibility helper installing integer literal support with suffixes.
+    */
+    AtomicController &integer(std::string nodeKind, std::vector<std::string> suffixes);
+
+    /**
+    * @brief Compatibility helper installing floating-point literal support.
+    */
+    AtomicController &floating();
+
+    /**
+    * @brief Compatibility helper installing floating-point literal support with suffixes.
+    */
+    AtomicController &floating(std::string nodeKind, std::vector<std::string> suffixes);
+
+    /**
+    * @brief Compatibility helper installing string literal support.
+    */
+    AtomicController &stringLiteral();
+
+    /**
+    * @brief Compatibility helper installing string literal support with suffixes.
+    */
+    AtomicController &stringLiteral(std::string nodeKind, std::vector<std::string> suffixes);
+
+    /**
+    * @brief Compatibility helper installing boolean literal support.
+    */
+    AtomicController &boolean();
+
+    /**
+    * @brief Compatibility helper installing boolean literal support with custom tokens.
+    */
+    AtomicController &boolean(std::string nodeKind, std::string trueToken, std::string falseToken);
+
+    /**
+    * @brief Compatibility helper installing addition.
+    */
+    AtomicController &add(std::string token = "+");
+
+    /**
+    * @brief Compatibility helper installing subtraction.
+    */
+    AtomicController &subtract(std::string token = "-");
+
+    /**
+    * @brief Installs the standard literal feature set.
+    */
+    AtomicController &standardLiterals();
+
+    /**
+    * @brief Installs standard numeric operations.
+    */
+    AtomicController &standardNumericOperations();
+
+    /**
+    * @brief Installs standard comparison operations.
+    */
+    AtomicController &standardComparisonOperations();
+
+    /**
+    * @brief Installs standard logical operations.
+    */
+    AtomicController &standardLogicalOperations();
+
+    /**
+    * @brief Installs all standard operation features.
+    */
+    AtomicController &standardOperations();
+
+    /**
+    * @brief Installs the standard atomic core.
+    */
+    AtomicController &standardCore();
 
     /**
     * @brief Returns the underlying engine controller.
