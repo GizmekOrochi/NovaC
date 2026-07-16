@@ -1,28 +1,27 @@
 # NovaC – Wednesday, July 15, 2026
 
-Every programmer reaches a point where the tools they're using stop feeling like enough. For me, that point became NovaC.
+I think every programmer eventually reaches a point where the tools they're using just aren't enough anymore. For me, that point became NovaC.
 
-NovaC isn't just another compiler or interpreter. It's my attempt at building something a little different: a framework that can create programming languages themselves. Instead of designing one language with a fixed syntax and behavior, the idea is to build a system where languages are assembled from reusable pieces.
+NovaC isn't just another compiler or interpreter. It's my attempt at building something a bit different: a framework for creating programming languages.
 
-It all started with a simple question: what if a programming language could be built the same way we build software?
+The whole thing started with a pretty simple question: what if you could build a programming language the same way you build software?
 
-Instead of hardcoding keywords, operators, statements, and runtime behavior, NovaC exposes them as independent modules. There are atomic components for literals, arithmetic, logic, and comparisons. On top of those come higher-level building blocks like variables, scopes, functions, loops, and control flow. Every feature is optional. Every language is configurable.
+Instead of hardcoding keywords, operators, statements, and runtime behavior, everything is split into independent modules. There are small building blocks for things like literals, arithmetic, logic, and comparisons, and then bigger ones for variables, scopes, functions, loops, and control flow. Nothing is really mandatory. You just pick the pieces you want, and that's your language.
 
-That's probably the part I'm most proud of. I don't think a language should be limited by the vision of the person who created it. I'd rather give developers the freedom to decide exactly what their language should support.
+Honestly, that's probably my favorite part of the project. I never liked the idea that a language has to be limited by whatever its creator decided years ago. I'd rather give people the freedom to build exactly what they need.
 
-Working on NovaC has also changed the way I think. It forced me to stop thinking like an application developer and start thinking like a language designer. Every parser rule, every AST node, and every runtime feature had to be generic enough to support languages that don't even exist yet. That wasn't always easy, but it was incredibly rewarding.
+Working on NovaC also changed the way I think. At some point I stopped thinking like someone writing applications and started thinking like someone designing languages. Suddenly every parser rule, every AST node, every runtime feature... all of it had to be generic enough to support languages that don't even exist yet. That was challenging, but it was also one of the most rewarding things I've worked on.
 
-One of the best moments came when I built a complete language on top of NovaC and watched it execute functions, recursion, loops, conditionals, variables, and native functions without touching the engine itself. That was the moment where the framework stopped being just an idea and became something real.
+One moment I'll probably remember for a long time was when I built an actual language on top of NovaC and it just... worked. Functions, recursion, loops, conditionals, variables, native functions—everything ran without me having to modify the engine. That was the point where NovaC stopped feeling like an experiment and started feeling like a real framework.
 
-In many ways, NovaC reflects how I like to build software: modular, extensible, and designed to evolve over time. I'd rather spend extra time creating solid abstractions than rush into solutions that become impossible to maintain six months later.
+Looking back, I think the project says a lot about how I like to write software. I enjoy building things that can grow over time instead of quick solutions that I'll regret a few months later.
 
-Maybe NovaC never becomes widely used. Honestly, I don't think that's impossible, but it isn't what motivated me in the first place. Creating yet another programming language sounds unnecessary today, but NovaC was never about that. It started as curiosity and turned into a way to understand compilers, interpreters, programming language theory, and software architecture while building something that's entirely my own.
+Will NovaC ever become widely used? Maybe. Maybe not. I honestly think it has potential, but that was never really the goal. Creating yet another programming language sounds a bit pointless these days anyway. What kept me working on it wasn't the idea of making "the next big language." It was curiosity. I wanted to understand compilers, interpreters, programming language theory, and software architecture by building something from scratch that was completely my own.
 
-Looking back, NovaC has become more than just a project. It's almost a snapshot of how I think as a programmer, how I solve problems, and how I learn. And I think that's reason enough to keep building it.
+After almost six months, I realize NovaC has become more than just a project. It's kind of a snapshot of how I think, how I solve problems, and how I've grown as a programmer. I guess that's a pretty good reason to keep working on it.
 
-That said... after almost six months of serious work, I'm exhausted. I think I've earned a bit of fresh air. NovaC isn't going anywhere, but for now, I earned the right to leave the project in it's current version.
+That said... I'm tired.
 
-Anyway, that's all for now. I've got a few other things waiting for me.
+Six months of working on the same project is a long time, and I think I've earned a break. The project isn't going anywhere, and I'm happy leaving it where it is for now. Sometimes the best thing you can do is step away for a bit, get some fresh air, and come back later with a clear mind.
 
-**Read the Readme files in src/include to get technical informations about how the different parts of the project**
-
+Anyway, that's all for now.
