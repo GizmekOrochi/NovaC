@@ -17,6 +17,7 @@ EssentialInfo VariablesFeature::info() const {
 void VariablesFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions core{controller.core()};
     const VariableSyntaxOptions options{controller.variables()};
+    const FunctionSyntaxOptions functionOptions{controller.functions()};
     const bool enforce{controller.options().enforceChildTraits};
 
     controller.engine().keyword(options.letKeyword);
@@ -74,14 +75,14 @@ void VariablesFeature::install(EssentialsController &controller) const {
         return node;
     });
 
-    controller.engine().prefix(core.expressionDomain, "$identifier", [core, options](parser::ParserContext &context) {
+    controller.engine().prefix(core.expressionDomain, "$identifier", [core, options, functionOptions](parser::ParserContext &context) {
         const std::string name{helpers::consumeIdentifier(context, "VariablesFeature::expression")};
 
         if (context.check(core.leftParenToken)) {
             ast::NodeList arguments{helpers::parseExpressionList(context, core.expressionDomain, core.leftParenToken, core.rightParenToken, core.commaToken)};
-            ast::NodePtr call{ast::Node::make("FunctionCall")};
-            call->set("name", name);
-            call->set("arguments", std::move(arguments));
+            ast::NodePtr call{ast::Node::make(functionOptions.callNodeKind)};
+            call->set(functionOptions.nameField, name);
+            call->set(functionOptions.argumentsField, std::move(arguments));
             return call;
         }
 

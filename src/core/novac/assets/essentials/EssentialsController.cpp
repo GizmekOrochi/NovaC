@@ -79,6 +79,7 @@ EssentialsController &EssentialsController::installProgram(){
         throw std::runtime_error("EssentialsController::installProgram: duplicate feature '" + id + "'");
 
     const CoreSyntaxOptions options{options_.core};
+    const FunctionSyntaxOptions functionOptions{options_.functions};
 
     engine_.node({
         options.programNodeKind,
@@ -102,24 +103,24 @@ EssentialsController &EssentialsController::installProgram(){
         }
     );
 
-    engine_.expression(options.programNodeKind,[options](const ast::Node &node, runtime::RuntimeContext &context) {
+    engine_.expression(options.programNodeKind,[options, functionOptions](const ast::Node &node, runtime::RuntimeContext &context) {
             const ast::NodeList &items{node.list(options.statementsField)};
 
             for(const ast::NodePtr &item : items) {
                 if(!item)
                     throw std::runtime_error("Program: null top-level node");
 
-                if(item->kind()=="FunctionDeclaration")
-                    context.bindNode(item->str("name"), item);
+                if(item->kind()==functionOptions.declarationNodeKind)
+                    context.bindNode(item->str(functionOptions.nameField), item);
             }
 
 
 
-            if(ast::NodePtr main = context.boundNode("main")) {
-                ast::NodePtr call{ast::Node::make("FunctionCall")};
+            if(ast::NodePtr main = context.boundNode(functionOptions.mainFunctionName)) {
+                ast::NodePtr call{ast::Node::make(functionOptions.callNodeKind)};
 
-                call->set("name", std::string{"main"});
-                call->set("arguments", ast::NodeList{});
+                call->set(functionOptions.nameField, functionOptions.mainFunctionName);
+                call->set(functionOptions.argumentsField, ast::NodeList{});
 
                 return context.eval(*call);
             }

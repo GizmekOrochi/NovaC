@@ -22,6 +22,13 @@ TEST(ReturnStatementsFeature, InfoReturnsCorrectMetadata) {
     CHECK(info.nodeKinds[0] == "ReturnStatement");
 }
 
+TEST(ReturnStatementsFeature, PackContainsFeature) {
+    auto pack{novac::assets::essentials::functions::returnStatements()};
+
+    CHECK(pack.features.size() == 1);
+    CHECK(pack.features[0]->info().id == "essentials.functions.return");
+}
+
 TEST(ReturnStatementsFeature, ReturnValueExecutes) {
     EngineController engine{};
     novac::assets::atomic::AtomicController atomics{engine};
@@ -56,6 +63,28 @@ func main() {
 
     engine.validate(*program);
     CHECK(engine.eval(*program).toString() == "void");
+}
+
+TEST(ReturnStatementsFeature, CustomSyntaxExecutes) {
+    EngineController engine{};
+    novac::assets::atomic::AtomicController atomics{engine};
+    atomics.integer();
+
+    novac::assets::essentials::EssentialsControllerOptions options{};
+    options.functions.returnKeyword = "give";
+    options.functions.returnNodeKind = "GiveStatement";
+    options.functions.valueField = "result";
+    novac::assets::essentials::EssentialsController essentials{engine, options};
+    essentials.installStandardCore();
+
+    const auto program{engine.parse(R"(
+func main() {
+    give 42;
+}
+)")};
+
+    engine.validate(*program);
+    CHECK(engine.eval(*program).asInt() == 42);
 }
 
 } // namespace

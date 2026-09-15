@@ -43,7 +43,15 @@ TEST(VariablesFeature, PackContainsFeature) {
     CHECK(pack.features[0]->info().id == "essentials.variables");
 }
 
-TEST(VariablesFeature, DeclarationAndLookupExecute) {
+TEST(VariablesFeature, StandardPackContainsVariableFeatures) {
+    auto pack{novac::assets::essentials::variables::standard()};
+
+    CHECK(pack.features.size() == 2);
+    CHECK(pack.features[0]->info().id == "essentials.variables");
+    CHECK(pack.features[1]->info().id == "essentials.variables.expression-statements");
+}
+
+TEST(VariablesFeature, DeclarationExecutes) {
     EngineController engine{};
     novac::assets::atomic::AtomicController atomics{engine};
     atomics.integer();
@@ -55,8 +63,82 @@ TEST(VariablesFeature, DeclarationAndLookupExecute) {
     const auto program{engine.parse("let x = 42;")};
     engine.validate(*program);
 
-    const auto result{engine.eval(*program)};
-    CHECK(result.toString() == "void");
+    CHECK(engine.eval(*program).toString() == "void");
+}
+
+TEST(VariablesFeature, DeclarationAndLookupExecute) {
+    EngineController engine{};
+    novac::assets::atomic::AtomicController atomics{engine};
+    atomics.integer();
+
+    novac::assets::essentials::EssentialsController essentials{engine};
+    essentials.installStandardCore();
+
+    const auto program{engine.parse(R"(
+func main() {
+    let x = 42;
+    return x;
+}
+)")};
+
+    engine.validate(*program);
+    CHECK(engine.eval(*program).asInt() == 42);
+}
+
+TEST(VariablesFeature, AssignmentUpdatesExistingVariable) {
+    EngineController engine{};
+    novac::assets::atomic::AtomicController atomics{engine};
+    atomics.integer();
+
+    novac::assets::essentials::EssentialsController essentials{engine};
+    essentials.installStandardCore();
+
+    const auto program{engine.parse(R"(
+func main() {
+    let x = 1;
+    x = 42;
+    return x;
+}
+)")};
+
+    CHECK(engine.eval(*program).asInt() == 42);
+}
+
+TEST(VariablesFeature, AssignmentCreatesMissingVariable) {
+    EngineController engine{};
+    novac::assets::atomic::AtomicController atomics{engine};
+    atomics.integer();
+
+    novac::assets::essentials::EssentialsController essentials{engine};
+    essentials.installStandardCore();
+
+    const auto program{engine.parse(R"(
+func main() {
+    x = 42;
+    return x;
+}
+)")};
+
+    CHECK(engine.eval(*program).asInt() == 42);
+}
+
+TEST(VariablesFeature, DuplicateDeclarationThrows) {
+    EngineController engine{};
+    novac::assets::atomic::AtomicController atomics{engine};
+    atomics.integer();
+
+    novac::assets::essentials::EssentialsController essentials{engine};
+    essentials.installStandardCore();
+
+    const auto program{engine.parse(R"(
+func main() {
+    let x = 1;
+    let x = 2;
+    return x;
+}
+)")};
+
+    CHECK(throwsRuntimeError([&]() {engine.eval(*program);}));
 }
 
 TEST(VariablesFeature, UnknownVariableThrows) {
@@ -90,6 +172,33 @@ TEST(VariablesFeature, CustomSyntax) {
     const auto program{engine.parse("var answer := 42;")};
     engine.validate(*program);
     CHECK(engine.eval(*program).toString() == "void");
+}
+
+TEST(VariablesFeature, CustomSchemaExecutes) {
+    EngineController engine{};
+    novac::assets::atomic::AtomicController atomics{engine};
+    atomics.integer();
+
+    novac::assets::essentials::EssentialsControllerOptions options{};
+    options.variables.declarationNodeKind = "BindingDeclaration";
+    options.variables.expressionNodeKind = "BindingExpression";
+    options.variables.assignmentNodeKind = "BindingAssignment";
+    options.variables.nameField = "identifier";
+    options.variables.valueField = "initializer";
+
+    novac::assets::essentials::EssentialsController essentials{engine, options};
+    essentials.installStandardCore();
+
+    const auto program{engine.parse(R"(
+func main() {
+    let answer = 1;
+    answer = 42;
+    return answer;
+}
+)")};
+
+    engine.validate(*program);
+    CHECK(engine.eval(*program).asInt() == 42);
 }
 
 } // namespace
