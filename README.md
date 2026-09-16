@@ -1,7 +1,3 @@
-# NovaC – Wednesday, July 15, 2026
-
-After almost six months of work, NovaC has become much more than just a fun project.
-
 NovaC is a framework for building programming languages from modular components. Instead of hardcoding keywords, operators, functions, loops, or runtime behavior, you can choose the features you want and combine them into your own language.
 
 To use it, clone the repo an compile the documation `make doc`, there is exemples inside.
