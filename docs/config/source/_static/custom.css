@@ -1,0 +1,29 @@
+:root {
+    --content-width: 52rem;
+    --sidebar-item-font-size: 0.94rem;
+}
+
+.content {
+    line-height: 1.65;
+}
+
+.sidebar-brand-text {
+    font-weight: 750;
+    letter-spacing: 0.02em;
+}
+
+.admonition.tip {
+    border-color: var(--color-brand-primary);
+}
+
+pre {
+    border-radius: 0.55rem;
+}
+
+code.literal {
+    border-radius: 0.25rem;
+}
+
+table.docutils {
+    width: 100%;
+}

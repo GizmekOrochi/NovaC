@@ -1,3 +1,9 @@
 /bin/
 *.o
 *.exe
+
+# Generated documentation
+docs/config/.venv/
+docs/config/_build/
+/docs/documentation/
+
