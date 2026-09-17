@@ -1,5 +1,3 @@
-// Parser.hpp
-
 #pragma once
 
 #include "../syntax/Node.hpp"

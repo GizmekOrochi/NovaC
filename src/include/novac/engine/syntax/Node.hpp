@@ -1,5 +1,3 @@
-// Node.hpp
-
 #pragma once
 
 #include "../foundation/Ids.hpp"

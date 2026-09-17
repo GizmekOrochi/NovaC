@@ -1,5 +1,3 @@
-// Lexer.hpp
-
 #pragma once
 
 #include "../foundation/registry/Registry.hpp"
