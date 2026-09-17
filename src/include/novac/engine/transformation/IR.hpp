@@ -16,21 +16,33 @@
 namespace novac::ir {
 
 /**
- * @brief Identifier for an SSA-style value produced by an instruction.
+ * @brief Identifier for a value produced by an IR instruction.
+ *
+ * Value identifiers are used by other instructions to refer to a previous
+ * result without storing the value directly in the instruction.
  */
 struct ValueId {
+    /** Numeric identifier unique inside the module being built. */
     std::uint32_t value{};
 };
 
 /**
  * @brief Identifier for a basic block in an IR module.
+ *
+ * Block identifiers are used by builders and terminators to reference
+ * control-flow targets inside the same module.
  */
 struct BlockId {
+    /** Index of the block inside its IR module. */
     std::uint32_t value{};
 };
 
 /**
- * @brief Static value category attached to IR instruction results.
+ * @brief Describes the basic type of a value produced by an IR instruction.
+ *
+ * These types are intentionally small and generic. They give later passes
+ * enough information to understand common values without defining a full
+ * language-specific type system here.
  */
 enum class ValueType {
     /**
@@ -65,7 +77,11 @@ enum class ValueType {
 };
 
 /**
- * @brief Literal constant stored directly in IR operands.
+ * @brief Literal constant stored directly in an IR operand.
+ *
+ * A literal owns its value and can represent the primitive constants used by
+ * the generic IR: integers, floating-point values, booleans and strings.
+ * An empty literal is represented by std::monostate.
  */
 class Literal {
 public:
@@ -127,7 +143,11 @@ private:
 };
 
 /**
- * @brief Instruction operand referencing a value, literal, or symbol.
+ * @brief Value consumed by an IR instruction.
+ *
+ * An operand can reference the result of another instruction, contain a
+ * literal directly, or store a symbolic name. This keeps instructions generic
+ * while still supporting several common kinds of input.
  */
 class Operand {
 public:
@@ -231,53 +251,94 @@ private:
 };
 
 /**
- * @brief Non-terminating IR instruction.
+ * @brief Regular IR instruction stored inside a basic block.
+ *
+ * An instruction has an operation name, zero or more operands and an optional
+ * result value. Instructions that do not produce a value keep result empty and
+ * normally use ValueType::Void.
  */
 struct Instruction {
+    /** Operation name understood by the next lowering stage or backend. */
     std::string op{};
+
+    /** Identifier of the produced value, or empty if the instruction has no result. */
     std::optional<ValueId> result{};
+
+    /** Values consumed by the instruction. */
     std::vector<Operand> operands{};
+
+    /** Type of the produced value. */
     ValueType type{ValueType::Unknown};
 };
 
 /**
- * @brief Basic block terminator instruction.
+ * @brief Instruction that ends a basic block.
+ *
+ * A terminator describes how execution leaves the block. Its targets can point
+ * to other basic blocks, for example for jumps or conditional branches.
  */
 struct Terminator {
+    /** Terminator operation name, such as a branch or return operation. */
     std::string op{};
+
+    /** Values consumed by the terminator. */
     std::vector<Operand> operands{};
+
+    /** Basic blocks that can be reached from this terminator. */
     std::vector<BlockId> targets{};
 };
 
 /**
- * @brief Sequence of IR instructions with an optional terminator.
+ * @brief Sequence of IR instructions forming one basic block.
+ *
+ * Instructions are executed in order. A block can end with one terminator,
+ * which describes the next control-flow destination or the end of execution.
  */
 struct BasicBlock {
+    /** Identifier used to reference this block. */
     BlockId id{};
+
+    /** Human-readable block name, mainly useful for debug output. */
     std::string name{};
+
+    /** Regular instructions executed before the terminator. */
     std::vector<Instruction> instructions{};
+
+    /** Optional instruction describing how control leaves the block. */
     std::optional<Terminator> terminator{};
 };
 
 /**
- * @brief High-level intermediate representation module.
+ * @brief Container for the high-level intermediate representation.
+ *
+ * HIR stays close to language-level operations while removing direct
+ * dependency on the AST. It is the first IR produced by AST lowering.
  */
 struct HIRModule {
+    /** Basic blocks belonging to this HIR module. */
     std::vector<BasicBlock> blocks{};
 };
 
 /**
- * @brief Medium-level intermediate representation module.
+ * @brief Container for the medium-level intermediate representation.
+ *
+ * MIR is produced from HIR and is intended to contain simpler, more explicit
+ * operations that are easier for later analysis or backend stages to consume.
  */
 struct MIRModule {
+    /** Basic blocks belonging to this MIR module. */
     std::vector<BasicBlock> blocks{};
 };
 
 /**
- * @brief Builds HIR modules incrementally.
+ * @brief Builds a HIR module one block and instruction at a time.
  *
- * The builder owns the module under construction and returns it by value
- * when finish() is called.
+ * A builder starts with an entry block, tracks the current block and assigns
+ * new value identifiers automatically. Instructions are always emitted into
+ * the current block.
+ *
+ * The builder owns the module while it is being created. Calling finish()
+ * transfers the completed module to the caller.
  */
 class HIRBuilder {
 public:
@@ -297,6 +358,9 @@ public:
     /**
      * @brief Changes the block receiving emitted instructions.
      *
+     * Following calls to emit(), emitValue() and terminate() will operate on
+     * this block until another block is selected.
+     *
      * @param block Target block identifier.
      *
      * @throws std::runtime_error If the block identifier is invalid.
@@ -305,6 +369,9 @@ public:
 
     /**
      * @brief Emits an instruction that produces a value.
+     *
+     * A new ValueId is allocated automatically and stored as the result of the
+     * instruction before it is appended to the current block.
      *
      * @param op Instruction operation name.
      * @param operands Instruction operands.
@@ -330,6 +397,9 @@ public:
     /**
      * @brief Emits an instruction with no result value.
      *
+     * The instruction is appended to the current block with no ValueId result
+     * and uses ValueType::Void.
+     *
      * @param op Instruction operation name.
      * @param operands Instruction operands.
      *
@@ -349,6 +419,10 @@ public:
 
     /**
      * @brief Terminates the current block.
+     *
+     * The terminator is stored separately from regular instructions and marks
+     * the block as complete. No new instruction can be emitted into the block
+     * after this call.
      *
      * @param op Terminator operation name.
      * @param operands Terminator operands.
@@ -372,6 +446,9 @@ public:
     /**
      * @brief Completes the module and transfers it out of the builder.
      *
+     * The internal module is moved out of the builder, so the returned value
+     * becomes the completed HIR representation.
+     *
      * @return Built HIR module.
      */
     HIRModule finish();
@@ -386,10 +463,14 @@ private:
 };
 
 /**
- * @brief Builds MIR modules incrementally.
+ * @brief Builds a MIR module one block and instruction at a time.
  *
- * The builder owns the module under construction and returns it by value
- * when finish() is called.
+ * The interface mirrors HIRBuilder so lowering code can create blocks, emit
+ * instructions and add terminators in a predictable way. Result identifiers
+ * are assigned automatically as new values are emitted.
+ *
+ * The builder owns the module while it is being created. Calling finish()
+ * transfers the completed module to the caller.
  */
 class MIRBuilder {
 public:
@@ -409,6 +490,9 @@ public:
     /**
      * @brief Changes the block receiving emitted instructions.
      *
+     * Following calls to emit(), emitValue() and terminate() will operate on
+     * this block until another block is selected.
+     *
      * @param block Target block identifier.
      *
      * @throws std::runtime_error If the block identifier is invalid.
@@ -417,6 +501,9 @@ public:
 
     /**
      * @brief Emits an instruction that produces a value.
+     *
+     * A new ValueId is allocated automatically and stored as the result of the
+     * instruction before it is appended to the current block.
      *
      * @param op Instruction operation name.
      * @param operands Instruction operands.
@@ -442,6 +529,9 @@ public:
     /**
      * @brief Emits an instruction with no result value.
      *
+     * The instruction is appended to the current block with no ValueId result
+     * and uses ValueType::Void.
+     *
      * @param op Instruction operation name.
      * @param operands Instruction operands.
      *
@@ -461,6 +551,10 @@ public:
 
     /**
      * @brief Terminates the current block.
+     *
+     * The terminator is stored separately from regular instructions and marks
+     * the block as complete. No new instruction can be emitted into the block
+     * after this call.
      *
      * @param op Terminator operation name.
      * @param operands Terminator operands.
@@ -484,6 +578,9 @@ public:
     /**
      * @brief Completes the module and transfers it out of the builder.
      *
+     * The internal module is moved out of the builder, so the returned value
+     * becomes the completed MIR representation.
+     *
      * @return Built MIR module.
      */
     MIRModule finish();
@@ -498,12 +595,19 @@ private:
 };
 
 /**
- * @brief Tracks value mappings while lowering HIR to MIR.
+ * @brief Tracks value mappings while lowering HIR instructions to MIR.
+ *
+ * HIR and MIR use their own value identifiers. This context records which MIR
+ * value replaces each HIR value so operands can be remapped while lowering
+ * later instructions.
  */
 class MIRLoweringContext {
 public:
     /**
      * @brief Associates a HIR value with a MIR value.
+     *
+     * The mapping is later used to replace HIR value references when lowering
+     * following instructions and terminators.
      *
      * @param hirValue Source HIR value.
      * @param mirValue Replacement MIR value.
@@ -521,6 +625,9 @@ public:
     /**
      * @brief Resolves a HIR value to its mapped MIR value.
      *
+     * This is used when a later HIR instruction refers to a result that has
+     * already been lowered to MIR.
+     *
      * @param hirValue HIR value to resolve.
      * @return Mapped MIR value.
      *
@@ -531,7 +638,8 @@ public:
     /**
      * @brief Remaps a value operand through the current HIR-to-MIR bindings.
      *
-     * Non-value operands are returned unchanged.
+     * Value operands are replaced with their mapped MIR ValueId. Literals and
+     * symbolic operands are returned unchanged.
      *
      * @param operand Operand to remap.
      * @return Remapped operand.
@@ -555,7 +663,14 @@ private:
 };
 
 /**
- * @brief Registry of lowering functions for AST-to-HIR and HIR-to-MIR passes.
+ * @brief Stores the functions used to lower AST nodes to HIR and HIR to MIR.
+ *
+ * Language features register their own lowering functions here. This keeps
+ * the core IR pipeline independent from specific AST node kinds and operation
+ * names.
+ *
+ * The registry also provides helpers for lowering child AST nodes and handles
+ * HIR-to-MIR value mappings through MIRLoweringContext.
  */
 class LoweringRegistry {
 public:
@@ -649,6 +764,9 @@ public:
     /**
      * @brief Lowers an AST node into HIR.
      *
+     * The node kind is used to find the registered lowering callback, which
+     * can emit instructions into the provided HIRBuilder.
+     *
      * @param node AST node to lower.
      * @param out HIR builder receiving emitted instructions.
      * @return Optional produced value.
@@ -660,8 +778,9 @@ public:
     /**
      * @brief Lowers a HIR instruction into MIR.
      *
-     * If both the source instruction and lowered result have values, the context
-     * is updated with the HIR-to-MIR value mapping.
+     * The instruction operation selects the registered MIR lowerer. If the HIR
+     * instruction and the lowered MIR instruction both produce values, their
+     * identifiers are automatically associated in the lowering context.
      *
      * @param instruction HIR instruction to lower.
      * @param out MIR builder receiving emitted instructions.
@@ -675,6 +794,9 @@ public:
     /**
      * @brief Lowers all child nodes directly stored in a node.
      *
+     * Node fields are inspected and any child node or list of child nodes is
+     * forwarded to lowerHIR(). Field iteration order is the node storage order.
+     *
      * @param node AST node whose child fields are lowered.
      * @param out HIR builder receiving emitted instructions.
      */
@@ -683,7 +805,9 @@ public:
     /**
      * @brief Lowers child nodes in schema field order when a schema is available.
      *
-     * Falls back to direct field traversal if the node kind has no schema.
+     * The node schema defines the traversal order, which makes lowering stable
+     * even if the underlying field container has no meaningful order. If no
+     * schema exists, the function falls back to direct field traversal.
      *
      * @param node AST node whose child fields are lowered.
      * @param nodes Node registry used to determine schema field order.
@@ -698,7 +822,11 @@ private:
 };
 
 /**
- * @brief Lowers an AST into a HIR module.
+ * @brief Runs the AST-to-HIR lowering stage.
+ *
+ * The pass creates a HIRBuilder and asks the LoweringRegistry to lower the
+ * supplied AST root. The concrete behavior depends on the lowerers registered
+ * by the active language features.
  *
  * The pass references an external LoweringRegistry, which must remain valid
  * for the lifetime of the pass.
@@ -715,6 +843,9 @@ public:
     /**
      * @brief Lowers an AST root node into HIR.
      *
+     * A fresh HIRBuilder is created, then the root node is lowered through the
+     * registry. The finished builder becomes the returned HIR module.
+     *
      * @param root AST root node.
      * @return Produced HIR module.
      */
@@ -725,7 +856,11 @@ private:
 };
 
 /**
- * @brief Lowers a HIR module into a MIR module.
+ * @brief Runs the HIR-to-MIR lowering stage.
+ *
+ * Blocks are visited in module order. Registered MIR lowerers translate each
+ * instruction, while MIRLoweringContext keeps result references consistent
+ * between both representations.
  *
  * The pass references an external LoweringRegistry, which must remain valid
  * for the lifetime of the pass.
@@ -742,6 +877,10 @@ public:
     /**
      * @brief Lowers a HIR module into MIR.
      *
+     * The pass recreates the HIR block structure in MIR, lowers each regular
+     * instruction through the registry and remaps terminator operands through
+     * MIRLoweringContext before emitting the terminator.
+     *
      * @param hir HIR module to lower.
      * @return Produced MIR module.
      */
@@ -752,7 +891,10 @@ private:
 };
 
 /**
- * @brief Converts a value type to its stable textual name.
+ * @brief Converts a ValueType to the textual name used by IR tools.
+ *
+ * The returned names are stable and suitable for debug output, diagnostics or
+ * simple textual IR representations.
  *
  * @param type Value type to convert.
  * @return Textual type name.
