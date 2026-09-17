@@ -136,6 +136,30 @@ TEST(ParserContext, CreatesEndTokenForEmptyTokenList) {
     CHECK(context.cur().column == 1);
 }
 
+TEST(ParserContext, AppendsEndTokenWhenMissing) {
+    ParserRegistry registry{};
+    ParserContext context{tokens({tok(Kind::Identifier, "x", 2, 3)}), registry};
+
+    CHECK(!context.end());
+    CHECK(context.cur().text == "x");
+
+    context.advance();
+
+    CHECK(context.end());
+    CHECK(context.cur().kind == Kind::End);
+}
+
+TEST(ParserContext, PreservesExistingEndToken) {
+    ParserRegistry registry{};
+    ParserContext context{tokens({tok(Kind::Identifier, "x", 2, 3), endTok(2, 4)}), registry};
+
+    context.advance();
+
+    CHECK(context.end());
+    CHECK(context.cur().line == 2);
+    CHECK(context.cur().column == 4);
+}
+
 TEST(ParserContext, CurReturnsCurrentToken) {
     ParserRegistry registry{};
     ParserContext context{tokens({tok(Kind::Identifier, "x", 2, 3), endTok(2, 4)}), registry};
