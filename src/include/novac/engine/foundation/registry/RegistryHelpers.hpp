@@ -11,12 +11,21 @@ namespace novac::registry {
 /**
  * @brief Inserts or updates a registry entry according to a duplicate policy.
  *
+ * The function first checks whether the key already exists in the map.
+ * If it does, the selected DuplicatePolicy decides whether the existing
+ * entry is kept, replaced, or rejected with an exception.
+ *
+ * If the key does not exist, a new entry is inserted normally.
+ *
+ * This helper centralizes duplicate handling so registries can share the
+ * same registration behavior.
+ *
  * @param map Registry storage to update.
  * @param key Entry key.
  * @param value Entry value.
  * @param duplicatePolicy Policy applied when key already exists.
  * @param owner Name used as context in exception messages.
- * @return Registration result.
+ * @return Registration result describing what happened.
  *
  * @throws std::runtime_error If key already exists and duplicatePolicy is DuplicatePolicy::Error.
  */
