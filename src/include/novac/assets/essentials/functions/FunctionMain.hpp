@@ -5,9 +5,14 @@
 namespace novac::assets::essentials::functions {
 
 /**
- * @brief Installs program entry-point integration.
+ * @brief Configures the program entry-point function.
  *
- * Registers the behavior required to discover and execute the configured language entry point through the function runtime.
+ * FunctionMainFeature connects the configured function syntax options to the
+ * function registry by selecting the language-level function used as the
+ * program entry point.
+ *
+ * The feature does not execute the entry point itself. It only records the
+ * configured function name in FunctionRegistry.
  */
 class FunctionMainFeature final : public EssentialFeature {
 public:
@@ -17,16 +22,22 @@ public:
      * @return Feature registration and dependency information.
      */
     EssentialInfo info() const override;
+
     /**
-     * @brief Installs the feature into an Essentials controller.
+     * @brief Installs entry-point configuration into an Essentials controller.
      *
-     * @param controller Controller receiving parser, schema, and runtime registrations.
+     * The configured main function name is read from FunctionSyntaxOptions and
+     * stored in the controller's FunctionRegistry.
+     *
+     * @param controller Controller receiving the entry-point configuration.
      */
     void install(EssentialsController &controller) const override;
 };
 
 /**
  * @brief Creates a pack containing function entry-point support.
+ *
+ * The returned pack contains one FunctionMainFeature instance.
  *
  * @return Ownable feature pack.
  */

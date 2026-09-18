@@ -9,11 +9,14 @@ namespace novac::assets::atomic::operations {
 /**
  * @brief Base class for numeric comparison operations.
  *
- * Registers a binary comparison operator that evaluates both operands
- * as floating-point values and produces a boolean result.
+ * NumericComparisonOperationAtomic contains the common parser and runtime
+ * registration logic shared by numeric comparison operators.
  *
- * Derived classes define the specific comparison semantics through
- * the compare() function.
+ * Installation creates a binary parser binding using the shared binary carrier
+ * node. At runtime, both operands are evaluated and converted to floating-point
+ * values before compare() is called.
+ *
+ * Derived classes only define the concrete comparison semantics.
  */
 class NumericComparisonOperationAtomic : public OperationFeature {
 public:
@@ -34,6 +37,9 @@ public:
     /**
      * @brief Returns metadata describing this operation.
      *
+     * Numeric comparisons use precedence 7, are non-associative and provide
+     * the "operation.comparison" and "operation.binary" capabilities.
+     *
      * @return Operation registration information.
      */
     OperationInfo info() const override;
@@ -41,8 +47,12 @@ public:
     /**
      * @brief Installs the comparison operator into an atomic controller.
      *
-     * Registers the operator token pattern, parser rules, AST
-     * construction logic, and runtime evaluation behavior.
+     * The token pattern and binary carrier node are registered first. An infix
+     * parser rule then creates a binary node containing the operation id and
+     * both operand nodes.
+     *
+     * Runtime evaluation converts both operands with Value::asFloat(), invokes
+     * compare(), and wraps the resulting boolean in a runtime Value.
      *
      * @param controller Controller receiving the operation registration.
      */
@@ -51,6 +61,9 @@ public:
 protected:
     /**
      * @brief Compares two numeric values.
+     *
+     * Derived classes implement only the final comparison performed after both
+     * runtime operands have been converted to double.
      *
      * @param left Left operand value.
      * @param right Right operand value.
@@ -67,7 +80,8 @@ private:
 /**
  * @brief Numeric equality comparison operation.
  *
- * Evaluates whether two numeric operands are equal.
+ * Returns true when both numeric operands compare equal after conversion to
+ * floating-point values.
  */
 class EqualOperationAtomic final : public NumericComparisonOperationAtomic {
 public:
@@ -84,7 +98,8 @@ private:
 /**
  * @brief Numeric inequality comparison operation.
  *
- * Evaluates whether two numeric operands are different.
+ * Returns true when both numeric operands compare different after conversion
+ * to floating-point values.
  */
 class NotEqualOperationAtomic final : public NumericComparisonOperationAtomic {
 public:
@@ -101,7 +116,7 @@ private:
 /**
  * @brief Numeric less-than comparison operation.
  *
- * Evaluates whether the left operand is smaller than the right operand.
+ * Evaluates whether the left numeric operand is smaller than the right one.
  */
 class LessOperationAtomic final : public NumericComparisonOperationAtomic {
 public:
@@ -118,8 +133,8 @@ private:
 /**
  * @brief Numeric less-than-or-equal comparison operation.
  *
- * Evaluates whether the left operand is less than or equal to the
- * right operand.
+ * Evaluates whether the left numeric operand is less than or equal to the
+ * right one.
  */
 class LessEqualOperationAtomic final : public NumericComparisonOperationAtomic {
 public:
@@ -136,7 +151,7 @@ private:
 /**
  * @brief Numeric greater-than comparison operation.
  *
- * Evaluates whether the left operand is greater than the right operand.
+ * Evaluates whether the left numeric operand is greater than the right one.
  */
 class GreaterOperationAtomic final : public NumericComparisonOperationAtomic {
 public:
@@ -153,8 +168,8 @@ private:
 /**
  * @brief Numeric greater-than-or-equal comparison operation.
  *
- * Evaluates whether the left operand is greater than or equal to the
- * right operand.
+ * Evaluates whether the left numeric operand is greater than or equal to the
+ * right one.
  */
 class GreaterEqualOperationAtomic final : public NumericComparisonOperationAtomic {
 public:

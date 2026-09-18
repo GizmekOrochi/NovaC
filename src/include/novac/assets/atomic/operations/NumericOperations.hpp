@@ -9,13 +9,15 @@ namespace novac::assets::atomic::operations {
 /**
  * @brief Base class for binary numeric operations.
  *
- * Registers a binary arithmetic operator that evaluates two operands
- * and produces a numeric result. Implementations define the actual
- * arithmetic behavior through evaluate().
+ * NumericBinaryOperationAtomic contains the common parser and runtime
+ * registration logic shared by arithmetic operators.
  *
- * When both operands are integers, operations may preserve integer
- * semantics. Otherwise, evaluation is performed using floating-point
- * values.
+ * Installation registers the token pattern, ensures the shared binary
+ * expression carrier node exists, installs an infix parser rule and connects
+ * the operation id to a runtime binary handler.
+ *
+ * Derived classes only need to implement evaluate() to define the actual
+ * arithmetic behavior.
  */
 class NumericBinaryOperationAtomic : public OperationFeature {
 public:
@@ -38,6 +40,9 @@ public:
     /**
      * @brief Returns metadata describing this operation.
      *
+     * Numeric binary operations are left-associative and provide the
+     * "operation.numeric" and "operation.binary" capabilities.
+     *
      * @return Operation registration information.
      */
     OperationInfo info() const override;
@@ -45,8 +50,12 @@ public:
     /**
      * @brief Installs the arithmetic operator into an atomic controller.
      *
-     * Registers the operator token pattern, parser rules, AST
-     * construction logic, and runtime evaluation behavior.
+     * The operator pattern is first registered with the controller and the
+     * shared binary expression node is ensured.
+     *
+     * An infix parser rule then creates a carrier node containing the operation
+     * id and both operands. Runtime evaluation evaluates the two child nodes
+     * before forwarding their values to evaluate().
      *
      * @param controller Controller receiving the operation registration.
      */
@@ -55,6 +64,9 @@ public:
 protected:
     /**
      * @brief Evaluates the operation for two operand values.
+     *
+     * Derived classes implement the arithmetic semantics while the base class
+     * handles parser and runtime registration.
      *
      * @param left Left operand value.
      * @param right Right operand value.
@@ -75,11 +87,16 @@ private:
  * @brief Numeric addition operation.
  *
  * Computes the sum of two numeric operands.
+ *
+ * Integer results are preserved when both operands are integers. Otherwise,
+ * both operands are evaluated as floating-point values.
  */
 class AddOperationAtomic final : public NumericBinaryOperationAtomic {
 public:
     /**
      * @brief Creates an addition operation.
+     *
+     * Addition uses precedence 10.
      *
      * @param pattern Token pattern used to recognize the operator.
      */
@@ -96,11 +113,16 @@ private:
  * @brief Numeric subtraction operation.
  *
  * Computes the difference between two numeric operands.
+ *
+ * Integer results are preserved when both operands are integers. Otherwise,
+ * floating-point arithmetic is used.
  */
 class SubtractOperationAtomic final : public NumericBinaryOperationAtomic {
 public:
     /**
      * @brief Creates a subtraction operation.
+     *
+     * Subtraction uses precedence 10.
      *
      * @param pattern Token pattern used to recognize the operator.
      */
@@ -117,11 +139,16 @@ private:
  * @brief Numeric multiplication operation.
  *
  * Computes the product of two numeric operands.
+ *
+ * Integer results are preserved when both operands are integers. Otherwise,
+ * floating-point arithmetic is used.
  */
 class MultiplyOperationAtomic final : public NumericBinaryOperationAtomic {
 public:
     /**
      * @brief Creates a multiplication operation.
+     *
+     * Multiplication uses precedence 20.
      *
      * @param pattern Token pattern used to recognize the operator.
      */
@@ -139,12 +166,15 @@ private:
  *
  * Computes the quotient of two numeric operands.
  *
- * Integer operands use integer division semantics.
+ * When both operands are integers, integer division semantics are preserved.
+ * Otherwise, floating-point division is used.
  */
 class DivideOperationAtomic final : public NumericBinaryOperationAtomic {
 public:
     /**
      * @brief Creates a division operation.
+     *
+     * Division uses precedence 20.
      *
      * @param pattern Token pattern used to recognize the operator.
      */
@@ -154,6 +184,9 @@ public:
 private:
     /**
      * @brief Evaluates a division operation.
+     *
+     * The divisor is checked before either integer or floating-point division
+     * is performed.
      *
      * @param left Left operand value.
      * @param right Right operand value.
@@ -171,13 +204,15 @@ private:
  *
  * Computes the remainder of a division operation.
  *
- * Integer operands use the integer modulo operator, while
- * floating-point operands use floating-point remainder semantics.
+ * Integer operands use the integer modulo operator. If either operand is
+ * floating-point, std::fmod semantics are used instead.
  */
 class ModuloOperationAtomic final : public NumericBinaryOperationAtomic {
 public:
     /**
      * @brief Creates a modulo operation.
+     *
+     * Modulo uses precedence 20.
      *
      * @param pattern Token pattern used to recognize the operator.
      */
@@ -187,6 +222,9 @@ public:
 private:
     /**
      * @brief Evaluates a modulo operation.
+     *
+     * The divisor is checked before either integer modulo or floating-point
+     * remainder evaluation is performed.
      *
      * @param left Left operand value.
      * @param right Right operand value.

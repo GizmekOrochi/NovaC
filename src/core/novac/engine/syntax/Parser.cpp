@@ -245,6 +245,13 @@ ParserContext::ParserContext(std::vector<token::Token> tokens, const ParserRegis
     : tokens_{std::move(tokens)}, pos_{}, registry_{registry} {
     if (tokens_.empty()) {
         tokens_.push_back({token::Kind::End, "", "", {}, 1, 1});
+        return;
+    }
+
+    if (tokens_.back().kind != token::Kind::End) {
+        const token::Token &last{tokens_.back()};
+
+        tokens_.push_back({token::Kind::End, "", "", {}, last.line, last.column});
     }
 }
 

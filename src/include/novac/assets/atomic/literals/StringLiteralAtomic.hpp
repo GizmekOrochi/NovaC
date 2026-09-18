@@ -9,22 +9,20 @@ namespace novac::assets::atomic::literals {
 /**
  * @brief Registers support for string literal expressions.
  *
- * This feature installs parsing, AST node creation, and runtime
- * evaluation for string literals. Parsed literals produce an AST
- * node containing a required string field named "value" and
- * evaluate to a runtime string value.
+ * StringLiteralAtomic installs the AST schema, parser rule and runtime handler
+ * required for string literals.
  *
- * The accepted token format is defined by the supplied token pattern,
- * including optional suffix validation rules.
+ * Parsed literals produce a node containing a required string field named
+ * "value". The supplied TokenPattern controls parser matching and may
+ * optionally require an exact suffix or a suffix matching a regular expression.
  */
 class StringLiteralAtomic final : public LiteralFeature {
 public:
     /**
      * @brief Creates a string literal feature.
      *
-     * The node kind identifies the AST node type created for parsed
-     * literals. The token pattern determines how string literals
-     * are recognized and matched.
+     * The node kind identifies the AST node created for parsed literals. The
+     * token pattern determines the parser key and any suffix restrictions.
      *
      * @param nodeKind AST node kind used for generated literal nodes.
      * @param pattern Token pattern used to recognize string literals.
@@ -36,6 +34,9 @@ public:
     /**
      * @brief Returns metadata describing this literal feature.
      *
+     * The feature provides the "literal.string" and "expression.atom"
+     * capabilities.
+     *
      * @return Feature identification and registration information.
      */
     LiteralInfo info() const override;
@@ -43,10 +44,15 @@ public:
     /**
      * @brief Installs string literal support into an atomic controller.
      *
-     * Registers the configured token pattern, defines the associated
-     * AST node schema, installs parsing rules, validates configured
-     * suffix constraints, and registers runtime evaluation for
-     * produced nodes.
+     * Installation registers the token pattern, creates an AST schema with a
+     * required string "value" field and installs a prefix parser rule.
+     *
+     * The parser consumes a string token, validates exact or regex suffix
+     * requirements when configured, and stores the token text directly in the
+     * AST node.
+     *
+     * Runtime evaluation reads the stored field and returns it as a runtime
+     * string value.
      *
      * @param controller Controller receiving the feature registration.
      */

@@ -21,15 +21,27 @@ class EngineController;
 /**
  * @brief Describes an installable extension for an engine controller.
  *
- * A feature declares provided capabilities, required capabilities, conflicts,
- * and installer callbacks that mutate an EngineController during installation.
+ * EngineFeature groups the configuration needed to add one language feature to
+ * an EngineController.
+ *
+ * A feature can declare capabilities it provides, capabilities it requires,
+ * incompatible features and one or more installer callbacks.
+ *
+ * Installer callbacks are executed in registration order when the feature is
+ * installed.
  */
 class EngineFeature final {
 public:
+    /**
+     * @brief Function used to install a feature into an engine.
+     */
     using Installer = std::function<void(EngineController &)>;
 
     /**
      * @brief Creates a feature descriptor.
+     *
+     * New features start with version "0.1.0" and no capabilities,
+     * dependencies, conflicts or installers.
      *
      * @param name Unique feature name.
      *
@@ -58,6 +70,8 @@ public:
     /**
      * @brief Declares a capability provided by this feature.
      *
+     * Provided capabilities become available to features installed later.
+     *
      * @param capability Capability name.
      * @return Reference to this feature for chaining.
      *
@@ -67,6 +81,9 @@ public:
 
     /**
      * @brief Declares a capability required before this feature can be installed.
+     *
+     * Installation fails if no previously installed feature provides the
+     * requested capability.
      *
      * @param capability Required capability name.
      * @return Reference to this feature for chaining.
@@ -78,6 +95,8 @@ public:
     /**
      * @brief Declares a capability dependency.
      *
+     * This is an alias for requiresCapability().
+     *
      * @param capability Required capability name.
      * @return Reference to this feature for chaining.
      *
@@ -88,6 +107,9 @@ public:
     /**
      * @brief Declares a conflicting feature.
      *
+     * The feature cannot be installed while a feature with this name is
+     * already installed.
+     *
      * @param featureName Name of an incompatible feature.
      * @return Reference to this feature for chaining.
      *
@@ -97,6 +119,11 @@ public:
 
     /**
      * @brief Adds an installer callback.
+     *
+     * Installers usually register lexer, parser, AST, runtime or lowering
+     * behavior through EngineController.
+     *
+     * Multiple installers are allowed and are executed in registration order.
      *
      * @param installer Callback invoked during feature installation.
      * @return Reference to this feature for chaining.
@@ -150,6 +177,9 @@ public:
     /**
      * @brief Runs this feature's installer callbacks on an engine.
      *
+     * Installers are invoked sequentially in the same order they were added
+     * with onInstall().
+     *
      * @param engine Engine controller to mutate.
      */
     void install(EngineController &engine) const;
@@ -166,22 +196,38 @@ private:
 
 /**
  * @brief Construction options for EngineController.
+ *
+ * The duplicate policy is forwarded to the internal registries while
+ * startDomain configures the default parser entry point.
  */
 struct EngineControllerOptions final {
+    /** Duplicate handling policy shared by engine registries. */
     registry::DuplicatePolicy duplicatePolicy{registry::DuplicatePolicy::Error};
+
+    /** Default parser domain used by parse() and parseTokens(). */
     std::string startDomain{};
 };
 
 /**
- * @brief Coordinates lexer, parser, AST, runtime, lowering, diagnostics, and feature installation.
+ * @brief Coordinates the configurable language engine.
  *
- * EngineController owns the registries and diagnostic engine used to configure
- * and run the language pipeline.
+ * EngineController is the high-level façade used to construct and operate a
+ * NovaC language.
+ *
+ * It owns the lexer, AST, parser, runtime and lowering registries together with
+ * the diagnostic engine and installed feature metadata.
+ *
+ * Most registration functions simply forward to the appropriate subsystem,
+ * allowing language features to configure the complete pipeline through one
+ * common interface.
  */
 class EngineController final {
 public:
     /**
      * @brief Creates an engine controller.
+     *
+     * The configured duplicate policy is applied to the AST, parser, runtime
+     * and lowering registries created by the controller.
      *
      * @param options Initial controller options.
      */
@@ -189,6 +235,8 @@ public:
 
     /**
      * @brief Registers a lexer keyword.
+     *
+     * The registration is forwarded to the internal LexerRegistry.
      *
      * @param keyword Keyword text.
      * @return Registration result.
@@ -200,6 +248,8 @@ public:
     /**
      * @brief Registers a lexer symbol.
      *
+     * The registration is forwarded to the internal LexerRegistry.
+     *
      * @param symbol Symbol text.
      * @return Registration result.
      *
@@ -209,6 +259,9 @@ public:
 
     /**
      * @brief Registers an AST node schema.
+     *
+     * The schema is stored in the internal NodeRegistry and later used during
+     * AST validation.
      *
      * @param schema Node schema to register.
      * @return Registration result.
@@ -230,7 +283,7 @@ public:
     registry::RegisterStatus parseRule(std::string domain, std::string key, parser::ParseFn fn);
 
     /**
-     * @brief Registers a parser rule.
+     * @brief Registers a parser rule using a typed domain identifier.
      *
      * @param domain Parse domain identifier.
      * @param key Token key or token text matched by the rule.
@@ -244,6 +297,9 @@ public:
     /**
      * @brief Registers a fallback parser rule.
      *
+     * Fallback rules are tried when the parser has no direct or Pratt rule for
+     * the current token.
+     *
      * @param domain Parse domain name.
      * @param fn Fallback parse function.
      * @return Registration result.
@@ -253,7 +309,7 @@ public:
     registry::RegisterStatus fallback(std::string domain, parser::ParseFn fn);
 
     /**
-     * @brief Registers a fallback parser rule.
+     * @brief Registers a fallback parser rule using a typed domain identifier.
      *
      * @param domain Parse domain identifier.
      * @param fn Fallback parse function.
@@ -266,6 +322,9 @@ public:
     /**
      * @brief Registers a Pratt prefix rule.
      *
+     * Prefix rules are used to begin expression parsing before infix and
+     * postfix operators are processed.
+     *
      * @param domain Parse domain name.
      * @param key Token key or token text matched by the prefix rule.
      * @param fn Prefix parse function.
@@ -276,7 +335,7 @@ public:
     registry::RegisterStatus prefix(std::string domain, std::string key, parser::PrefixFn fn);
 
     /**
-     * @brief Registers a Pratt prefix rule.
+     * @brief Registers a Pratt prefix rule using a typed domain identifier.
      *
      * @param domain Parse domain identifier.
      * @param key Token key or token text matched by the prefix rule.
@@ -289,6 +348,8 @@ public:
 
     /**
      * @brief Registers a left-associative Pratt infix rule.
+     *
+     * This overload uses parser::Associativity::Left.
      *
      * @param domain Parse domain name.
      * @param op Operator token text.
@@ -315,7 +376,7 @@ public:
     registry::RegisterStatus infix(std::string domain, std::string op, int precedence, parser::Associativity associativity, parser::InfixFn fn);
 
     /**
-     * @brief Registers a left-associative Pratt infix rule.
+     * @brief Registers a left-associative Pratt infix rule using a typed domain.
      *
      * @param domain Parse domain identifier.
      * @param op Operator token text.
@@ -328,7 +389,7 @@ public:
     registry::RegisterStatus infix(const ids::ParseDomain &domain, std::string op, int precedence, parser::InfixFn fn);
 
     /**
-     * @brief Registers a Pratt infix rule.
+     * @brief Registers a Pratt infix rule using a typed domain.
      *
      * @param domain Parse domain identifier.
      * @param op Operator token text.
@@ -355,7 +416,7 @@ public:
     registry::RegisterStatus postfix(std::string domain, std::string op, int precedence, parser::PostfixFn fn);
 
     /**
-     * @brief Registers a Pratt postfix rule.
+     * @brief Registers a Pratt postfix rule using a typed domain identifier.
      *
      * @param domain Parse domain identifier.
      * @param op Operator token text.
@@ -370,6 +431,8 @@ public:
     /**
      * @brief Registers a runtime expression handler.
      *
+     * The handler will be selected by AST node kind during evaluation.
+     *
      * @param kind AST node kind handled as an expression.
      * @param handler Evaluation handler.
      * @return Registration result.
@@ -379,7 +442,7 @@ public:
     registry::RegisterStatus expression(std::string kind, runtime::ExprHandler handler);
 
     /**
-     * @brief Registers a runtime expression handler.
+     * @brief Registers a runtime expression handler using a typed node kind.
      *
      * @param kind AST node kind handled as an expression.
      * @param handler Evaluation handler.
@@ -401,7 +464,7 @@ public:
     registry::RegisterStatus statement(std::string kind, runtime::StmtHandler handler);
 
     /**
-     * @brief Registers a runtime statement handler.
+     * @brief Registers a runtime statement handler using a typed node kind.
      *
      * @param kind AST node kind handled as a statement.
      * @param handler Execution handler.
@@ -423,7 +486,7 @@ public:
     registry::RegisterStatus declaration(std::string kind, runtime::DeclHandler handler);
 
     /**
-     * @brief Registers a runtime declaration handler.
+     * @brief Registers a runtime declaration handler using a typed node kind.
      *
      * @param kind AST node kind handled as a declaration.
      * @param handler Declaration handler.
@@ -436,6 +499,9 @@ public:
     /**
      * @brief Registers a runtime binary operator handler.
      *
+     * Registering the first binary operator also installs the runtime binary
+     * dispatcher if it has not already been installed.
+     *
      * @param op Operator text.
      * @param handler Binary operator handler.
      * @return Registration result.
@@ -445,7 +511,7 @@ public:
     registry::RegisterStatus binaryOperator(std::string op, runtime::BinaryHandler handler);
 
     /**
-     * @brief Registers a runtime binary operator handler.
+     * @brief Registers a runtime binary operator handler using a typed operation.
      *
      * @param op Operator identifier.
      * @param handler Binary operator handler.
@@ -458,6 +524,9 @@ public:
     /**
      * @brief Sets the AST node kind used by the runtime binary dispatcher.
      *
+     * This must be configured before the first binary operator causes the
+     * dispatcher to be installed.
+     *
      * @param kind Binary expression node kind.
      *
      * @throws std::runtime_error If kind is empty or the binary dispatcher has already been installed.
@@ -466,6 +535,8 @@ public:
 
     /**
      * @brief Registers an AST-to-HIR lowerer.
+     *
+     * During AST lowering, the node kind is used to select this function.
      *
      * @param nodeKind AST node kind.
      * @param lowerer Lowering function.
@@ -476,7 +547,7 @@ public:
     registry::RegisterStatus hir(std::string nodeKind, ir::LoweringRegistry::HIRLowerer lowerer);
 
     /**
-     * @brief Registers an AST-to-HIR lowerer.
+     * @brief Registers an AST-to-HIR lowerer using a typed node kind.
      *
      * @param nodeKind AST node kind.
      * @param lowerer Lowering function.
@@ -489,6 +560,9 @@ public:
     /**
      * @brief Registers a HIR-to-MIR lowerer.
      *
+     * The HIR instruction operation is used to select this function while
+     * lowering to MIR.
+     *
      * @param instructionKind HIR instruction operation.
      * @param lowerer Lowering function.
      * @return Registration result.
@@ -498,7 +572,7 @@ public:
     registry::RegisterStatus mir(std::string instructionKind, ir::LoweringRegistry::MIRLowerer lowerer);
 
     /**
-     * @brief Registers a HIR-to-MIR lowerer.
+     * @brief Registers a HIR-to-MIR lowerer using a typed operation.
      *
      * @param instructionKind HIR instruction operation.
      * @param lowerer Lowering function.
@@ -511,6 +585,8 @@ public:
     /**
      * @brief Creates an AST node.
      *
+     * This is a convenience wrapper around ast::Node::make().
+     *
      * @param kind Node kind.
      * @return Shared ownership of the created node.
      *
@@ -519,7 +595,7 @@ public:
     ast::NodePtr makeNode(std::string kind) const;
 
     /**
-     * @brief Creates an AST node.
+     * @brief Creates an AST node using a typed node kind.
      *
      * @param kind Node kind.
      * @return Shared ownership of the created node.
@@ -529,6 +605,8 @@ public:
     /**
      * @brief Tokenizes source text using the configured lexer registry.
      *
+     * A temporary Lexer is created from the controller's LexerRegistry.
+     *
      * @param source Source text.
      * @return Token stream terminated by an end token.
      */
@@ -536,6 +614,8 @@ public:
 
     /**
      * @brief Parses source text using the configured start domain.
+     *
+     * The source is first tokenized, then parsed using startDomain().
      *
      * @param source Source text.
      * @return Parsed AST root.
@@ -546,6 +626,9 @@ public:
 
     /**
      * @brief Parses source text using an explicit start domain.
+     *
+     * The source is tokenized and the resulting token stream is forwarded to
+     * parseTokens().
      *
      * @param source Source text.
      * @param startDomain Parse start domain.
@@ -568,6 +651,9 @@ public:
     /**
      * @brief Parses tokens using an explicit start domain.
      *
+     * A temporary Parser is created from the controller's ParserRegistry and
+     * the requested start domain.
+     *
      * @param tokens Token stream.
      * @param startDomain Parse start domain.
      * @return Parsed AST root.
@@ -579,6 +665,9 @@ public:
     /**
      * @brief Validates an AST node using the configured node registry.
      *
+     * Validation is forwarded to NodeRegistry and recursively checks the AST
+     * structure against registered schemas.
+     *
      * @param node AST node to validate.
      *
      * @throws std::runtime_error If validation fails.
@@ -587,6 +676,8 @@ public:
 
     /**
      * @brief Evaluates an AST expression.
+     *
+     * A temporary Runtime is created using the configured RuntimeRegistry.
      *
      * @param node AST node to evaluate.
      * @return Runtime value produced by evaluation.
@@ -598,6 +689,8 @@ public:
     /**
      * @brief Executes an AST statement.
      *
+     * A temporary Runtime is created using the configured RuntimeRegistry.
+     *
      * @param node AST node to execute.
      *
      * @throws std::runtime_error If no runtime handler is registered or execution fails.
@@ -606,6 +699,9 @@ public:
 
     /**
      * @brief Lowers an AST node to HIR.
+     *
+     * A temporary ASTLoweringPass is created using the configured lowering
+     * registry.
      *
      * @param node AST node to lower.
      * @return Produced HIR module.
@@ -617,6 +713,9 @@ public:
     /**
      * @brief Lowers a HIR module to MIR.
      *
+     * A temporary HIRLoweringPass is created using the configured lowering
+     * registry.
+     *
      * @param hir HIR module to lower.
      * @return Produced MIR module.
      *
@@ -626,6 +725,9 @@ public:
 
     /**
      * @brief Lowers an AST node directly to MIR.
+     *
+     * The AST is first lowered to HIR, then the produced HIR module is lowered
+     * to MIR.
      *
      * @param node AST node to lower.
      * @return Produced MIR module.
@@ -637,8 +739,15 @@ public:
     /**
      * @brief Installs a feature atomically.
      *
-     * Installation is first applied to a candidate copy. The controller is
-     * replaced only after validation and installation succeed.
+     * Installation first validates duplicate features, conflicts and required
+     * capabilities.
+     *
+     * The feature is then installed into a copy of the current controller.
+     * Only after every installer succeeds and the feature metadata is recorded
+     * is the candidate moved back into this controller.
+     *
+     * This prevents partially applied feature installations from modifying the
+     * original engine state.
      *
      * @param feature Feature to install.
      *
@@ -648,6 +757,9 @@ public:
 
     /**
      * @brief Creates a copy of the current engine state.
+     *
+     * The returned controller contains copies of the registries, diagnostics,
+     * start domain and installed feature metadata.
      *
      * @return Snapshot of this controller.
      */
@@ -663,6 +775,8 @@ public:
     /**
      * @brief Checks whether a feature is installed.
      *
+     * Installed feature metadata is searched by feature name.
+     *
      * @param name Feature name.
      * @return True if a feature with the name is installed.
      */
@@ -671,6 +785,9 @@ public:
     /**
      * @brief Checks whether an installed feature provides a capability.
      *
+     * Every installed feature is searched until the requested capability is
+     * found.
+     *
      * @param capability Capability name.
      * @return True if the capability is available.
      */
@@ -678,6 +795,8 @@ public:
 
     /**
      * @brief Sets the default parser start domain.
+     *
+     * This domain is used by parse(source) and parseTokens(tokens).
      *
      * @param startDomain Parse start domain.
      *
@@ -708,6 +827,9 @@ public:
 
     /**
      * @brief Returns the lexer registry.
+     *
+     * Direct access can be used for lexer configuration not exposed by the
+     * EngineController convenience functions.
      *
      * @return Mutable lexer registry.
      */
@@ -777,6 +899,11 @@ public:
     const ir::LoweringRegistry &lowering() const;
 
 private:
+    /**
+     * @brief Stored metadata for an installed feature.
+     *
+     * Only information needed for capability and conflict checks is retained.
+     */
     struct InstalledFeature final {
         std::string name{};
         std::string version{};
@@ -784,8 +911,26 @@ private:
         std::vector<std::string> conflicts{};
     };
 
+    /**
+     * @brief Validates whether a feature can be installed.
+     *
+     * The check rejects duplicate feature names, conflicts declared in either
+     * direction and missing required capabilities.
+     */
     void validateFeatureInstall(const EngineFeature &feature) const;
+
+    /**
+     * @brief Stores metadata for a successfully installed feature.
+     */
     void rememberFeature(const EngineFeature &feature);
+
+    /**
+     * @brief Ensures that a default parser start domain is configured.
+     *
+     * @param owner Function name used in the error message.
+     *
+     * @throws std::runtime_error If no start domain is configured.
+     */
     void requireStartDomain(const std::string &owner) const;
 
     lexer::LexerRegistry lexer_;

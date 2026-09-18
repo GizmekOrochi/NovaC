@@ -9,22 +9,20 @@ namespace novac::assets::atomic::literals {
 /**
  * @brief Registers support for integer literal expressions.
  *
- * This feature installs parsing, AST node creation, and runtime
- * evaluation for integer literals. Parsed literals produce an AST
- * node containing a required integer field named "value" and
- * evaluate to a runtime integer value.
+ * IntegerLiteralAtomic installs the AST schema, parser rule and runtime handler
+ * required for integer literals.
  *
- * The accepted token format is defined by the supplied token pattern,
- * including optional suffix validation rules.
+ * Parsed literals produce a node containing a required integer field named
+ * "value". The supplied TokenPattern controls parser matching and may
+ * optionally require an exact suffix or a suffix matching a regular expression.
  */
 class IntegerLiteralAtomic final : public LiteralFeature {
 public:
     /**
      * @brief Creates an integer literal feature.
      *
-     * The node kind identifies the AST node type created for parsed
-     * literals. The token pattern determines how integer literals
-     * are recognized and matched.
+     * The node kind identifies the AST node created for parsed literals. The
+     * token pattern determines the parser key and any suffix restrictions.
      *
      * @param nodeKind AST node kind used for generated literal nodes.
      * @param pattern Token pattern used to recognize integer literals.
@@ -36,6 +34,9 @@ public:
     /**
      * @brief Returns metadata describing this literal feature.
      *
+     * The feature provides the "literal.integer" and "expression.atom"
+     * capabilities.
+     *
      * @return Feature identification and registration information.
      */
     LiteralInfo info() const override;
@@ -43,10 +44,15 @@ public:
     /**
      * @brief Installs integer literal support into an atomic controller.
      *
-     * Registers the configured token pattern, defines the associated
-     * AST node schema, installs parsing rules, validates configured
-     * suffix constraints, and registers runtime evaluation for
-     * produced nodes.
+     * Installation registers the token pattern, creates an AST schema with a
+     * required integer "value" field and installs a prefix parser rule.
+     *
+     * The parser consumes an integer token, validates exact or regex suffix
+     * requirements when configured, converts the token text with std::stoi(),
+     * and stores the result in the AST node.
+     *
+     * Runtime evaluation reads the stored integer field and returns it as a
+     * runtime integer value.
      *
      * @param controller Controller receiving the feature registration.
      */
