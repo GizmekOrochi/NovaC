@@ -16,26 +16,37 @@ namespace novac::assets::atomic {
 /**
 * @brief Configuration used by AtomicController.
 *
-* Defines the expression domain and the AST node kinds used for generated
-* binary and unary expression carrier nodes.
+* Defines the parser domain used for atomic expressions and the AST node kinds
+* used as shared carrier nodes for binary and unary operations.
 */
 struct AtomicControllerOptions {
+    /** Parser domain used for atomic expressions. */
     std::string expressionDomain{"expr"};
+
+    /** AST node kind used to represent binary operations. */
     std::string binaryNodeKind{"BinaryExpr"};
+
+    /** AST node kind used to represent unary operations. */
     std::string unaryNodeKind{"UnaryExpr"};
 };
 
 /**
 * @brief Ownable group of literal features.
 *
-* Literal packs are used to compose literal support outside of AtomicController.
-* The controller takes ownership of the contained features when the pack is used.
+* Literal packs allow several literal implementations to be composed before
+* they are installed into an AtomicController.
+*
+* Features stored in a pack are owned by the pack until it is consumed by the
+* controller.
 */
 struct LiteralPack {
+    /** Literal features contained in this pack. */
     std::vector<std::unique_ptr<LiteralFeature>> features;
 
     /**
     * @brief Constructs and appends a literal feature to the pack.
+    *
+    * The feature is created with std::make_unique and stored by the pack.
     *
     * @tparam Feature Concrete LiteralFeature type to construct.
     * @tparam Args Constructor argument types.
@@ -51,6 +62,8 @@ struct LiteralPack {
     /**
     * @brief Moves all features from another pack into this pack.
     *
+    * Each feature is moved individually, transferring ownership to this pack.
+    *
     * @param pack Pack whose features are consumed.
     * @return This pack, for fluent composition.
     */
@@ -60,15 +73,20 @@ struct LiteralPack {
 /**
 * @brief Ownable group of operation features.
 *
-* Operation packs are used to compose operation support outside of
-* AtomicController. The controller takes ownership of the contained features
-* when the pack is used.
+* Operation packs allow several operation implementations to be composed before
+* they are installed into an AtomicController.
+*
+* Features stored in a pack are owned by the pack until it is consumed by the
+* controller.
 */
 struct OperationPack {
+    /** Operation features contained in this pack. */
     std::vector<std::unique_ptr<OperationFeature>> features;
 
     /**
     * @brief Constructs and appends an operation feature to the pack.
+    *
+    * The feature is created with std::make_unique and stored by the pack.
     *
     * @tparam Feature Concrete OperationFeature type to construct.
     * @tparam Args Constructor argument types.
@@ -84,6 +102,8 @@ struct OperationPack {
     /**
     * @brief Moves all features from another pack into this pack.
     *
+    * Each feature is moved individually, transferring ownership to this pack.
+    *
     * @param pack Pack whose features are consumed.
     * @return This pack, for fluent composition.
     */
@@ -93,15 +113,23 @@ struct OperationPack {
 /**
 * @brief Installs atomic literal and operation features into an engine.
 *
-* AtomicController acts as a registry and installation context for atomic
-* expression features. Concrete language choices are provided through
-* LiteralPack and OperationPack objects rather than hard-coded controller
-* methods.
+* AtomicController provides the installation context used by atomic language
+* features. It coordinates parser bindings, AST schemas, runtime handlers,
+* feature metadata and shared expression carrier nodes.
+*
+* Concrete language choices are supplied through LiteralFeature,
+* OperationFeature, LiteralPack and OperationPack rather than being hard-coded
+* into the engine itself.
+*
+* The controller references an external EngineController and may also own
+* features installed through packs or own().
 */
 class AtomicController {
 public:
     /**
     * @brief Installs the standard atomic language core.
+    *
+    * This is a compatibility alias for standardCore().
     *
     * Installs:
     * - standard literals
@@ -116,8 +144,9 @@ public:
     /**
     * @brief Creates a controller bound to an engine.
     *
-    * The engine reference is stored and the configured expression domain is set as
-    * the engine start domain.
+    * The configuration is validated, the engine reference is stored and the
+    * configured expression domain becomes the engine's default parser start
+    * domain.
     *
     * @param engine Engine controller configured by this instance. It must outlive
     * the AtomicController.
@@ -129,6 +158,11 @@ public:
     /**
     * @brief Installs a literal feature without taking ownership.
     *
+    * The feature metadata is validated first. The feature is then installed and
+    * its metadata is remembered by the controller.
+    *
+    * The caller remains responsible for the lifetime of the feature object.
+    *
     * @param feature Literal feature to validate and install.
     * @return This controller, for fluent chaining.
     * @throws std::runtime_error If the literal metadata is invalid or duplicated.
@@ -137,6 +171,11 @@ public:
 
     /**
     * @brief Installs an operation feature without taking ownership.
+    *
+    * The feature metadata is validated first. The feature is then installed and
+    * its metadata is remembered by the controller.
+    *
+    * The caller remains responsible for the lifetime of the feature object.
     *
     * @param feature Operation feature to validate and install.
     * @return This controller, for fluent chaining.
@@ -147,7 +186,8 @@ public:
     /**
     * @brief Installs all literal features from a pack.
     *
-    * The controller takes ownership of every feature contained in the pack.
+    * Each feature is passed to own(), transferring ownership to the controller
+    * after successful installation.
     *
     * @param pack Literal pack to consume.
     * @return This controller, for fluent chaining.
@@ -157,7 +197,8 @@ public:
     /**
     * @brief Installs all operation features from a pack.
     *
-    * The controller takes ownership of every feature contained in the pack.
+    * Each feature is passed to own(), transferring ownership to the controller
+    * after successful installation.
     *
     * @param pack Operation pack to consume.
     * @return This controller, for fluent chaining.
@@ -166,6 +207,9 @@ public:
 
     /**
     * @brief Installs and stores ownership of a literal feature.
+    *
+    * The pointer is validated, the feature is installed through use(), and the
+    * controller keeps the feature alive after installation.
     *
     * @param feature Literal feature to own and install.
     * @return This controller, for fluent chaining.
@@ -176,6 +220,9 @@ public:
     /**
     * @brief Installs and stores ownership of an operation feature.
     *
+    * The pointer is validated, the feature is installed through use(), and the
+    * controller keeps the feature alive after installation.
+    *
     * @param feature Operation feature to own and install.
     * @return This controller, for fluent chaining.
     * @throws std::runtime_error If the feature pointer is null or invalid.
@@ -183,82 +230,136 @@ public:
     AtomicController &own(std::unique_ptr<OperationFeature> feature);
 
     /**
-    * @brief Compatibility helper installing integer literal support.
+    * @brief Compatibility helper installing default integer literal support.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &integer();
 
     /**
     * @brief Compatibility helper installing integer literal support with suffixes.
+    *
+    * @param nodeKind AST node kind used for the literal.
+    * @param suffixes Accepted literal suffixes.
+    * @return This controller, for fluent chaining.
     */
     AtomicController &integer(std::string nodeKind, std::vector<std::string> suffixes);
 
     /**
-    * @brief Compatibility helper installing floating-point literal support.
+    * @brief Compatibility helper installing default floating-point literal support.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &floating();
 
     /**
     * @brief Compatibility helper installing floating-point literal support with suffixes.
+    *
+    * @param nodeKind AST node kind used for the literal.
+    * @param suffixes Accepted literal suffixes.
+    * @return This controller, for fluent chaining.
     */
     AtomicController &floating(std::string nodeKind, std::vector<std::string> suffixes);
 
     /**
-    * @brief Compatibility helper installing string literal support.
+    * @brief Compatibility helper installing default string literal support.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &stringLiteral();
 
     /**
     * @brief Compatibility helper installing string literal support with suffixes.
+    *
+    * @param nodeKind AST node kind used for the literal.
+    * @param suffixes Accepted literal suffixes.
+    * @return This controller, for fluent chaining.
     */
     AtomicController &stringLiteral(std::string nodeKind, std::vector<std::string> suffixes);
 
     /**
-    * @brief Compatibility helper installing boolean literal support.
+    * @brief Compatibility helper installing default boolean literal support.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &boolean();
 
     /**
     * @brief Compatibility helper installing boolean literal support with custom tokens.
+    *
+    * @param nodeKind AST node kind used for boolean literals.
+    * @param trueToken Token representing true.
+    * @param falseToken Token representing false.
+    * @return This controller, for fluent chaining.
     */
     AtomicController &boolean(std::string nodeKind, std::string trueToken, std::string falseToken);
 
     /**
     * @brief Compatibility helper installing addition.
+    *
+    * A single-operation pack is created and installed using the supplied token.
+    *
+    * @param token Token used for addition.
+    * @return This controller, for fluent chaining.
     */
     AtomicController &add(std::string token = "+");
 
     /**
     * @brief Compatibility helper installing subtraction.
+    *
+    * A single-operation pack is created and installed using the supplied token.
+    *
+    * @param token Token used for subtraction.
+    * @return This controller, for fluent chaining.
     */
     AtomicController &subtract(std::string token = "-");
 
     /**
     * @brief Installs the standard literal feature set.
+    *
+    * Includes integer, floating-point, string and boolean literals.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &standardLiterals();
 
     /**
     * @brief Installs standard numeric operations.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &standardNumericOperations();
 
     /**
     * @brief Installs standard comparison operations.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &standardComparisonOperations();
 
     /**
     * @brief Installs standard logical operations.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &standardLogicalOperations();
 
     /**
     * @brief Installs all standard operation features.
+    *
+    * Numeric, comparison and logical operation packs are merged and installed.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &standardOperations();
 
     /**
     * @brief Installs the standard atomic core.
+    *
+    * Standard literals are installed first, followed by all standard
+    * operations.
+    *
+    * @return This controller, for fluent chaining.
     */
     AtomicController &standardCore();
 
@@ -316,6 +417,8 @@ public:
     /**
     * @brief Returns metadata for installed literal features.
     *
+    * Metadata is stored in installation order.
+    *
     * @return Literal metadata in installation order.
     */
     const std::vector<LiteralInfo> &literals() const;
@@ -323,15 +426,21 @@ public:
     /**
     * @brief Returns metadata for installed operation features.
     *
+    * Metadata is stored in installation order.
+    *
     * @return Operation metadata in installation order.
     */
     const std::vector<OperationInfo> &operations() const;
 
     /**
-    * @brief Registers a token pattern with the engine once.
+    * @brief Registers a concrete token pattern with the engine once.
     *
-    * Empty token patterns are ignored. Keyword patterns are registered as keywords;
-    * other token patterns are registered as symbols.
+    * Patterns without token text are ignored because token-key and suffix
+    * patterns do not require lexer symbol registration.
+    *
+    * Keyword patterns are registered as lexer keywords and other concrete
+    * patterns are registered as symbols. Previously registered patterns are
+    * ignored.
     *
     * @param pattern Token pattern to register.
     */
@@ -340,21 +449,30 @@ public:
     /**
     * @brief Ensures the binary expression carrier node exists.
     *
-    * The node is installed at most once and the engine binary node kind is updated
-    * to the configured binary node kind.
+    * The shared binary node schema is installed at most once. It contains an
+    * operator id and left and right expression children.
+    *
+    * The engine runtime binary dispatcher is also configured to use this node
+    * kind.
     */
     void ensureBinaryExpressionNode();
 
     /**
     * @brief Ensures the unary expression carrier node exists.
     *
-    * The node and its evaluator are installed at most once. Unary expression
-    * evaluation dispatches to handlers registered with registerUnaryOperation().
+    * The shared unary node schema and its runtime expression handler are
+    * installed at most once.
+    *
+    * At runtime, the handler reads the node's operation id and dispatches to
+    * the corresponding handler registered through registerUnaryOperation().
     */
     void ensureUnaryExpressionNode();
 
     /**
     * @brief Registers a runtime handler for a unary operation id.
+    *
+    * Unary carrier nodes store an operation id in their "op" field. During
+    * evaluation, that id is used to select one of these handlers.
     *
     * @param operationId Operation id stored in unary expression nodes.
     * @param handler Runtime expression handler used to evaluate the operation.
@@ -364,9 +482,36 @@ public:
     void registerUnaryOperation(std::string operationId, runtime::ExprHandler handler);
 
 private:
+    /**
+    * @brief Validates literal metadata before installation.
+    *
+    * The literal must have a non-empty id and node kind, and its id must not
+    * already be installed.
+    */
     void validateLiteral(const LiteralInfo &info) const;
+
+    /**
+    * @brief Validates operation metadata before installation.
+    *
+    * The operation must have a non-empty id, a usable token pattern and an id
+    * that has not already been installed.
+    */
     void validateOperation(const OperationInfo &info) const;
+
+    /**
+    * @brief Records metadata for an installed literal.
+    *
+    * The id is added to the lookup set and the complete metadata is appended
+    * to the installation-order list.
+    */
     void rememberLiteral(LiteralInfo info);
+
+    /**
+    * @brief Records metadata for an installed operation.
+    *
+    * The id is added to the lookup set and the complete metadata is appended
+    * to the installation-order list.
+    */
     void rememberOperation(OperationInfo info);
 
     controllers::EngineController &engine_;
@@ -388,6 +533,8 @@ namespace literals {
 /**
 * @brief Creates a pack containing integer literal support.
 *
+* The default implementation matches the generic "$int" parser token key.
+*
 * @param nodeKind AST node kind used for integer literal nodes.
 * @return Literal pack containing the integer literal feature.
 */
@@ -395,6 +542,8 @@ LiteralPack integer(std::string nodeKind = "IntegerLiteral");
 
 /**
 * @brief Creates a pack containing integer literal support with suffixes.
+*
+* Suffixes are normalized and combined into a regular-expression token pattern.
 *
 * @param nodeKind AST node kind used for integer literal nodes.
 * @param suffixes Accepted suffixes, with or without leading underscores.
@@ -406,6 +555,8 @@ LiteralPack integer(std::string nodeKind, std::vector<std::string> suffixes);
 /**
 * @brief Creates a pack containing floating-point literal support.
 *
+* The default implementation matches the generic "$float" parser token key.
+*
 * @param nodeKind AST node kind used for floating-point literal nodes.
 * @return Literal pack containing the floating-point literal feature.
 */
@@ -413,6 +564,8 @@ LiteralPack floating(std::string nodeKind = "FloatLiteral");
 
 /**
 * @brief Creates a pack containing floating-point literal support with suffixes.
+*
+* Suffixes are normalized and combined into a regular-expression token pattern.
 *
 * @param nodeKind AST node kind used for floating-point literal nodes.
 * @param suffixes Accepted suffixes, with or without leading underscores.
@@ -424,6 +577,8 @@ LiteralPack floating(std::string nodeKind, std::vector<std::string> suffixes);
 /**
 * @brief Creates a pack containing string literal support.
 *
+* The default implementation matches the generic "$string" parser token key.
+*
 * @param nodeKind AST node kind used for string literal nodes.
 * @return Literal pack containing the string literal feature.
 */
@@ -431,6 +586,8 @@ LiteralPack stringLiteral(std::string nodeKind = "StringLiteral");
 
 /**
 * @brief Creates a pack containing string literal support with suffixes.
+*
+* Suffixes are normalized and combined into a regular-expression token pattern.
 *
 * @param nodeKind AST node kind used for string literal nodes.
 * @param suffixes Accepted suffixes, with or without leading underscores.
@@ -442,6 +599,8 @@ LiteralPack stringLiteral(std::string nodeKind, std::vector<std::string> suffixe
 /**
 * @brief Creates a pack containing boolean literal support.
 *
+* Boolean literals use configurable concrete tokens for true and false.
+*
 * @param nodeKind AST node kind used for boolean literal nodes.
 * @param trueToken Token recognized as the boolean true literal.
 * @param falseToken Token recognized as the boolean false literal.
@@ -452,7 +611,8 @@ LiteralPack boolean(std::string nodeKind = "BooleanLiteral", std::string trueTok
 /**
 * @brief Creates a pack containing the standard literal feature set.
 *
-* Includes integer, floating-point, string, and boolean literal support.
+* Includes integer, floating-point, string, and boolean literal support using
+* their default configuration.
 *
 * @return Literal pack containing standard literal features.
 */
@@ -464,6 +624,9 @@ namespace operations {
 
 /**
 * @brief Token configuration for numeric operations.
+*
+* Each field can be replaced to give the standard numeric operation set a
+* different surface syntax.
 */
 struct NumericOperationOptions {
     std::string add{"+"};
@@ -476,6 +639,9 @@ struct NumericOperationOptions {
 
 /**
 * @brief Token configuration for comparison operations.
+*
+* Each field can be replaced to customize the concrete comparison operators
+* used by the generated feature pack.
 */
 struct ComparisonOperationOptions {
     std::string equal{"=="};
@@ -488,6 +654,9 @@ struct ComparisonOperationOptions {
 
 /**
 * @brief Token configuration for logical operations.
+*
+* Each field can be replaced to customize the concrete logical operators used
+* by the generated feature pack.
 */
 struct LogicalOperationOptions {
     std::string andToken{"&&"};
@@ -500,6 +669,9 @@ struct LogicalOperationOptions {
 *
 * Includes addition, subtraction, multiplication, division, modulo, and numeric
 * negation.
+*
+* Each configured token is converted to the appropriate TokenPattern before the
+* operation feature is added to the pack.
 *
 * @param options Tokens used by numeric operations.
 * @return Operation pack containing numeric operation features.
@@ -533,8 +705,8 @@ OperationPack logical(LogicalOperationOptions options = {});
 /**
 * @brief Creates a pack containing the standard operation feature set.
 *
-* Includes numeric, comparison, and logical operation support using default
-* tokens.
+* Numeric, comparison and logical packs are merged using their default token
+* configuration.
 *
 * @return Operation pack containing standard operation features.
 */
