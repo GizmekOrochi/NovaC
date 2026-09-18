@@ -36,7 +36,7 @@ public:
      * @brief Creates a lexer registry.
      *
      * The registry starts with default identifier rules compatible with common
-     * C-like identifiers and default // and /* ... *\/ comment delimiters.
+     * C-like identifiers and default line and block comment delimiters.
      *
      * @param duplicatePolicy Policy used when duplicate registrations occur.
      */

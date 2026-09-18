@@ -1,3 +1,7 @@
+#pragma once
+
+#include "novac/assets/essentials/EssentialFeature.hpp"
+
 namespace novac::assets::essentials::controlflow {
 
 /**

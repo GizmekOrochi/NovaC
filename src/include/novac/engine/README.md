@@ -168,7 +168,7 @@ HIR (High-Level Intermediate Representation) is the first lowering stage after t
 MIR (Mid-Level Intermediate Representation) is a lower-level representation produced from HIR.
 
 MIR is suitable for optimization passes, code generation or backend-specific transformations
-The Engine does not include a backend to unsure modularity. Both HIR and MIR are entirely extensible.
+The Engine does not include a backend to preserve modularity. Both HIR and MIR are entirely extensible.
 
 ---
 
@@ -311,7 +311,7 @@ or any custom combination. The Engine supplies the infrastructure. The language 
 
 # Summary
 
-The Engine is a language-construction kernel, not a compiler not an interperter.
+The Engine is a language-construction kernel, neither a compiler nor an interpreter.
 Its responsibility is to provide reusable infrastructure for:
 
 * lexical analysis
@@ -326,7 +326,7 @@ while remaining completely independent from any particular language design.
 
 ---
 
-# Exemple 
+# Example 
 
 ```cpp
 #include "novac/engine/EngineController.hpp"
