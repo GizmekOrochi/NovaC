@@ -12,8 +12,11 @@ class AtomicController;
 /**
  * @brief Describes a literal feature available to an atomic controller.
  *
- * Provides metadata used for registration, discovery, compatibility
- * checks, and documentation of literal implementations.
+ * LiteralInfo contains the metadata needed to identify, document and validate
+ * a literal implementation before or during installation.
+ *
+ * The information includes the AST node kind produced by the literal, the token
+ * pattern used to recognize it, and its capability dependencies.
  */
 struct LiteralInfo {
     /**
@@ -33,21 +36,32 @@ struct LiteralInfo {
 
     /**
      * @brief AST node kind produced by the literal.
+     *
+     * Literal parsing implementations generally create nodes using this kind.
      */
     std::string nodeKind{};
 
     /**
      * @brief Token pattern used to recognize the literal.
+     *
+     * The pattern describes which token form should be associated with this
+     * literal implementation.
      */
     TokenPattern pattern{};
 
     /**
      * @brief Capabilities provided by this literal.
+     *
+     * These capabilities can be used by other atomic features when checking
+     * dependencies.
      */
     std::vector<std::string> capabilities{};
 
     /**
      * @brief Capabilities required before this literal can be used.
+     *
+     * Installation can use this list to ensure that required functionality is
+     * already available.
      */
     std::vector<std::string> requiredCapabilities{};
 };
@@ -55,21 +69,28 @@ struct LiteralInfo {
 /**
  * @brief Base interface for literal feature implementations.
  *
- * Literal features register parsing rules, AST node generation,
- * and runtime evaluation behavior for literal expressions.
+ * LiteralFeature defines the common contract used by atomic literal modules.
+ * Each implementation provides its own metadata through info() and installs
+ * its parser, AST and runtime behavior through install().
  *
- * Implementations are installed through an AtomicController and are
- * not owned by the controller.
+ * Implementations are installed through an AtomicController and are not owned
+ * by the controller.
  */
 class LiteralFeature {
 public:
     /**
      * @brief Virtual destructor.
+     *
+     * Allows derived literal implementations to be destroyed safely through
+     * a LiteralFeature pointer or reference.
      */
     virtual ~LiteralFeature();
 
     /**
      * @brief Returns metadata describing the literal feature.
+     *
+     * The returned structure identifies the literal and describes its node
+     * kind, token pattern and capability requirements.
      *
      * @return Literal registration and capability information.
      */
@@ -78,8 +99,8 @@ public:
     /**
      * @brief Installs the literal feature into an atomic controller.
      *
-     * Implementations register any required parser bindings, AST node
-     * definitions, and runtime evaluation handlers.
+     * Implementations use the controller to register the parser bindings,
+     * AST schema and runtime behavior required by the literal.
      *
      * @param controller Controller receiving the feature registration.
      */
