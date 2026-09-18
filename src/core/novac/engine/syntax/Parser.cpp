@@ -156,9 +156,13 @@ ast::NodePtr ParserRegistry::parse(ParserContext &context, const std::string &do
     }
 
     for (const ParseFn &fallback : rules.fallbacks) {
+        const std::size_t fallbackStart{context.pos_};
+
         if (ast::NodePtr node{fallback(context)}) {
             return node;
         }
+
+        context.pos_ = fallbackStart;
     }
 
     throw std::runtime_error("ParserRegistry::parse: no rule matched domain '" + domain + "' at line " + std::to_string(context.cur().line) + ", column " + std::to_string(context.cur().column));

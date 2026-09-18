@@ -365,6 +365,44 @@ TEST(ParserRegistry, TriesFallbacksUntilOneReturnsNode) {
     CHECK(node->str("name") == "x");
 }
 
+TEST(ParserRegistry, RestoresPositionWhenFallbackReturnsNull) {
+    ParserRegistry registry{};
+
+    registry.fallback("expr", [](ParserContext &context) -> NodePtr {
+        context.consumeKind(Kind::Identifier);
+        return nullptr;
+    });
+
+    registry.fallback("expr", [](ParserContext &context) -> NodePtr {
+        const Token token{context.consumeKind(Kind::Identifier)};
+        return identifier(token.text);
+    });
+
+    ParserContext context{tokens({tok(Kind::Identifier, "x"), endTok()}), registry};
+
+    NodePtr node{registry.parse(context, "expr")};
+
+    CHECK(node != nullptr);
+    CHECK(node->kind() == "Identifier");
+    CHECK(node->str("name") == "x");
+    CHECK(context.end());
+}
+
+TEST(ParserRegistry, RestoresPositionWhenAllFallbacksReturnNull) {
+    ParserRegistry registry{};
+
+    registry.fallback("expr", [](ParserContext &context) -> NodePtr {
+        context.consumeKind(Kind::Identifier);
+        return nullptr;
+    });
+
+    ParserContext context{tokens({tok(Kind::Identifier, "x"), endTok()}), registry};
+
+    CHECK(throwsRuntimeError([&]() {registry.parse(context, "expr");}));
+    CHECK(context.cur().kind == Kind::Identifier);
+    CHECK(context.cur().text == "x");
+}
+
 TEST(ParserRegistry, RejectsInvalidFallbackRules) {
     ParserRegistry registry{};
 

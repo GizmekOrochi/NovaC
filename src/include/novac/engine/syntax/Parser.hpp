@@ -141,17 +141,20 @@ public:
     registry::RegisterStatus rule(const ids::ParseDomain &domain, std::string key, ParseFn fn);
 
     /**
-     * @brief Registers a fallback parse rule.
-     *
-     * Fallbacks are tried in registration order when no direct or Pratt rule
-     * can parse the current token. Returning nullptr lets the next fallback run.
-     *
-     * @param domain Parse domain receiving the fallback.
-     * @param fn Fallback parsing function.
-     * @return Registration result.
-     */
+    * @brief Registers a fallback parse rule.
+    *
+    * Fallbacks are tried in registration order when no direct or Pratt rule
+    * can parse the current token. Returning nullptr rejects the fallback and
+    * restores the parser position before the next fallback is attempted.
+    *
+    * Returning a node commits all tokens consumed by the fallback.
+    *
+    * @param domain Parse domain receiving the fallback.
+    * @param fn Fallback parsing function.
+    * @return Registration result.
+    */
     registry::RegisterStatus fallback(std::string domain, ParseFn fn);
-
+    
     /**
      * @brief Registers a fallback using a typed domain identifier.
      */
@@ -382,6 +385,8 @@ public:
     ast::NodePtr parse(const ids::ParseDomain &domain, int minPrecedence = 0);
 
 private:
+    friend class ParserRegistry;
+
     std::vector<token::Token> tokens_;
     std::size_t pos_;
     const ParserRegistry &registry_;
