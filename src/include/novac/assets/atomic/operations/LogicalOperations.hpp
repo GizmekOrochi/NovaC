@@ -143,7 +143,8 @@ private:
  * Numeric negation is a prefix unary operation supporting integer and
  * floating-point runtime values.
  *
- * Integer operands remain integers. If the operand cannot be read as an
+ * Integer operands remain integers. Negating the minimum representable integer
+ * raises std::runtime_error instead of overflowing. If the operand is not an
  * integer, floating-point negation is attempted instead.
  */
 class NumericNegateOperationAtomic final : public OperationFeature {
@@ -171,8 +172,9 @@ public:
      * The operator is registered as a prefix parser rule and uses the shared
      * unary expression carrier node.
      *
-     * Runtime evaluation first attempts integer negation. If the operand is not
-     * an integer, it is converted to floating-point and negated as a double.
+     * Runtime evaluation performs checked integer negation for integer operands.
+     * If the operand is not an integer, it is converted to floating-point and
+     * negated as a double.
      *
      * @param controller Controller receiving the operation registration.
      */

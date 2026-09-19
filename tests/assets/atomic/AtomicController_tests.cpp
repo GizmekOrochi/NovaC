@@ -5,6 +5,8 @@
 #include "novac/assets/atomic/operations/NumericOperations.hpp"
 #include "novac/assets/atomic/operations/ComparisonOperations.hpp"
 
+#include <limits>
+
 namespace {
 
 template <typename Fn>
@@ -115,6 +117,22 @@ TEST(AtomicController, TemporaryComparisonOperationRemainsUsable) {
     const auto result{engine.eval(*expression)};
 
     CHECK(result.truthy());
+}
+
+TEST(AtomicController, IntegerAdditionOverflowThrowsAtRuntime) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    controller.integer();
+    controller.add();
+
+    const std::string source{
+        std::to_string(std::numeric_limits<int>::max()) + " + 1"};
+    const auto expression{engine.parse(source)};
+
+    CHECK(throwsRuntimeError([&]() {
+        static_cast<void>(engine.eval(*expression));
+    }));
 }
 
 TEST(AtomicController, IntegerRegistration) {

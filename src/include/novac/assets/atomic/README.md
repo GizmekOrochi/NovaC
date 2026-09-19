@@ -115,6 +115,16 @@ Numeric operations automatically install:
 
 Operator precedence and associativity are handled automatically.
 
+## Integer overflow semantics
+
+Atomic integer arithmetic uses checked semantics. Integer addition, subtraction,
+multiplication, division, and unary negation never silently wrap and never rely
+on signed C++ overflow. If the mathematical result cannot be represented by the
+runtime `int` type, evaluation throws `std::runtime_error`. Integer division and
+modulo by zero also throw. `INT_MIN % -1` is defined explicitly as `0`, avoiding
+the undefined C++ remainder expression while preserving the mathematical
+remainder. Floating-point arithmetic is unchanged.
+
 ---
 
 # Comparison Operations

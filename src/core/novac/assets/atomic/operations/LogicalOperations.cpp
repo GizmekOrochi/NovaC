@@ -1,6 +1,7 @@
 #include "novac/assets/atomic/operations/LogicalOperations.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
+#include "novac/assets/atomic/operations/IntegerArithmetic.hpp"
 
 #include <stdexcept>
 #include <utility>
@@ -8,6 +9,15 @@
 namespace novac::assets::atomic::operations {
 
 namespace {
+
+bool isInteger(const runtime::Value &value) {
+    try {
+        static_cast<void>(value.asInt());
+        return true;
+    } catch (const std::runtime_error &) {
+        return false;
+    }
+}
 
 std::string operatorKey(const OperationInfo &info) {
     if (!info.pattern.token.empty()) {
@@ -142,11 +152,11 @@ void NumericNegateOperationAtomic::install(AtomicController &controller) const {
     controller.registerUnaryOperation(operation.id, [](const ast::Node &node, runtime::RuntimeContext &context) {
         const runtime::Value value{context.eval(*node.child("expr"))};
 
-        try {
-            return runtime::Value::integer(-value.asInt());
-        } catch (const std::runtime_error &) {
-            return runtime::Value::floating(-value.asFloat());
+        if (isInteger(value)) {
+            return runtime::Value::integer(detail::checkedNegate(value.asInt()));
         }
+
+        return runtime::Value::floating(-value.asFloat());
     });
 }
 

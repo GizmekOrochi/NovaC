@@ -1,6 +1,7 @@
 #include "novac/assets/atomic/operations/NumericOperations.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
+#include "novac/assets/atomic/operations/IntegerArithmetic.hpp"
 
 #include <cmath>
 #include <stdexcept>
@@ -76,7 +77,7 @@ AddOperationAtomic::AddOperationAtomic(TokenPattern pattern)
 auto AddOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {
-            return runtime::Value::integer(left.asInt() + right.asInt());
+            return runtime::Value::integer(detail::checkedAdd(left.asInt(), right.asInt()));
         }
 
         return runtime::Value::floating(left.asFloat() + right.asFloat());
@@ -89,7 +90,7 @@ SubtractOperationAtomic::SubtractOperationAtomic(TokenPattern pattern)
 auto SubtractOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {
-            return runtime::Value::integer(left.asInt() - right.asInt());
+            return runtime::Value::integer(detail::checkedSubtract(left.asInt(), right.asInt()));
         }
 
         return runtime::Value::floating(left.asFloat() - right.asFloat());
@@ -102,7 +103,7 @@ MultiplyOperationAtomic::MultiplyOperationAtomic(TokenPattern pattern)
 auto MultiplyOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {
-            return runtime::Value::integer(left.asInt() * right.asInt());
+            return runtime::Value::integer(detail::checkedMultiply(left.asInt(), right.asInt()));
         }
 
         return runtime::Value::floating(left.asFloat() * right.asFloat());
@@ -115,13 +116,8 @@ DivideOperationAtomic::DivideOperationAtomic(TokenPattern pattern)
 auto DivideOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {
-            const int rhs{right.asInt()};
-
-            if (rhs == 0) {
-                throw std::runtime_error("DivideOperationAtomic::evaluate: division by zero");
-            }
-
-            return runtime::Value::integer(left.asInt() / rhs);
+            return runtime::Value::integer(
+                detail::checkedDivide(left.asInt(), right.asInt()));
         }
 
         const double rhs{right.asFloat()};
@@ -140,13 +136,8 @@ ModuloOperationAtomic::ModuloOperationAtomic(TokenPattern pattern)
 auto ModuloOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {
-            const int rhs{right.asInt()};
-
-            if (rhs == 0) {
-                throw std::runtime_error("ModuloOperationAtomic::evaluate: modulo by zero");
-            }
-
-            return runtime::Value::integer(left.asInt() % rhs);
+            return runtime::Value::integer(
+                detail::checkedModulo(left.asInt(), right.asInt()));
         }
 
         const double rhs{right.asFloat()};

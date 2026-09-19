@@ -92,8 +92,9 @@ private:
  *
  * Computes the sum of two numeric operands.
  *
- * Integer results are preserved when both operands are integers. Otherwise,
- * both operands are evaluated as floating-point values.
+ * Integer results are preserved when both operands are integers. Integer
+ * overflow raises std::runtime_error instead of wrapping. Otherwise, both
+ * operands are evaluated as floating-point values.
  */
 class AddOperationAtomic final : public NumericBinaryOperationAtomic {
 public:
@@ -116,7 +117,8 @@ private:
  *
  * Computes the difference between two numeric operands.
  *
- * Integer results are preserved when both operands are integers. Otherwise,
+ * Integer results are preserved when both operands are integers. Integer
+ * overflow raises std::runtime_error instead of wrapping. Otherwise,
  * floating-point arithmetic is used.
  */
 class SubtractOperationAtomic final : public NumericBinaryOperationAtomic {
@@ -140,7 +142,8 @@ private:
  *
  * Computes the product of two numeric operands.
  *
- * Integer results are preserved when both operands are integers. Otherwise,
+ * Integer results are preserved when both operands are integers. Integer
+ * overflow raises std::runtime_error instead of wrapping. Otherwise,
  * floating-point arithmetic is used.
  */
 class MultiplyOperationAtomic final : public NumericBinaryOperationAtomic {
@@ -164,8 +167,9 @@ private:
  *
  * Computes the quotient of two numeric operands.
  *
- * When both operands are integers, integer division semantics are preserved.
- * Otherwise, floating-point division is used.
+ * When both operands are integers, checked integer division semantics are
+ * preserved. Division by zero and an out-of-range quotient raise
+ * std::runtime_error. Otherwise, floating-point division is used.
  */
 class DivideOperationAtomic final : public NumericBinaryOperationAtomic {
 public:
@@ -190,7 +194,8 @@ private:
      * @param right Right operand value.
      * @return Quotient of the operands.
      *
-     * @throws std::runtime_error If the divisor is zero.
+     * @throws std::runtime_error If the divisor is zero or the integer quotient
+     * cannot be represented by the runtime int type.
      */
     Evaluator makeEvaluator() const override;
 };
@@ -200,8 +205,9 @@ private:
  *
  * Computes the remainder of a division operation.
  *
- * Integer operands use the integer modulo operator. If either operand is
- * floating-point, std::fmod semantics are used instead.
+ * Integer operands use checked remainder semantics. `INT_MIN % -1` is defined
+ * as zero without evaluating the undefined C++ expression. If either operand
+ * is floating-point, std::fmod semantics are used instead.
  */
 class ModuloOperationAtomic final : public NumericBinaryOperationAtomic {
 public:
