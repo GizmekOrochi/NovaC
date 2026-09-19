@@ -29,6 +29,8 @@ using novac::assets::atomic::literals::IntegerLiteralAtomic;
 using novac::assets::atomic::literals::BooleanLiteralAtomic;
 using novac::assets::atomic::operations::AddOperationAtomic;
 using novac::assets::atomic::operations::LessOperationAtomic;
+using novac::assets::atomic::operations::DivideOperationAtomic;
+using novac::assets::atomic::operations::ModuloOperationAtomic;
 using novac::controllers::EngineController;
 
 TEST(AtomicController, DefaultConstruction) {
@@ -133,6 +135,79 @@ TEST(AtomicController, IntegerAdditionOverflowThrowsAtRuntime) {
     CHECK(throwsRuntimeError([&]() {
         static_cast<void>(engine.eval(*expression));
     }));
+}
+
+
+TEST(AtomicController, IntegerDivisionByZeroThrowsAtRuntime) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    controller.integer();
+    controller.use(DivideOperationAtomic{});
+
+    const auto expression{engine.parse("1 / 0")};
+
+    CHECK(throwsRuntimeError([&]() {
+        static_cast<void>(engine.eval(*expression));
+    }));
+}
+
+TEST(AtomicController, IntegerModuloByZeroThrowsAtRuntime) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    controller.integer();
+    controller.use(ModuloOperationAtomic{});
+
+    const auto expression{engine.parse("1 % 0")};
+
+    CHECK(throwsRuntimeError([&]() {
+        static_cast<void>(engine.eval(*expression));
+    }));
+}
+
+TEST(AtomicController, IntegerDivisionMinByNegativeOneThrowsAtRuntime) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    controller.integer();
+    controller.use(DivideOperationAtomic{});
+
+    const auto left{engine.makeNode("IntegerLiteral")};
+    left->set("value", std::numeric_limits<int>::min());
+
+    const auto right{engine.makeNode("IntegerLiteral")};
+    right->set("value", -1);
+
+    const auto expression{engine.makeNode(controller.binaryNodeKind())};
+    expression->set("op", std::string{"core.op.div"});
+    expression->set("left", left);
+    expression->set("right", right);
+
+    CHECK(throwsRuntimeError([&]() {
+        static_cast<void>(engine.eval(*expression));
+    }));
+}
+
+TEST(AtomicController, IntegerModuloMinByNegativeOneReturnsZero) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    controller.integer();
+    controller.use(ModuloOperationAtomic{});
+
+    const auto left{engine.makeNode("IntegerLiteral")};
+    left->set("value", std::numeric_limits<int>::min());
+
+    const auto right{engine.makeNode("IntegerLiteral")};
+    right->set("value", -1);
+
+    const auto expression{engine.makeNode(controller.binaryNodeKind())};
+    expression->set("op", std::string{"core.op.mod"});
+    expression->set("left", left);
+    expression->set("right", right);
+
+    CHECK(engine.eval(*expression).asInt() == 0);
 }
 
 TEST(AtomicController, IntegerRegistration) {
