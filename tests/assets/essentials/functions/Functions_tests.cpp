@@ -148,6 +148,28 @@ func main() {
     CHECK(engine.eval(*program).asInt() == 120);
 }
 
+TEST(FunctionsFeature, ArgumentsAreEvaluatedInCallerContext) {
+    EngineController engine{};
+    novac::assets::atomic::AtomicController atomics{engine};
+    atomics.integer();
+
+    novac::assets::essentials::EssentialsController essentials{engine};
+    essentials.installStandardCore();
+
+    const auto program{engine.parse(R"(
+func select(first, second) {
+    return second;
+}
+
+func main() {
+    let first = 42;
+    return select(1, first);
+}
+)")};
+
+    CHECK(engine.eval(*program).asInt() == 42);
+}
+
 TEST(FunctionsFeature, ParameterScopeDoesNotLeak) {
     EngineController engine{};
     novac::assets::atomic::AtomicController atomics{engine};

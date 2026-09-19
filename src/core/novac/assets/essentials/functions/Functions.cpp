@@ -103,16 +103,19 @@ void FunctionsFeature::install(EssentialsController &controller) const {
             if(parameters.size() != arguments.size())
                 throw std::runtime_error("FunctionsFeature: wrong argument count for function '" + name + "'");
 
+            std::vector<runtime::Value> argumentValues{};
+            argumentValues.reserve(arguments.size());
+
+            for(const ast::NodePtr &argument : arguments)
+                argumentValues.push_back(context.eval(*argument));
+
             context.pushScope();
 
             try {
                 for(std::size_t index{}; index < parameters.size(); ++index) {
                     const std::string parameterName{parameters[index]->str(options.nameField)};
-                    runtime::Value argumentValue{context.eval(*arguments[index])};
-                    context.env().define(parameterName, std::move(argumentValue));
+                    context.env().define(parameterName, std::move(argumentValues[index]));
                 }
-
-
 
                 context.exec(*function->child(options.bodyField));
 
