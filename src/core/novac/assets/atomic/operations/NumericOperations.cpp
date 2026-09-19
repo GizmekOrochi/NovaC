@@ -61,90 +61,102 @@ void NumericBinaryOperationAtomic::install(AtomicController &controller) const {
 
     controller.engine().infix(domain, key, operation.precedence, operation.associativity, builder);
 
-    controller.engine().binaryOperator(operation.id, [this](const ast::Node &node, runtime::RuntimeContext &context) {
+    const Evaluator evaluator{makeEvaluator()};
+
+    controller.engine().binaryOperator(operation.id, [evaluator](const ast::Node &node, runtime::RuntimeContext &context) {
         const runtime::Value left{context.eval(*node.child("left"))};
         const runtime::Value right{context.eval(*node.child("right"))};
-        return evaluate(left, right);
+        return evaluator(left, right);
     });
 }
 
 AddOperationAtomic::AddOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.add", "Numeric addition operation", std::move(pattern), 10} {}
 
-runtime::Value AddOperationAtomic::evaluate(const runtime::Value &left, const runtime::Value &right) const {
-    if (isInteger(left) && isInteger(right)) {
-        return runtime::Value::integer(left.asInt() + right.asInt());
-    }
+auto AddOperationAtomic::makeEvaluator() const -> Evaluator {
+    return [](const runtime::Value &left, const runtime::Value &right) {
+        if (isInteger(left) && isInteger(right)) {
+            return runtime::Value::integer(left.asInt() + right.asInt());
+        }
 
-    return runtime::Value::floating(left.asFloat() + right.asFloat());
+        return runtime::Value::floating(left.asFloat() + right.asFloat());
+    };
 }
 
 SubtractOperationAtomic::SubtractOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.sub", "Numeric subtraction operation", std::move(pattern), 10} {}
 
-runtime::Value SubtractOperationAtomic::evaluate(const runtime::Value &left, const runtime::Value &right) const {
-    if (isInteger(left) && isInteger(right)) {
-        return runtime::Value::integer(left.asInt() - right.asInt());
-    }
+auto SubtractOperationAtomic::makeEvaluator() const -> Evaluator {
+    return [](const runtime::Value &left, const runtime::Value &right) {
+        if (isInteger(left) && isInteger(right)) {
+            return runtime::Value::integer(left.asInt() - right.asInt());
+        }
 
-    return runtime::Value::floating(left.asFloat() - right.asFloat());
+        return runtime::Value::floating(left.asFloat() - right.asFloat());
+    };
 }
 
 MultiplyOperationAtomic::MultiplyOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.mul", "Numeric multiplication operation", std::move(pattern), 20} {}
 
-runtime::Value MultiplyOperationAtomic::evaluate(const runtime::Value &left, const runtime::Value &right) const {
-    if (isInteger(left) && isInteger(right)) {
-        return runtime::Value::integer(left.asInt() * right.asInt());
-    }
+auto MultiplyOperationAtomic::makeEvaluator() const -> Evaluator {
+    return [](const runtime::Value &left, const runtime::Value &right) {
+        if (isInteger(left) && isInteger(right)) {
+            return runtime::Value::integer(left.asInt() * right.asInt());
+        }
 
-    return runtime::Value::floating(left.asFloat() * right.asFloat());
+        return runtime::Value::floating(left.asFloat() * right.asFloat());
+    };
 }
 
 DivideOperationAtomic::DivideOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.div", "Numeric division operation", std::move(pattern), 20} {}
 
-runtime::Value DivideOperationAtomic::evaluate(const runtime::Value &left, const runtime::Value &right) const {
-    if (isInteger(left) && isInteger(right)) {
-        const int rhs{right.asInt()};
+auto DivideOperationAtomic::makeEvaluator() const -> Evaluator {
+    return [](const runtime::Value &left, const runtime::Value &right) {
+        if (isInteger(left) && isInteger(right)) {
+            const int rhs{right.asInt()};
 
-        if (rhs == 0) {
+            if (rhs == 0) {
+                throw std::runtime_error("DivideOperationAtomic::evaluate: division by zero");
+            }
+
+            return runtime::Value::integer(left.asInt() / rhs);
+        }
+
+        const double rhs{right.asFloat()};
+
+        if (rhs == 0.0) {
             throw std::runtime_error("DivideOperationAtomic::evaluate: division by zero");
         }
 
-        return runtime::Value::integer(left.asInt() / rhs);
-    }
-
-    const double rhs{right.asFloat()};
-
-    if (rhs == 0.0) {
-        throw std::runtime_error("DivideOperationAtomic::evaluate: division by zero");
-    }
-
-    return runtime::Value::floating(left.asFloat() / rhs);
+        return runtime::Value::floating(left.asFloat() / rhs);
+    };
 }
 
 ModuloOperationAtomic::ModuloOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.mod", "Numeric modulo operation", std::move(pattern), 20} {}
 
-runtime::Value ModuloOperationAtomic::evaluate(const runtime::Value &left, const runtime::Value &right) const {
-    if (isInteger(left) && isInteger(right)) {
-        const int rhs{right.asInt()};
+auto ModuloOperationAtomic::makeEvaluator() const -> Evaluator {
+    return [](const runtime::Value &left, const runtime::Value &right) {
+        if (isInteger(left) && isInteger(right)) {
+            const int rhs{right.asInt()};
 
-        if (rhs == 0) {
+            if (rhs == 0) {
+                throw std::runtime_error("ModuloOperationAtomic::evaluate: modulo by zero");
+            }
+
+            return runtime::Value::integer(left.asInt() % rhs);
+        }
+
+        const double rhs{right.asFloat()};
+
+        if (rhs == 0.0) {
             throw std::runtime_error("ModuloOperationAtomic::evaluate: modulo by zero");
         }
 
-        return runtime::Value::integer(left.asInt() % rhs);
-    }
-
-    const double rhs{right.asFloat()};
-
-    if (rhs == 0.0) {
-        throw std::runtime_error("ModuloOperationAtomic::evaluate: modulo by zero");
-    }
-
-    return runtime::Value::floating(std::fmod(left.asFloat(), rhs));
+        return runtime::Value::floating(std::fmod(left.asFloat(), rhs));
+    };
 }
 
 } // namespace novac::assets::atomic::operations

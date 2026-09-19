@@ -3,6 +3,7 @@
 #include "novac/assets/atomic/literals/IntegerLiteralAtomic.hpp"
 #include "novac/assets/atomic/literals/BooleanLiteralAtomic.hpp"
 #include "novac/assets/atomic/operations/NumericOperations.hpp"
+#include "novac/assets/atomic/operations/ComparisonOperations.hpp"
 
 namespace {
 
@@ -25,6 +26,7 @@ using novac::assets::atomic::OperationInfo;
 using novac::assets::atomic::literals::IntegerLiteralAtomic;
 using novac::assets::atomic::literals::BooleanLiteralAtomic;
 using novac::assets::atomic::operations::AddOperationAtomic;
+using novac::assets::atomic::operations::LessOperationAtomic;
 using novac::controllers::EngineController;
 
 TEST(AtomicController, DefaultConstruction) {
@@ -87,6 +89,32 @@ TEST(AtomicController, UseOperationFeature) {
     controller.use(feature);
     CHECK(controller.hasOperation("core.op.add"));
     CHECK(controller.operations().size() == 1);
+}
+
+TEST(AtomicController, TemporaryNumericOperationRemainsUsable) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    controller.integer();
+    controller.use(AddOperationAtomic{});
+
+    const auto expression{engine.parse("1 + 2")};
+    const auto result{engine.eval(*expression)};
+
+    CHECK(result.asInt() == 3);
+}
+
+TEST(AtomicController, TemporaryComparisonOperationRemainsUsable) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    controller.integer();
+    controller.use(LessOperationAtomic{});
+
+    const auto expression{engine.parse("1 < 2")};
+    const auto result{engine.eval(*expression)};
+
+    CHECK(result.truthy());
 }
 
 TEST(AtomicController, IntegerRegistration) {

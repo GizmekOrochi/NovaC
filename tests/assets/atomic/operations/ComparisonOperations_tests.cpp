@@ -22,8 +22,10 @@ namespace test {
         TestComparisonOperation(std::string id, std::string description, novac::assets::atomic::TokenPattern pattern)
             : NumericComparisonOperationAtomic(std::move(id), std::move(description), std::move(pattern)) {}
 
-        bool compare(double, double) const override {
-            return false;
+        Comparator makeComparator() const override {
+            return [](double, double) {
+                return false;
+            };
         }
     };
 } // namespace test

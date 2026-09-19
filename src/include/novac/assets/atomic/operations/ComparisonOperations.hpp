@@ -2,6 +2,7 @@
 
 #include "novac/assets/atomic/OperationFeature.hpp"
 
+#include <functional>
 #include <string>
 
 namespace novac::assets::atomic::operations {
@@ -14,7 +15,7 @@ namespace novac::assets::atomic::operations {
  *
  * Installation creates a binary parser binding using the shared binary carrier
  * node. At runtime, both operands are evaluated and converted to floating-point
- * values before compare() is called.
+ * values before an independent comparator is called.
  *
  * Derived classes only define the concrete comparison semantics.
  */
@@ -52,24 +53,26 @@ public:
      * both operand nodes.
      *
      * Runtime evaluation converts both operands with Value::asFloat(), invokes
-     * compare(), and wraps the resulting boolean in a runtime Value.
+     * an independent comparator copied into the runtime callback, and wraps the
+ * resulting boolean in a runtime Value.
      *
      * @param controller Controller receiving the operation registration.
      */
     void install(AtomicController &controller) const override;
 
 protected:
+    using Comparator = std::function<bool(double left, double right)>;
+
     /**
-     * @brief Compares two numeric values.
+     * @brief Creates an independent runtime comparison callback.
      *
-     * Derived classes implement only the final comparison performed after both
-     * runtime operands have been converted to double.
+     * The returned callable is copied into the engine runtime callback and must
+     * remain valid after this OperationFeature instance has been destroyed. Any
+     * required state should therefore be captured by value.
      *
-     * @param left Left operand value.
-     * @param right Right operand value.
-     * @return Result of the comparison.
+     * @return Callable implementing the numeric comparison.
      */
-    virtual bool compare(double left, double right) const = 0;
+    virtual Comparator makeComparator() const = 0;
 
 private:
     std::string id_;
@@ -92,7 +95,7 @@ public:
      */
     explicit EqualOperationAtomic(TokenPattern pattern = TokenPattern::text("=="));
 private:
-    bool compare(double left, double right) const override;
+    Comparator makeComparator() const override;
 };
 
 /**
@@ -110,7 +113,7 @@ public:
      */
     explicit NotEqualOperationAtomic(TokenPattern pattern = TokenPattern::text("!="));
 private:
-    bool compare(double left, double right) const override;
+    Comparator makeComparator() const override;
 };
 
 /**
@@ -127,7 +130,7 @@ public:
      */
     explicit LessOperationAtomic(TokenPattern pattern = TokenPattern::text("<"));
 private:
-    bool compare(double left, double right) const override;
+    Comparator makeComparator() const override;
 };
 
 /**
@@ -145,7 +148,7 @@ public:
      */
     explicit LessEqualOperationAtomic(TokenPattern pattern = TokenPattern::text("<="));
 private:
-    bool compare(double left, double right) const override;
+    Comparator makeComparator() const override;
 };
 
 /**
@@ -162,7 +165,7 @@ public:
      */
     explicit GreaterOperationAtomic(TokenPattern pattern = TokenPattern::text(">"));
 private:
-    bool compare(double left, double right) const override;
+    Comparator makeComparator() const override;
 };
 
 /**
@@ -180,7 +183,7 @@ public:
      */
     explicit GreaterEqualOperationAtomic(TokenPattern pattern = TokenPattern::text(">="));
 private:
-    bool compare(double left, double right) const override;
+    Comparator makeComparator() const override;
 };
 
 } // namespace novac::assets::atomic::operations

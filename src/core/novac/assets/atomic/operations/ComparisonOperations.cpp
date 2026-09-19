@@ -50,53 +50,67 @@ void NumericComparisonOperationAtomic::install(AtomicController &controller) con
 
     controller.engine().infix(domain, key, operation.precedence, operation.associativity, builder);
 
-    controller.engine().binaryOperator(operation.id, [this](const ast::Node &node, runtime::RuntimeContext &context) {
+    const Comparator comparator{makeComparator()};
+
+    controller.engine().binaryOperator(operation.id, [comparator](const ast::Node &node, runtime::RuntimeContext &context) {
         const double left{context.eval(*node.child("left")).asFloat()};
         const double right{context.eval(*node.child("right")).asFloat()};
-        return runtime::Value::boolean(compare(left, right));
+        return runtime::Value::boolean(comparator(left, right));
     });
 }
 
 EqualOperationAtomic::EqualOperationAtomic(TokenPattern pattern)
     : NumericComparisonOperationAtomic{"core.op.eq", "Numeric equality operation", std::move(pattern)} {}
 
-bool EqualOperationAtomic::compare(double left, double right) const {
-    return left == right;
+auto EqualOperationAtomic::makeComparator() const -> Comparator {
+    return [](double left, double right) {
+        return left == right;
+    };
 }
 
 NotEqualOperationAtomic::NotEqualOperationAtomic(TokenPattern pattern)
     : NumericComparisonOperationAtomic{"core.op.neq", "Numeric inequality operation", std::move(pattern)} {}
 
-bool NotEqualOperationAtomic::compare(double left, double right) const {
-    return left != right;
+auto NotEqualOperationAtomic::makeComparator() const -> Comparator {
+    return [](double left, double right) {
+        return left != right;
+    };
 }
 
 LessOperationAtomic::LessOperationAtomic(TokenPattern pattern)
     : NumericComparisonOperationAtomic{"core.op.lt", "Numeric less-than operation", std::move(pattern)} {}
 
-bool LessOperationAtomic::compare(double left, double right) const {
-    return left < right;
+auto LessOperationAtomic::makeComparator() const -> Comparator {
+    return [](double left, double right) {
+        return left < right;
+    };
 }
 
 LessEqualOperationAtomic::LessEqualOperationAtomic(TokenPattern pattern)
     : NumericComparisonOperationAtomic{"core.op.lte", "Numeric less-or-equal operation", std::move(pattern)} {}
 
-bool LessEqualOperationAtomic::compare(double left, double right) const {
-    return left <= right;
+auto LessEqualOperationAtomic::makeComparator() const -> Comparator {
+    return [](double left, double right) {
+        return left <= right;
+    };
 }
 
 GreaterOperationAtomic::GreaterOperationAtomic(TokenPattern pattern)
     : NumericComparisonOperationAtomic{"core.op.gt", "Numeric greater-than operation", std::move(pattern)} {}
 
-bool GreaterOperationAtomic::compare(double left, double right) const {
-    return left > right;
+auto GreaterOperationAtomic::makeComparator() const -> Comparator {
+    return [](double left, double right) {
+        return left > right;
+    };
 }
 
 GreaterEqualOperationAtomic::GreaterEqualOperationAtomic(TokenPattern pattern)
     : NumericComparisonOperationAtomic{"core.op.gte", "Numeric greater-or-equal operation", std::move(pattern)} {}
 
-bool GreaterEqualOperationAtomic::compare(double left, double right) const {
-    return left >= right;
+auto GreaterEqualOperationAtomic::makeComparator() const -> Comparator {
+    return [](double left, double right) {
+        return left >= right;
+    };
 }
 
 } // namespace novac::assets::atomic::operations

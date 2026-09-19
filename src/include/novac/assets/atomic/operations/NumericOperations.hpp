@@ -2,6 +2,7 @@
 
 #include "novac/assets/atomic/OperationFeature.hpp"
 
+#include <functional>
 #include <string>
 
 namespace novac::assets::atomic::operations {
@@ -16,8 +17,8 @@ namespace novac::assets::atomic::operations {
  * expression carrier node exists, installs an infix parser rule and connects
  * the operation id to a runtime binary handler.
  *
- * Derived classes only need to implement evaluate() to define the actual
- * arithmetic behavior.
+ * Derived classes only need to create an independent evaluator defining the
+ * actual arithmetic behavior.
  */
 class NumericBinaryOperationAtomic : public OperationFeature {
 public:
@@ -55,26 +56,29 @@ public:
      *
      * An infix parser rule then creates a carrier node containing the operation
      * id and both operands. Runtime evaluation evaluates the two child nodes
-     * before forwarding their values to evaluate().
+     * before forwarding their values to an evaluator copied into the runtime
+ * callback. The callback therefore remains valid after this feature object has
+ * been destroyed.
      *
      * @param controller Controller receiving the operation registration.
      */
     void install(AtomicController &controller) const override;
 
 protected:
-    /**
-     * @brief Evaluates the operation for two operand values.
-     *
-     * Derived classes implement the arithmetic semantics while the base class
-     * handles parser and runtime registration.
-     *
-     * @param left Left operand value.
-     * @param right Right operand value.
-     * @return Result of the arithmetic operation.
-     */
-    virtual runtime::Value evaluate(
+    using Evaluator = std::function<runtime::Value(
         const runtime::Value &left,
-        const runtime::Value &right) const = 0;
+        const runtime::Value &right)>;
+
+    /**
+     * @brief Creates an independent runtime evaluator.
+     *
+     * The returned callable is copied into the engine runtime callback and must
+     * not depend on the lifetime of this OperationFeature instance. Any state
+     * required by a derived operation should be captured by value.
+     *
+     * @return Callable implementing the arithmetic operation.
+     */
+    virtual Evaluator makeEvaluator() const = 0;
 
 private:
     std::string id_;
@@ -104,9 +108,7 @@ public:
         TokenPattern pattern = TokenPattern::text("+"));
 
 private:
-    runtime::Value evaluate(
-        const runtime::Value &left,
-        const runtime::Value &right) const override;
+    Evaluator makeEvaluator() const override;
 };
 
 /**
@@ -130,9 +132,7 @@ public:
         TokenPattern pattern = TokenPattern::text("-"));
 
 private:
-    runtime::Value evaluate(
-        const runtime::Value &left,
-        const runtime::Value &right) const override;
+    Evaluator makeEvaluator() const override;
 };
 
 /**
@@ -156,9 +156,7 @@ public:
         TokenPattern pattern = TokenPattern::text("*"));
 
 private:
-    runtime::Value evaluate(
-        const runtime::Value &left,
-        const runtime::Value &right) const override;
+    Evaluator makeEvaluator() const override;
 };
 
 /**
@@ -194,9 +192,7 @@ private:
      *
      * @throws std::runtime_error If the divisor is zero.
      */
-    runtime::Value evaluate(
-        const runtime::Value &left,
-        const runtime::Value &right) const override;
+    Evaluator makeEvaluator() const override;
 };
 
 /**
@@ -232,9 +228,7 @@ private:
      *
      * @throws std::runtime_error If the divisor is zero.
      */
-    runtime::Value evaluate(
-        const runtime::Value &left,
-        const runtime::Value &right) const override;
+    Evaluator makeEvaluator() const override;
 };
 
 } // namespace novac::assets::atomic::operations

@@ -22,8 +22,10 @@ namespace test {
         TestNumericBinaryOperation(std::string id, std::string description, novac::assets::atomic::TokenPattern pattern, int precedence)
             : NumericBinaryOperationAtomic(std::move(id), std::move(description), std::move(pattern), precedence) {}
 
-        novac::runtime::Value evaluate(const novac::runtime::Value &, const novac::runtime::Value &) const override {
-            return novac::runtime::Value::integer(0);
+        Evaluator makeEvaluator() const override {
+            return [](const novac::runtime::Value &, const novac::runtime::Value &) {
+                return novac::runtime::Value::integer(0);
+            };
         }
     };
 } // namespace test
