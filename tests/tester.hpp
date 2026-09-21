@@ -65,6 +65,23 @@ inline void fail_eq(const A& actual, const B& expected, const char* actual_expr,
     throw Failure{oss.str()};
 }
 
+
+inline bool near_equal(double actual, double expected, double epsilon) {
+    if (!std::isfinite(epsilon) || epsilon < 0.0) {
+        return false;
+    }
+
+    if (std::isnan(actual) || std::isnan(expected)) {
+        return false;
+    }
+
+    if (std::isinf(actual) || std::isinf(expected)) {
+        return actual == expected;
+    }
+
+    return std::fabs(actual - expected) <= epsilon;
+}
+
 template <typename A, typename B>
 inline void fail_near(const A& actual, const B& expected, double eps, const char* actual_expr, const char* expected_expr, const char* eps_expr, const char* file, int line) {
     std::ostringstream oss;
@@ -170,9 +187,10 @@ inline int run_all_tests() {
         const auto tester_actual_value = (ACTUAL);                               \
         const auto tester_expected_value = (EXPECTED);                           \
         const auto tester_epsilon_value = (EPSILON);                             \
-        if (std::fabs(static_cast<double>(tester_actual_value) -                 \
-                      static_cast<double>(tester_expected_value)) >              \
-            static_cast<double>(tester_epsilon_value)) {                         \
+        if (!::tester::near_equal(                                              \
+                static_cast<double>(tester_actual_value),                        \
+                static_cast<double>(tester_expected_value),                      \
+                static_cast<double>(tester_epsilon_value))) {                    \
             ::tester::fail_near(                                                 \
                 tester_actual_value,                                             \
                 tester_expected_value,                                           \
