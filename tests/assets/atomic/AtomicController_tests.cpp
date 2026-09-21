@@ -33,6 +33,59 @@ using novac::assets::atomic::operations::DivideOperationAtomic;
 using novac::assets::atomic::operations::ModuloOperationAtomic;
 using novac::controllers::EngineController;
 
+class ThrowingLiteralFeature final : public novac::assets::atomic::LiteralFeature {
+public:
+    novac::assets::atomic::LiteralInfo info() const override {
+        return {
+            "test.literal.transaction",
+            "0.1.0",
+            "Literal that fails after mutating the engine",
+            "TransactionalLiteral",
+            novac::assets::atomic::TokenPattern::keywordText("txlit"),
+            {"test.literal.transaction"},
+            {}
+        };
+    }
+
+    void install(AtomicController &controller) const override {
+        controller.registerPattern(info().pattern);
+        controller.engine().node({
+            .kind = "TransactionalLiteral",
+            .traits = {"expr"},
+            .doc = "Temporary transactional literal"
+        });
+        throw std::runtime_error("literal install failed");
+    }
+};
+
+class ThrowingOperationFeature final : public novac::assets::atomic::OperationFeature {
+public:
+    novac::assets::atomic::OperationInfo info() const override {
+        return {
+            "test.operation.transaction",
+            "0.1.0",
+            "Operation that fails after mutating the engine and controller",
+            novac::assets::atomic::OperationArity::Unary,
+            novac::assets::atomic::TokenPattern::text("~"),
+            80,
+            novac::parser::Associativity::Right,
+            {"test.operation.transaction"},
+            {"expression.atom"}
+        };
+    }
+
+    void install(AtomicController &controller) const override {
+        controller.registerPattern(info().pattern);
+        controller.ensureUnaryExpressionNode();
+        controller.registerUnaryOperation(
+            info().id,
+            [](const novac::ast::Node &, novac::runtime::RuntimeContext &) {
+                return novac::runtime::Value::integer(0);
+            });
+        throw std::runtime_error("operation install failed");
+    }
+};
+
 TEST(AtomicController, DefaultConstruction) {
     EngineController engine;
     AtomicController controller{engine};
@@ -73,6 +126,47 @@ TEST(AtomicController, EmptyUnaryNodeKindThrows) {
     CHECK(throwsRuntimeError([&]() {
         AtomicController controller{engine, options};
     }));
+}
+
+TEST(AtomicController, FailedLiteralInstallRollsBackEngineAndController) {
+    EngineController engine;
+    AtomicController controller{engine};
+    ThrowingLiteralFeature feature;
+
+    CHECK(throwsRuntimeError([&]() { controller.use(feature); }));
+
+    CHECK(!controller.hasLiteral("test.literal.transaction"));
+    CHECK(controller.literals().empty());
+    CHECK(!controller.hasCapability("test.literal.transaction"));
+    CHECK(!engine.lexer().isKeyword("txlit"));
+    CHECK(engine.nodes().find("TransactionalLiteral") == nullptr);
+
+    controller.integer();
+    CHECK(controller.hasLiteral("core.literal.integer"));
+}
+
+TEST(AtomicController, FailedOperationInstallRollsBackEngineAndController) {
+    EngineController engine;
+    AtomicController controller{engine};
+    ThrowingOperationFeature feature;
+
+    controller.integer();
+    const std::size_t literalCount{controller.literals().size()};
+
+    CHECK(throwsRuntimeError([&]() { controller.use(feature); }));
+
+    CHECK(!controller.hasOperation("test.operation.transaction"));
+    CHECK(controller.operations().empty());
+    CHECK(controller.literals().size() == literalCount);
+    CHECK(!controller.hasCapability("test.operation.transaction"));
+    CHECK(engine.lexer().symbols().empty());
+    CHECK(engine.nodes().find(controller.unaryNodeKind()) == nullptr);
+
+    controller.registerUnaryOperation(
+        "test.operation.transaction",
+        [](const novac::ast::Node &, novac::runtime::RuntimeContext &) {
+            return novac::runtime::Value::integer(1);
+        });
 }
 
 TEST(AtomicController, UseLiteralFeature) {

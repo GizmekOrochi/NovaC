@@ -158,8 +158,9 @@ public:
     /**
     * @brief Installs a literal feature without taking ownership.
     *
-    * The feature metadata is validated first. The feature is then installed and
-    * its metadata is remembered by the controller.
+    * The feature metadata is validated first. Installation is transactional:
+    * EngineController and AtomicController state are restored if installation
+    * throws. Metadata is remembered only after a successful installation.
     *
     * The caller remains responsible for the lifetime of the feature object.
     *
@@ -172,8 +173,9 @@ public:
     /**
     * @brief Installs an operation feature without taking ownership.
     *
-    * The feature metadata is validated first. The feature is then installed and
-    * its metadata is remembered by the controller.
+    * The feature metadata is validated first. Installation is transactional:
+    * EngineController and AtomicController state are restored if installation
+    * throws. Metadata is remembered only after a successful installation.
     *
     * The caller remains responsible for the lifetime of the feature object.
     *

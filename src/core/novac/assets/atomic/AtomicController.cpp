@@ -155,8 +155,36 @@ AtomicController::AtomicController(controllers::EngineController &engine, Atomic
 AtomicController &AtomicController::use(const LiteralFeature &feature) {
     LiteralInfo info{feature.info()};
     validateLiteral(info);
-    feature.install(*this);
-    rememberLiteral(std::move(info));
+
+    const controllers::EngineController engineSnapshot{engine_.snapshot()};
+    const auto literalsSnapshot{literals_};
+    const auto operationsSnapshot{operations_};
+    const auto literalIdsSnapshot{literalIds_};
+    const auto operationIdsSnapshot{operationIds_};
+    const auto registeredPatternsSnapshot{registeredPatterns_};
+    const auto unaryHandlersSnapshot{unaryHandlers_};
+    const bool binaryNodeInstalledSnapshot{binaryNodeInstalled_};
+    const bool unaryNodeInstalledSnapshot{unaryNodeInstalled_};
+    const std::size_t ownedLiteralsSize{ownedLiterals_.size()};
+    const std::size_t ownedOperationsSize{ownedOperations_.size()};
+
+    try {
+        feature.install(*this);
+        rememberLiteral(std::move(info));
+    } catch (...) {
+        engine_.restore(engineSnapshot);
+        literals_ = literalsSnapshot;
+        operations_ = operationsSnapshot;
+        literalIds_ = literalIdsSnapshot;
+        operationIds_ = operationIdsSnapshot;
+        registeredPatterns_ = registeredPatternsSnapshot;
+        unaryHandlers_ = unaryHandlersSnapshot;
+        binaryNodeInstalled_ = binaryNodeInstalledSnapshot;
+        unaryNodeInstalled_ = unaryNodeInstalledSnapshot;
+        ownedLiterals_.resize(ownedLiteralsSize);
+        ownedOperations_.resize(ownedOperationsSize);
+        throw;
+    }
 
     return *this;
 }
@@ -164,8 +192,36 @@ AtomicController &AtomicController::use(const LiteralFeature &feature) {
 AtomicController &AtomicController::use(const OperationFeature &feature) {
     OperationInfo info{feature.info()};
     validateOperation(info);
-    feature.install(*this);
-    rememberOperation(std::move(info));
+
+    const controllers::EngineController engineSnapshot{engine_.snapshot()};
+    const auto literalsSnapshot{literals_};
+    const auto operationsSnapshot{operations_};
+    const auto literalIdsSnapshot{literalIds_};
+    const auto operationIdsSnapshot{operationIds_};
+    const auto registeredPatternsSnapshot{registeredPatterns_};
+    const auto unaryHandlersSnapshot{unaryHandlers_};
+    const bool binaryNodeInstalledSnapshot{binaryNodeInstalled_};
+    const bool unaryNodeInstalledSnapshot{unaryNodeInstalled_};
+    const std::size_t ownedLiteralsSize{ownedLiterals_.size()};
+    const std::size_t ownedOperationsSize{ownedOperations_.size()};
+
+    try {
+        feature.install(*this);
+        rememberOperation(std::move(info));
+    } catch (...) {
+        engine_.restore(engineSnapshot);
+        literals_ = literalsSnapshot;
+        operations_ = operationsSnapshot;
+        literalIds_ = literalIdsSnapshot;
+        operationIds_ = operationIdsSnapshot;
+        registeredPatterns_ = registeredPatternsSnapshot;
+        unaryHandlers_ = unaryHandlersSnapshot;
+        binaryNodeInstalled_ = binaryNodeInstalledSnapshot;
+        unaryNodeInstalled_ = unaryNodeInstalledSnapshot;
+        ownedLiterals_.resize(ownedLiteralsSize);
+        ownedOperations_.resize(ownedOperationsSize);
+        throw;
+    }
 
     return *this;
 }
