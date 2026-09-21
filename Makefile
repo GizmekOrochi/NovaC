@@ -7,6 +7,12 @@ TEST_SRC = $(shell find tests -name '*.cpp')
 
 BIN = bin/NovaC
 TEST_BIN = bin/tests
+ASAN_TEST_BIN = bin/tests-asan
+UBSAN_TEST_BIN = bin/tests-ubsan
+
+SANITIZER_COMMON_FLAGS = -g -fno-omit-frame-pointer
+ASAN_FLAGS = $(SANITIZER_COMMON_FLAGS) -O0 -fsanitize=address
+UBSAN_FLAGS = $(SANITIZER_COMMON_FLAGS) -O1 -fsanitize=undefined -fno-sanitize-recover=undefined
 
 PYTHON ?= python3
 DOXYGEN ?= doxygen
@@ -39,6 +45,20 @@ run: all
 
 test: tests
 	./$(TEST_BIN)
+
+$(ASAN_TEST_BIN): $(APP_SRC) $(TEST_SRC)
+	@mkdir -p bin
+	$(CXX) $(CXXFLAGS) $(ASAN_FLAGS) $^ -o $@
+
+$(UBSAN_TEST_BIN): $(APP_SRC) $(TEST_SRC)
+	@mkdir -p bin
+	$(CXX) $(CXXFLAGS) $(UBSAN_FLAGS) $^ -o $@
+
+test-asan: $(ASAN_TEST_BIN)
+	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./$(ASAN_TEST_BIN)
+
+test-ubsan: $(UBSAN_TEST_BIN)
+	UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ./$(UBSAN_TEST_BIN)
 
 $(DOC_VENV)/.ready: $(DOC_REQUIREMENTS)
 	@echo "[NovaC docs] Preparing Sphinx environment..."
@@ -88,4 +108,4 @@ clean:
 	rm -rf bin
 	rm -rf $(DOC_OUTPUT) $(DOC_BUILD)
 
-.PHONY: all run tests test doc-check doc doc-examples doc-strict doc-clean doc-clean-all clean
+.PHONY: all run tests test test-asan test-ubsan doc-check doc doc-examples doc-strict doc-clean doc-clean-all clean
