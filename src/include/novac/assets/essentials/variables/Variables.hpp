@@ -14,8 +14,6 @@ namespace novac::assets::essentials::variables {
  * Assignments update the nearest existing binding when possible and otherwise
  * define a new binding in the current scope.
  *
- * Identifier expressions are also used as the entry point for parsing function
- * calls when an opening parenthesis follows the identifier.
  */
 class VariablesFeature final : public EssentialFeature {
 public:
@@ -42,9 +40,8 @@ public:
      * only activates when the current token is an identifier immediately
      * followed by the configured assignment token.
      *
-     * Identifier expressions normally produce variable lookup nodes. When the
-     * identifier is followed by an opening parenthesis, the parser instead
-     * builds a function-call node and parses its argument list.
+     * Identifier expressions produce variable lookup nodes only. Function-call
+     * parsing is owned independently by FunctionsFeature.
      *
      * At runtime, declarations reject duplicate names in the current scope.
      * Assignments update an existing binding through the environment chain and

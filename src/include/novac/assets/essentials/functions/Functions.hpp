@@ -35,8 +35,8 @@ public:
      * @brief Installs function support into an Essentials controller.
      *
      * Installation registers the function keyword and punctuation, creates AST
-     * schemas for parameters, declarations and calls, then installs parser and
-     * runtime handlers.
+     * schemas for parameters, declarations and calls, and installs an independent
+     * transactional identifier-call prefix parser plus runtime handlers.
      *
      * User-defined calls validate argument count, evaluate arguments inside the
      * caller context, create a child scope for parameters and ensure that scope

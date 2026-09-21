@@ -157,6 +157,14 @@ registry::RegisterStatus EngineController::prefix(const ids::ParseDomain &domain
     return parser_.prefix(domain, std::move(key), std::move(fn));
 }
 
+registry::RegisterStatus EngineController::prefixFallback(std::string domain, std::string key, parser::PrefixFn fn) {
+    return parser_.prefixFallback(std::move(domain), std::move(key), std::move(fn));
+}
+
+registry::RegisterStatus EngineController::prefixFallback(const ids::ParseDomain &domain, std::string key, parser::PrefixFn fn) {
+    return parser_.prefixFallback(domain, std::move(key), std::move(fn));
+}
+
 registry::RegisterStatus EngineController::infix(std::string domain, std::string op, int precedence, parser::InfixFn fn) {
     return parser_.infix(std::move(domain), std::move(op), precedence, std::move(fn));
 }

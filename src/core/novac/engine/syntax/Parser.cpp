@@ -66,6 +66,27 @@ registry::RegisterStatus ParserRegistry::prefix(const ids::ParseDomain &domain, 
     return prefix(domain.value, std::move(key), std::move(fn));
 }
 
+registry::RegisterStatus ParserRegistry::prefixFallback(std::string domain, std::string key, PrefixFn fn) {
+    if (domain.empty()) {
+        throw std::runtime_error("ParserRegistry::prefixFallback: domain cannot be empty");
+    }
+
+    if (key.empty()) {
+        throw std::runtime_error("ParserRegistry::prefixFallback: key cannot be empty");
+    }
+
+    if (!fn) {
+        throw std::runtime_error("ParserRegistry::prefixFallback: prefix function cannot be empty");
+    }
+
+    domains_[std::move(domain)].prefixFallbacks[std::move(key)].push_back(std::move(fn));
+    return registry::RegisterStatus::Inserted;
+}
+
+registry::RegisterStatus ParserRegistry::prefixFallback(const ids::ParseDomain &domain, std::string key, PrefixFn fn) {
+    return prefixFallback(domain.value, std::move(key), std::move(fn));
+}
+
 registry::RegisterStatus ParserRegistry::infix(std::string domain, std::string op, int precedence, InfixFn fn) {
     return infix(std::move(domain), std::move(op), precedence, Associativity::Left, std::move(fn));
 }
@@ -146,11 +167,14 @@ ast::NodePtr ParserRegistry::parse(ParserContext &context, const std::string &do
         return textRuleIter->second(context);
     }
 
-    if (!rules.prefixes.empty()) {
+    if (!rules.prefixes.empty() || !rules.prefixFallbacks.empty()) {
         const auto prefixIter{rules.prefixes.find(key)};
         const auto textPrefixIter{rules.prefixes.find(context.cur().text)};
+        const auto fallbackIter{rules.prefixFallbacks.find(key)};
+        const auto textFallbackIter{rules.prefixFallbacks.find(context.cur().text)};
 
-        if (prefixIter != rules.prefixes.end() || textPrefixIter != rules.prefixes.end()) {
+        if (prefixIter != rules.prefixes.end() || textPrefixIter != rules.prefixes.end() ||
+            fallbackIter != rules.prefixFallbacks.end() || textFallbackIter != rules.prefixFallbacks.end()) {
             return parsePratt(context, domain, rules, minPrecedence);
         }
     }
@@ -180,11 +204,35 @@ ast::NodePtr ParserRegistry::parsePratt(ParserContext &context, const std::strin
         prefixIter = rules.prefixes.find(context.cur().text);
     }
 
-    if (prefixIter == rules.prefixes.end()) {
-        throw std::runtime_error("ParserRegistry::parsePratt: expected expression in domain '" + domain + "' at line " + std::to_string(context.cur().line) + ", column " + std::to_string(context.cur().column));
-    }
+    ast::NodePtr left{};
 
-    ast::NodePtr left{prefixIter->second(context)};
+    auto tryPrefixFallbacks = [&](const std::string &candidateKey) {
+        const auto fallbackIter{rules.prefixFallbacks.find(candidateKey)};
+        if (fallbackIter == rules.prefixFallbacks.end())
+            return false;
+
+        for (const PrefixFn &fallback : fallbackIter->second) {
+            const std::size_t fallbackStart{context.pos_};
+
+            if (ast::NodePtr node{fallback(context)}) {
+                left = std::move(node);
+                return true;
+            }
+
+            context.pos_ = fallbackStart;
+        }
+
+        return false;
+    };
+
+    const std::string tokenText{context.cur().text};
+    if (!tryPrefixFallbacks(prefixKey) && !tryPrefixFallbacks(tokenText)) {
+        if (prefixIter == rules.prefixes.end()) {
+            throw std::runtime_error("ParserRegistry::parsePratt: expected expression in domain '" + domain + "' at line " + std::to_string(context.cur().line) + ", column " + std::to_string(context.cur().column));
+        }
+
+        left = prefixIter->second(context);
+    }
 
     while (!context.end()) {
         const std::string op{context.cur().text};

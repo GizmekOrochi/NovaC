@@ -80,6 +80,30 @@ func main() {
     CHECK(engine.eval(*program).asInt() == 42);
 }
 
+TEST(FunctionsFeature, CallsParseWithoutVariablesFeature) {
+    EngineController engine{};
+    novac::assets::atomic::AtomicController atomics{engine};
+    atomics.integer();
+
+    novac::assets::essentials::EssentialsController essentials{engine};
+    essentials.installProgram();
+    essentials.installScopedBlocks();
+    essentials.installReturnStatements();
+    essentials.installFunctions();
+
+    const auto program{engine.parse(R"(
+func answer() {
+    return 42;
+}
+
+func main() {
+    return answer();
+}
+)")};
+
+    CHECK(engine.eval(*program).asInt() == 42);
+}
+
 TEST(FunctionsFeature, ZeroArgumentFunctionExecutes) {
     EngineController engine{};
     novac::assets::atomic::AtomicController atomics{engine};

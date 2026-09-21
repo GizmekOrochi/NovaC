@@ -48,6 +48,24 @@ void FunctionsFeature::install(EssentialsController &controller) const {
         "Function call expression."
     });
 
+    controller.engine().prefixFallback(core.expressionDomain, "$identifier", [core, options](parser::ParserContext &context) -> ast::NodePtr {
+        if (context.peek().text != core.leftParenToken)
+            return nullptr;
+
+        const std::string name{helpers::consumeIdentifier(context, "FunctionsFeature::call")};
+        ast::NodeList arguments{helpers::parseExpressionList(
+            context,
+            core.expressionDomain,
+            core.leftParenToken,
+            core.rightParenToken,
+            core.commaToken)};
+
+        ast::NodePtr call{ast::Node::make(options.callNodeKind)};
+        call->set(options.nameField, name);
+        call->set(options.argumentsField, std::move(arguments));
+        return call;
+    });
+
     controller.engine().parseRule(core.statementDomain, options.functionKeyword,[core, options](parser::ParserContext &context) {
             context.consume(options.functionKeyword);
 

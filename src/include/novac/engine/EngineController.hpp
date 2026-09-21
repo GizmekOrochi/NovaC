@@ -348,6 +348,17 @@ public:
     registry::RegisterStatus prefix(const ids::ParseDomain &domain, std::string key, parser::PrefixFn fn);
 
     /**
+     * @brief Registers a transactional Pratt prefix fallback.
+     *
+     * The callback may consume tokens speculatively. Returning nullptr restores
+     * the parser position and allows the next prefix candidate to run.
+     */
+    registry::RegisterStatus prefixFallback(std::string domain, std::string key, parser::PrefixFn fn);
+
+    /** @brief Registers a transactional Pratt prefix fallback using a typed domain. */
+    registry::RegisterStatus prefixFallback(const ids::ParseDomain &domain, std::string key, parser::PrefixFn fn);
+
+    /**
      * @brief Registers a left-associative Pratt infix rule.
      *
      * This overload uses parser::Associativity::Left.

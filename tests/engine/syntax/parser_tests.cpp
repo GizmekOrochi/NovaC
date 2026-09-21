@@ -427,6 +427,57 @@ TEST(ParserRegistry, RejectsInvalidPrefixRules) {
     CHECK(throwsRuntimeError([&]() { registry.prefix("expr", "$int", {}); }));
 }
 
+TEST(ParserRegistry, PrefixFallbackRollsBackBeforePrimaryPrefix) {
+    ParserRegistry registry{};
+
+    registry.prefixFallback("expr", "$identifier", [](ParserContext &context) -> NodePtr {
+        context.consumeKind(Kind::Identifier);
+        return nullptr;
+    });
+
+    installIdentifierPrefix(registry);
+
+    ParserContext context{tokens({tok(Kind::Identifier, "value"), endTok()}), registry};
+    NodePtr node{registry.parse(context, "expr")};
+
+    CHECK(node->kind() == "Identifier");
+    CHECK(node->str("name") == "value");
+    CHECK(context.end());
+}
+
+TEST(ParserRegistry, PrefixFallbackCanParseWithoutPrimaryPrefix) {
+    ParserRegistry registry{};
+
+    registry.prefixFallback("expr", "$identifier", [](ParserContext &context) -> NodePtr {
+        if (context.peek().text != "(")
+            return nullptr;
+
+        const Token token{context.consumeKind(Kind::Identifier)};
+        context.consume("(");
+        context.consume(")");
+        return identifier(token.text);
+    });
+
+    ParserContext context{tokens({
+        tok(Kind::Identifier, "call"),
+        tok(Kind::Symbol, "("),
+        tok(Kind::Symbol, ")"),
+        endTok()
+    }), registry};
+
+    NodePtr node{registry.parse(context, "expr")};
+    CHECK(node->str("name") == "call");
+    CHECK(context.end());
+}
+
+TEST(ParserRegistry, RejectsInvalidPrefixFallbackRules) {
+    ParserRegistry registry{};
+
+    CHECK(throwsRuntimeError([&]() { registry.prefixFallback("", "$identifier", [](ParserContext &) { return identifier("x"); }); }));
+    CHECK(throwsRuntimeError([&]() { registry.prefixFallback("expr", "", [](ParserContext &) { return identifier("x"); }); }));
+    CHECK(throwsRuntimeError([&]() { registry.prefixFallback("expr", "$identifier", {}); }));
+}
+
 TEST(ParserRegistry, ParsesPrefixRuleByTokenKey) {
     ParserRegistry registry{};
     installIntegerPrefix(registry);

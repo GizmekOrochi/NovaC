@@ -94,6 +94,9 @@ struct ParseDomain {
     /** Rules used to begin Pratt expressions. */
     std::unordered_map<std::string, PrefixFn> prefixes{};
 
+    /** Transactional prefix candidates tried before the primary prefix rule. */
+    std::unordered_map<std::string, std::vector<PrefixFn>> prefixFallbacks{};
+
     /** Infix operators available in this domain. */
     std::unordered_map<std::string, InfixRule> infixes{};
 
@@ -177,6 +180,18 @@ public:
      * @brief Registers a Pratt prefix rule using a typed domain identifier.
      */
     registry::RegisterStatus prefix(const ids::ParseDomain &domain, std::string key, PrefixFn fn);
+
+    /**
+     * @brief Registers a transactional Pratt prefix fallback.
+     *
+     * Prefix fallbacks are tried in registration order before the primary prefix
+     * rule for the same token. Returning nullptr rejects the candidate and restores
+     * the parser position before the next candidate or primary prefix is attempted.
+     */
+    registry::RegisterStatus prefixFallback(std::string domain, std::string key, PrefixFn fn);
+
+    /** @brief Registers a transactional Pratt prefix fallback using a typed domain. */
+    registry::RegisterStatus prefixFallback(const ids::ParseDomain &domain, std::string key, PrefixFn fn);
 
     /**
      * @brief Registers a left-associative infix operator.
