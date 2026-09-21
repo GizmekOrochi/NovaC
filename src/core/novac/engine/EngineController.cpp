@@ -252,7 +252,12 @@ ast::NodePtr EngineController::makeNode(const ids::NodeKind &kind) const {
 std::vector<token::Token> EngineController::tokenize(const std::string &source) const {
     lexer::Lexer lexer{lexer_};
 
-    return lexer.tokenize(source);
+    try {
+        return lexer.tokenize(source);
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
 }
 
 ast::NodePtr EngineController::parse(const std::string &source) const {
@@ -273,40 +278,72 @@ ast::NodePtr EngineController::parseTokens(std::vector<token::Token> tokens) con
 
 ast::NodePtr EngineController::parseTokens(std::vector<token::Token> tokens, std::string startDomain) const {
     if (startDomain.empty()) {
-        throw std::runtime_error("EngineController::parseTokens: start domain cannot be empty");
+        const std::string message{"EngineController::parseTokens: start domain cannot be empty"};
+        diagnostics_.error(message);
+        throw std::runtime_error(message);
     }
 
     parser::Parser parser{parser_, std::move(startDomain)};
 
-    return parser.parse(std::move(tokens));
+    try {
+        return parser.parse(std::move(tokens));
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
 }
 
 void EngineController::validate(const ast::Node &node) const {
-    nodes_.validate(node);
+    try {
+        nodes_.validate(node);
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
 }
 
 runtime::Value EngineController::eval(const ast::Node &node) const {
     runtime::Runtime runtime{runtime_};
 
-    return runtime.eval(node);
+    try {
+        return runtime.eval(node);
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
 }
 
 void EngineController::exec(const ast::Node &node) const {
     runtime::Runtime runtime{runtime_};
 
-    runtime.exec(node);
+    try {
+        runtime.exec(node);
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
 }
 
 ir::HIRModule EngineController::lowerToHIR(const ast::Node &node) const {
     ir::ASTLoweringPass pass{lowering_};
 
-    return pass.lower(node);
+    try {
+        return pass.lower(node);
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
 }
 
 ir::MIRModule EngineController::lowerToMIR(const ir::HIRModule &hir) const {
     ir::HIRLoweringPass pass{lowering_};
 
-    return pass.lower(hir);
+    try {
+        return pass.lower(hir);
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
 }
 
 ir::MIRModule EngineController::lowerToMIR(const ast::Node &node) const {
@@ -462,7 +499,9 @@ void EngineController::rememberFeature(const EngineFeature &feature) {
 
 void EngineController::requireStartDomain(const std::string &owner) const {
     if (startDomain_.empty()) {
-        throw std::runtime_error(owner + ": start domain is not configured");
+        const std::string message{owner + ": start domain is not configured"};
+        diagnostics_.error(message);
+        throw std::runtime_error(message);
     }
 }
 

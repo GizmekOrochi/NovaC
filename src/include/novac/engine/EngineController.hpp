@@ -351,11 +351,23 @@ public:
      * @brief Registers a transactional Pratt prefix fallback.
      *
      * The callback may consume tokens speculatively. Returning nullptr restores
-     * the parser position and allows the next prefix candidate to run.
+     * the parser position and allows another prefix candidate to run.
+     *
+     * @param domain Parse domain name.
+     * @param key Token key or token text matched by the prefix fallback.
+     * @param fn Prefix fallback parse function.
+     * @return Registration result.
      */
     registry::RegisterStatus prefixFallback(std::string domain, std::string key, parser::PrefixFn fn);
 
-    /** @brief Registers a transactional Pratt prefix fallback using a typed domain. */
+    /**
+     * @brief Registers a transactional Pratt prefix fallback using a typed domain.
+     *
+     * @param domain Parse domain identifier.
+     * @param key Token key or token text matched by the prefix fallback.
+     * @param fn Prefix fallback parse function.
+     * @return Registration result.
+     */
     registry::RegisterStatus prefixFallback(const ids::ParseDomain &domain, std::string key, parser::PrefixFn fn);
 
     /**
@@ -962,7 +974,7 @@ private:
     parser::ParserRegistry parser_;
     runtime::RuntimeRegistry runtime_;
     ir::LoweringRegistry lowering_;
-    diagnostics::DiagnosticEngine diagnostics_;
+    mutable diagnostics::DiagnosticEngine diagnostics_;
     std::string startDomain_;
     std::vector<InstalledFeature> features_;
     std::unordered_set<std::string> capabilities_;
