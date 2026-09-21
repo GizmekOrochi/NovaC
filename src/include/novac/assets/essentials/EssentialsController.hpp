@@ -235,8 +235,10 @@ public:
     /**
      * @brief Installs a feature without taking ownership.
      *
-     * The feature metadata is read and validated before installation. After a
-     * successful install, its metadata is recorded by the controller.
+     * The feature metadata is read and validated before installation. Installation
+     * is transactional: EngineController and Essentials state are snapshotted
+     * before install() runs and restored if installation throws. After a successful
+     * install, the feature metadata is recorded by the controller.
      *
      * The caller remains responsible for the lifetime of the feature object.
      *
@@ -260,7 +262,8 @@ public:
     /**
      * @brief Installs and stores ownership of a feature.
      *
-     * The feature is validated and installed before ownership is stored.
+     * The feature is installed transactionally through use() before ownership is
+     * stored. Failed installation leaves both the engine and controller unchanged.
      *
      * @param feature Feature to own and install.
      * @return This controller, for fluent chaining.

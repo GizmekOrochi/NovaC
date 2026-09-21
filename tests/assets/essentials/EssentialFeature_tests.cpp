@@ -61,6 +61,35 @@ public:
     }
 };
 
+class FailingTransactionalFeature final : public novac::assets::essentials::EssentialFeature {
+public:
+    novac::assets::essentials::EssentialInfo info() const override {
+        return {
+            "test.transaction.failure",
+            "1.0.0",
+            "Feature that fails after mutating Essentials and Engine state",
+            {},
+            {},
+            {"test.transaction.failure"},
+            {}
+        };
+    }
+
+    void install(novac::assets::essentials::EssentialsController &controller) const override {
+        controller.engine().keyword("transaction_keyword");
+        controller.engine().registerCapability("test.transaction.engine");
+        controller.functionRegistry().native(
+            "transaction_native",
+            [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {
+                return novac::runtime::Value::integer(1);
+            }
+        );
+        controller.own(std::make_unique<TestFeature>());
+
+        throw std::runtime_error("FailingTransactionalFeature::install: intentional failure");
+    }
+};
+
 } // namespace test
 
 using novac::assets::essentials::EssentialInfo;
@@ -120,6 +149,43 @@ TEST(EssentialFeature, CapabilityCanBeProvidedByAtomic) {
 
     essentials.use(consumer);
     CHECK(essentials.hasFeature("test.atomic-consumer"));
+}
+
+TEST(EssentialFeature, FailedInstallationRollsBackControllerAndEngineState) {
+    EngineController engine{};
+    EssentialsController controller{engine};
+    test::FailingTransactionalFeature feature{};
+
+    CHECK(throwsRuntimeError([&]() { controller.use(feature); }));
+
+    CHECK(controller.features().empty());
+    CHECK(!controller.hasFeature("test.transaction.failure"));
+    CHECK(!controller.hasFeature("test.essential"));
+    CHECK(!controller.hasCapability("test.transaction.failure"));
+    CHECK(!controller.hasCapability("test.capability"));
+    CHECK(!engine.hasCapability("test.transaction.engine"));
+    CHECK(!controller.functionRegistry().hasNative("transaction_native"));
+
+    const auto tokens{engine.tokenize("transaction_keyword")};
+    CHECK(tokens[0].kind == novac::token::Kind::Identifier);
+}
+
+TEST(EssentialFeature, FailedOwnedInstallationRollsBackState) {
+    EngineController engine{};
+    EssentialsController controller{engine};
+
+    CHECK(throwsRuntimeError([&]() {
+        controller.own(std::make_unique<test::FailingTransactionalFeature>());
+    }));
+
+    CHECK(controller.features().empty());
+    CHECK(!controller.hasFeature("test.transaction.failure"));
+    CHECK(!controller.hasFeature("test.essential"));
+    CHECK(!controller.functionRegistry().hasNative("transaction_native"));
+
+    // A clean installation after the rollback must still succeed.
+    controller.use(test::TestFeature{});
+    CHECK(controller.hasFeature("test.essential"));
 }
 
 TEST(EssentialPack, AddOwnsFeature) {

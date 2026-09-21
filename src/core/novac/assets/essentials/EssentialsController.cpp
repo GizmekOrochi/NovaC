@@ -41,10 +41,25 @@ EssentialsController::EssentialsController(controllers::EngineController &engine
 
 EssentialsController &EssentialsController::use(const EssentialFeature &feature) {
     EssentialInfo info{feature.info()};
-
     validateFeature(info);
-    feature.install(*this);
-    rememberFeature(std::move(info));
+
+    const controllers::EngineController engineSnapshot{engine_.snapshot()};
+    const functions::FunctionRegistry functionRegistrySnapshot{functionRegistry_};
+    const auto featuresSnapshot{features_};
+    const auto featureIdsSnapshot{featureIds_};
+    const std::size_t ownedFeaturesSize{ownedFeatures_.size()};
+
+    try {
+        feature.install(*this);
+        rememberFeature(std::move(info));
+    } catch (...) {
+        engine_.restore(engineSnapshot);
+        functionRegistry_ = functionRegistrySnapshot;
+        features_ = featuresSnapshot;
+        featureIds_ = featureIdsSnapshot;
+        ownedFeatures_.resize(ownedFeaturesSize);
+        throw;
+    }
 
     return *this;
 }
@@ -62,11 +77,7 @@ EssentialsController &EssentialsController::own(std::unique_ptr<EssentialFeature
     if(!feature)
         throw std::runtime_error("EssentialsController::own: feature cannot be null");
 
-    EssentialInfo info{feature->info()};
-    validateFeature(info);
-    feature->install(*this);
-
-    rememberFeature(std::move(info));
+    use(*feature);
     ownedFeatures_.push_back(std::move(feature));
 
     return *this;
