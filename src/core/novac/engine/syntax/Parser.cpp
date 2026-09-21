@@ -109,8 +109,7 @@ registry::RegisterStatus ParserRegistry::infix(std::string domain, std::string o
         std::move(op),
         InfixRule{precedence, associativity, std::move(fn)},
         duplicatePolicy_,
-        "ParserRegistry::infix"
-    );
+        "ParserRegistry::infix");
 }
 
 registry::RegisterStatus ParserRegistry::infix(const ids::ParseDomain &domain, std::string op, int precedence, InfixFn fn) {
@@ -139,8 +138,7 @@ registry::RegisterStatus ParserRegistry::postfix(std::string domain, std::string
         std::move(op),
         PostfixRule{precedence, std::move(fn)},
         duplicatePolicy_,
-        "ParserRegistry::postfix"
-    );
+        "ParserRegistry::postfix");
 }
 
 registry::RegisterStatus ParserRegistry::postfix(const ids::ParseDomain &domain, std::string op, int precedence, PostfixFn fn) {
@@ -179,7 +177,9 @@ ast::NodePtr ParserRegistry::parse(ParserContext &context, const std::string &do
             textPrefixIter != rules.prefixes.end() ||
             fallbackIter != rules.prefixFallbacks.end() ||
             textFallbackIter != rules.prefixFallbacks.end()) {
-            return parsePratt(context, domain, rules, minPrecedence);
+            if (ast::NodePtr node{parsePratt(context, domain, rules, minPrecedence)}) {
+                return node;
+            }
         }
     }
 
@@ -241,7 +241,8 @@ ast::NodePtr ParserRegistry::parsePratt(ParserContext &context, const std::strin
 
     if (!matchedFallback) {
         if (prefixIter == rules.prefixes.end()) {
-            throw std::runtime_error("ParserRegistry::parsePratt: expected expression in domain '" + domain + "' at line " + std::to_string(context.cur().line) + ", column " + std::to_string(context.cur().column));}
+            return nullptr;
+        }
 
         left = prefixIter->second(context);
     }
