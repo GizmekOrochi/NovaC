@@ -136,7 +136,7 @@ EssentialsController &EssentialsController::installProgram(){
         }
     );
 
-    rememberFeature({id, "0.1.0", "Program root parsing and execution", {options.programNodeKind}, {traits::Program}, {}});
+    rememberFeature({id, "0.1.0", "Program root parsing and execution", {options.programNodeKind}, {traits::Program}, {"program"}, {}});
 
     return *this;
 }
@@ -246,6 +246,10 @@ bool EssentialsController::hasFeature(const std::string &id) const {
     return featureIds_.find(id) != featureIds_.end();
 }
 
+bool EssentialsController::hasCapability(const std::string &capability) const {
+    return engine_.hasCapability(capability);
+}
+
 const std::vector<EssentialInfo> &EssentialsController::features() const{
     return features_;
 }
@@ -313,10 +317,26 @@ void EssentialsController::validateFeature(const EssentialInfo &info) const{
     if(hasFeature(info.id))
         throw std::runtime_error("EssentialsController::validateFeature: duplicate feature '" + info.id + "'");
 
+    for (const std::string &capability : info.capabilities) {
+        if (capability.empty())
+            throw std::runtime_error("EssentialsController::validateFeature: provided capability cannot be empty");
+    }
+
+    for (const std::string &requirement : info.requirements) {
+        if (requirement.empty())
+            throw std::runtime_error("EssentialsController::validateFeature: required capability cannot be empty");
+
+        if (!hasCapability(requirement))
+            throw std::runtime_error("EssentialsController::validateFeature: missing required capability '" + requirement + "' for feature '" + info.id + "'");
+    }
+
 }
 
 void EssentialsController::rememberFeature(EssentialInfo info){
     featureIds_.insert(info.id);
+    for (const std::string &capability : info.capabilities) {
+        engine_.registerCapability(capability);
+    }
     features_.push_back(std::move(info));
 }
 

@@ -415,6 +415,14 @@ public:
     bool hasOperation(const std::string &id) const;
 
     /**
+    * @brief Checks whether a capability is provided by an installed Atomic feature.
+    *
+    * @param capability Capability name to search for.
+    * @return true when the capability is available; otherwise false.
+    */
+    bool hasCapability(const std::string &capability) const;
+
+    /**
     * @brief Returns metadata for installed literal features.
     *
     * Metadata is stored in installation order.
@@ -485,16 +493,18 @@ private:
     /**
     * @brief Validates literal metadata before installation.
     *
-    * The literal must have a non-empty id and node kind, and its id must not
-    * already be installed.
+    * The literal must have a non-empty id and node kind, its id must not
+    * already be installed, and every required capability must already be
+    * provided by an installed Atomic feature.
     */
     void validateLiteral(const LiteralInfo &info) const;
 
     /**
     * @brief Validates operation metadata before installation.
     *
-    * The operation must have a non-empty id, a usable token pattern and an id
-    * that has not already been installed.
+    * The operation must have a non-empty id, a usable token pattern, an id
+    * that has not already been installed, and every required capability must
+    * already be provided by an installed Atomic feature.
     */
     void validateOperation(const OperationInfo &info) const;
 

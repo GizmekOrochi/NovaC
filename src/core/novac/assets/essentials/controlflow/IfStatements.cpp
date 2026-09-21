@@ -13,6 +13,7 @@ EssentialInfo IfStatementsFeature::info() const {
         "If and else statements",
         {"IfStatement"},
         {traits::Statement},
+        {"controlflow.if"},
         {}
     };
 }

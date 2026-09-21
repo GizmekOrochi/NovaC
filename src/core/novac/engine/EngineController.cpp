@@ -117,7 +117,8 @@ EngineController::EngineController(EngineControllerOptions options)
       lowering_{options.duplicatePolicy},
       diagnostics_{},
       startDomain_{std::move(options.startDomain)},
-      features_{} {
+      features_{},
+      capabilities_{} {
 }
 
 registry::RegisterStatus EngineController::keyword(std::string keyword) {
@@ -334,15 +335,15 @@ bool EngineController::hasFeature(const std::string &name) const {
 }
 
 bool EngineController::hasCapability(const std::string &capability) const {
-    for (const InstalledFeature &feature : features_) {
-        const auto iter{std::find(feature.capabilities.begin(), feature.capabilities.end(), capability)};
+    return capabilities_.find(capability) != capabilities_.end();
+}
 
-        if (iter != feature.capabilities.end()) {
-            return true;
-        }
+void EngineController::registerCapability(std::string capability) {
+    if (capability.empty()) {
+        throw std::runtime_error("EngineController::registerCapability: capability cannot be empty");
     }
 
-    return false;
+    capabilities_.insert(std::move(capability));
 }
 
 void EngineController::setStartDomain(std::string startDomain) {
@@ -445,6 +446,10 @@ void EngineController::rememberFeature(const EngineFeature &feature) {
         feature.capabilities(),
         feature.conflicts()
     });
+
+    for (const std::string &capability : feature.capabilities()) {
+        registerCapability(capability);
+    }
 }
 
 void EngineController::requireStartDomain(const std::string &owner) const {

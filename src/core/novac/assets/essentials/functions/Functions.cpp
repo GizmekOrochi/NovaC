@@ -18,7 +18,7 @@ namespace novac::assets::essentials::functions {
 
 
 EssentialInfo FunctionsFeature::info() const {
-    return {"essentials.functions", "0.1.0", "Function declarations and calls", {"FunctionDeclaration", "FunctionCall", "FunctionParameter"}, {traits::Declaration, traits::Expression, traits::Callable}, {}};
+    return {"essentials.functions", "0.1.0", "Function declarations and calls", {"FunctionDeclaration", "FunctionCall", "FunctionParameter"}, {traits::Declaration, traits::Expression, traits::Callable}, {"functions"}, {}};
 }
 
 

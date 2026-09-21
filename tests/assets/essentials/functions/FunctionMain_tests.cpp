@@ -20,6 +20,8 @@ TEST(FunctionMainFeature, InfoReturnsCorrectMetadata) {
     CHECK(info.description == "Program entry point");
     CHECK(info.nodeKinds.empty());
     CHECK(info.traits.empty());
+    CHECK(info.capabilities.size() == 1);
+    CHECK(info.capabilities[0] == "function.entry");
     CHECK(info.requirements.empty());
 }
 

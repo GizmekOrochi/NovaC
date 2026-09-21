@@ -463,6 +463,14 @@ public:
     bool hasFeature(const std::string &id) const;
 
     /**
+     * @brief Tests whether an installed Essentials feature provides a capability.
+     *
+     * @param capability Capability name to search for.
+     * @return true when the capability is available, otherwise false.
+     */
+    bool hasCapability(const std::string &capability) const;
+
+    /**
      * @brief Returns metadata for installed features.
      *
      * Metadata is stored in installation order.
@@ -483,8 +491,8 @@ private:
     /**
      * @brief Validates feature metadata before installation.
      *
-     * The current validation requires a non-empty id and rejects duplicate
-     * feature ids.
+     * Validation requires a non-empty id, rejects duplicate feature ids, and
+     * ensures every declared capability requirement is already available.
      */
     void validateFeature(const EssentialInfo &info) const;
 

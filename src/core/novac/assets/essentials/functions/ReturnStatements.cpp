@@ -7,7 +7,7 @@
 namespace novac::assets::essentials::functions {
 
 EssentialInfo ReturnStatementsFeature::info() const {
-    return {"essentials.functions.return", "0.1.0", "Return statements", {"ReturnStatement"}, {traits::Statement}, {}};
+    return {"essentials.functions.return", "0.1.0", "Return statements", {"ReturnStatement"}, {traits::Statement}, {"statement.return"}, {}};
 }
 
 void ReturnStatementsFeature::install(EssentialsController &controller) const {

@@ -16,10 +16,9 @@ class EssentialsController;
  * for identification, discovery, documentation and duplicate detection by the
  * EssentialsController.
  *
- * The requirements field is part of the metadata model and can describe feature
- * dependencies. The current EssentialsController validates feature ids and
- * duplicate installation, while dependency enforcement may be handled by
- * higher-level composition logic.
+ * Features can declare capabilities they provide and capabilities they require.
+ * EssentialsController validates those requirements before installation so
+ * composition depends on behavior contracts rather than concrete feature ids.
  */
 struct EssentialInfo {
     /**
@@ -50,7 +49,15 @@ struct EssentialInfo {
     std::vector<std::string> traits{};
 
     /**
-     * @brief Feature identifiers declared as dependencies.
+     * @brief Capabilities provided by this feature.
+     *
+     * Provided capabilities become available to Essentials features installed
+     * later.
+     */
+    std::vector<std::string> capabilities{};
+
+    /**
+     * @brief Capabilities required before this feature can be installed.
      */
     std::vector<std::string> requirements{};
 };

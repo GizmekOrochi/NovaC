@@ -29,7 +29,7 @@ ast::NodePtr parseAssignmentNoSemicolon(parser::ParserContext &context, const Co
 } // namespace
 
 EssentialInfo ForLoopsFeature::info() const {
-    return {"essentials.controlflow.for", "0.1.0", "For loops", {"ForStatement"}, {traits::Statement}, {}};
+    return {"essentials.controlflow.for", "0.1.0", "For loops", {"ForStatement"}, {traits::Statement}, {"controlflow.for"}, {}};
 }
 
 void ForLoopsFeature::install(EssentialsController &controller) const {

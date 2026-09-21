@@ -11,7 +11,7 @@
 namespace novac::assets::essentials::variables {
 
 EssentialInfo VariablesFeature::info() const {
-    return {"essentials.variables", "0.1.0", "Variable declarations, assignments, and lookups", {"VariableDeclaration", "VariableExpression", "AssignmentStatement"}, {traits::Expression, traits::Statement}, {}};
+    return {"essentials.variables", "0.1.0", "Variable declarations, assignments, and lookups", {"VariableDeclaration", "VariableExpression", "AssignmentStatement"}, {traits::Expression, traits::Statement}, {"variables"}, {}};
 }
 
 void VariablesFeature::install(EssentialsController &controller) const {

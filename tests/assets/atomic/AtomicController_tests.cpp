@@ -85,11 +85,45 @@ TEST(AtomicController, UseLiteralFeature) {
     CHECK(controller.literals().size() == 1);
 }
 
+TEST(AtomicController, LiteralProvidesCapabilities) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    CHECK(!controller.hasCapability("expression.atom"));
+    controller.integer();
+
+    CHECK(controller.hasCapability("literal.integer"));
+    CHECK(controller.hasCapability("expression.atom"));
+}
+
+TEST(AtomicController, MissingOperationCapabilityIsRejected) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    CHECK(throwsRuntimeError([&]() {
+        controller.use(AddOperationAtomic{});
+    }));
+    CHECK(!controller.hasOperation("core.op.add"));
+}
+
+TEST(AtomicController, OperationRequirementUsesCapability) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    controller.integer();
+    controller.use(AddOperationAtomic{});
+
+    CHECK(controller.hasOperation("core.op.add"));
+    CHECK(controller.hasCapability("operation.numeric"));
+    CHECK(controller.hasCapability("operation.binary"));
+}
+
 TEST(AtomicController, UseOperationFeature) {
     EngineController engine;
     AtomicController controller{engine};
     AddOperationAtomic feature;
 
+    controller.integer();
     controller.use(feature);
     CHECK(controller.hasOperation("core.op.add"));
     CHECK(controller.operations().size() == 1);
@@ -241,6 +275,7 @@ TEST(AtomicController, StringLiteralRegistration) {
 TEST(AtomicController, AddOperationRegistration) {
     EngineController engine;
     AtomicController controller{engine};
+    controller.integer();
     controller.add();
     CHECK(controller.hasOperation("core.op.add"));
 }
@@ -248,6 +283,7 @@ TEST(AtomicController, AddOperationRegistration) {
 TEST(AtomicController, SubtractOperationRegistration) {
     EngineController engine;
     AtomicController controller{engine};
+    controller.integer();
     controller.subtract();
     CHECK(controller.hasOperation("core.op.sub"));
 }
@@ -266,6 +302,7 @@ TEST(AtomicController, StandardLiterals) {
 TEST(AtomicController, StandardNumericOperations) {
     EngineController engine;
     AtomicController controller{engine};
+    controller.integer();
     controller.standardNumericOperations();
     CHECK(controller.hasOperation("core.op.add"));
     CHECK(controller.hasOperation("core.op.sub"));
@@ -279,6 +316,7 @@ TEST(AtomicController, StandardNumericOperations) {
 TEST(AtomicController, StandardComparisonOperations) {
     EngineController engine;
     AtomicController controller{engine};
+    controller.integer();
     controller.standardComparisonOperations();
     CHECK(controller.hasOperation("core.op.eq"));
     CHECK(controller.hasOperation("core.op.neq"));
@@ -292,6 +330,7 @@ TEST(AtomicController, StandardComparisonOperations) {
 TEST(AtomicController, StandardLogicalOperations) {
     EngineController engine;
     AtomicController controller{engine};
+    controller.integer();
     controller.standardLogicalOperations();
     CHECK(controller.hasOperation("core.op.logical.and"));
     CHECK(controller.hasOperation("core.op.logical.or"));
@@ -310,6 +349,7 @@ TEST(AtomicController, StandardCore) {
 TEST(AtomicController, StandardOperations) {
     EngineController engine;
     AtomicController controller{engine};
+    controller.integer();
     controller.standardOperations();
     CHECK(controller.operations().size() == 15);
 }
@@ -330,6 +370,7 @@ TEST(AtomicController, DuplicateOperationThrows) {
     AddOperationAtomic feature1;
     AddOperationAtomic feature2;
 
+    controller.integer();
     controller.use(feature1);
     CHECK(throwsRuntimeError([&]() { controller.use(feature2); }));
 }
@@ -344,6 +385,7 @@ TEST(AtomicController, OwnLiteralFeature) {
 TEST(AtomicController, OwnOperationFeature) {
     EngineController engine;
     AtomicController controller{engine};
+    controller.integer();
     controller.own(std::make_unique<AddOperationAtomic>());
     CHECK(controller.hasOperation("core.op.add"));
 }
@@ -379,6 +421,7 @@ TEST(AtomicController, CustomBooleanTokens) {
 TEST(AtomicController, CustomOperationToken) {
     EngineController engine;
     AtomicController controller{engine};
+    controller.integer();
     controller.add("plus");
     CHECK(controller.hasOperation("core.op.add"));
 }

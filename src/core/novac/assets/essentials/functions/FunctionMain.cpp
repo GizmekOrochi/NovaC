@@ -7,7 +7,7 @@ namespace novac::assets::essentials::functions {
 
 
 EssentialInfo FunctionMainFeature::info() const {
-    return {"essentials.functions.main","0.1.0", "Program entry point", {}, {}, {}};
+    return {"essentials.functions.main","0.1.0", "Program entry point", {}, {}, {"function.entry"}, {}};
 }
 
 

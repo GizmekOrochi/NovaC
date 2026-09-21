@@ -7,7 +7,7 @@
 namespace novac::assets::essentials::variables {
 
 EssentialInfo ExpressionStatementsFeature::info() const {
-    return {"essentials.variables.expression-statements", "0.1.0", "Expression statements", {"ExpressionStatement"}, {traits::Statement}, {}};
+    return {"essentials.variables.expression-statements", "0.1.0", "Expression statements", {"ExpressionStatement"}, {traits::Statement}, {"statement.expression"}, {}};
 }
 
 void ExpressionStatementsFeature::install(EssentialsController &controller) const {

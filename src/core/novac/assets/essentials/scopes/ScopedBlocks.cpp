@@ -9,7 +9,7 @@
 namespace novac::assets::essentials::scopes {
 
 EssentialInfo ScopedBlocksFeature::info() const {
-    return {"essentials.scopes.blocks", "0.1.0", "Lexical scoped blocks", {"BlockStmt"}, {traits::Statement, traits::Scope}, {}};
+    return {"essentials.scopes.blocks", "0.1.0", "Lexical scoped blocks", {"BlockStmt"}, {traits::Statement, traits::Scope}, {"scope.block"}, {}};
 }
 
 void ScopedBlocksFeature::install(EssentialsController &controller) const {

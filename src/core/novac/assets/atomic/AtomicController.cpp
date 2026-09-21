@@ -311,6 +311,10 @@ bool AtomicController::hasOperation(const std::string &id) const {
     return operationIds_.find(id) != operationIds_.end();
 }
 
+bool AtomicController::hasCapability(const std::string &capability) const {
+    return engine_.hasCapability(capability);
+}
+
 const std::vector<LiteralInfo> &AtomicController::literals() const {
     return literals_;
 }
@@ -416,6 +420,21 @@ void AtomicController::validateLiteral(const LiteralInfo &info) const {
     if (hasLiteral(info.id)) {
         throw std::runtime_error("AtomicController::validateLiteral: duplicate literal '" + info.id + "'");
     }
+
+    for (const std::string &capability : info.capabilities) {
+        if (capability.empty()) {
+            throw std::runtime_error("AtomicController::validateLiteral: provided capability cannot be empty");
+        }
+    }
+
+    for (const std::string &requirement : info.requiredCapabilities) {
+        if (requirement.empty()) {
+            throw std::runtime_error("AtomicController::validateLiteral: required capability cannot be empty");
+        }
+        if (!hasCapability(requirement)) {
+            throw std::runtime_error("AtomicController::validateLiteral: missing required capability '" + requirement + "' for literal '" + info.id + "'");
+        }
+    }
 }
 
 void AtomicController::validateOperation(const OperationInfo &info) const {
@@ -430,15 +449,36 @@ void AtomicController::validateOperation(const OperationInfo &info) const {
     if (hasOperation(info.id)) {
         throw std::runtime_error("AtomicController::validateOperation: duplicate operation '" + info.id + "'");
     }
+
+    for (const std::string &capability : info.capabilities) {
+        if (capability.empty()) {
+            throw std::runtime_error("AtomicController::validateOperation: provided capability cannot be empty");
+        }
+    }
+
+    for (const std::string &requirement : info.requiredCapabilities) {
+        if (requirement.empty()) {
+            throw std::runtime_error("AtomicController::validateOperation: required capability cannot be empty");
+        }
+        if (!hasCapability(requirement)) {
+            throw std::runtime_error("AtomicController::validateOperation: missing required capability '" + requirement + "' for operation '" + info.id + "'");
+        }
+    }
 }
 
 void AtomicController::rememberLiteral(LiteralInfo info) {
     literalIds_.insert(info.id);
+    for (const std::string &capability : info.capabilities) {
+        engine_.registerCapability(capability);
+    }
     literals_.push_back(std::move(info));
 }
 
 void AtomicController::rememberOperation(OperationInfo info) {
     operationIds_.insert(info.id);
+    for (const std::string &capability : info.capabilities) {
+        engine_.registerCapability(capability);
+    }
     operations_.push_back(std::move(info));
 }
 

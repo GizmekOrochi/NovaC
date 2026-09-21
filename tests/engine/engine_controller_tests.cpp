@@ -107,6 +107,20 @@ TEST(EngineController, DefaultConstruction) {
     CHECK(engine.lexer().symbols().empty());
 }
 
+TEST(EngineController, RegistersStandaloneCapability) {
+    EngineController engine{};
+
+    engine.registerCapability("asset.expression");
+
+    CHECK(engine.hasCapability("asset.expression"));
+}
+
+TEST(EngineController, RejectsEmptyStandaloneCapability) {
+    EngineController engine{};
+
+    CHECK(throwsRuntimeError([&]() { engine.registerCapability(""); }));
+}
+
 TEST(EngineController, ConstructionWithOptions) {
     EngineController engine{EngineControllerOptions{DuplicatePolicy::Ignore, "expr"}};
 

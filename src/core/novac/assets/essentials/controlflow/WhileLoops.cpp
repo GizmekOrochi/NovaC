@@ -15,6 +15,7 @@ EssentialInfo WhileLoopsFeature::info() const {
         "While loops",
         {"WhileStatement"},
         {traits::Statement},
+        {"controlflow.while"},
         {}
     };
 }

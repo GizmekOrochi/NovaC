@@ -12,6 +12,7 @@
 
 #include <functional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace novac::controllers {
@@ -794,6 +795,18 @@ public:
     bool hasCapability(const std::string &capability) const;
 
     /**
+     * @brief Publishes a capability on this engine.
+     *
+     * Asset controllers use this to expose capabilities from features that do
+     * not use EngineFeature directly. Registering an already available
+     * capability is idempotent.
+     *
+     * @param capability Capability name to publish.
+     * @throws std::runtime_error If capability is empty.
+     */
+    void registerCapability(std::string capability);
+
+    /**
      * @brief Sets the default parser start domain.
      *
      * This domain is used by parse(source) and parseTokens(tokens).
@@ -941,6 +954,7 @@ private:
     diagnostics::DiagnosticEngine diagnostics_;
     std::string startDomain_;
     std::vector<InstalledFeature> features_;
+    std::unordered_set<std::string> capabilities_;
 };
 
 } // namespace novac::controllers
