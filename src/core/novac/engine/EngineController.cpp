@@ -115,6 +115,7 @@ EngineController::EngineController(EngineControllerOptions options)
       parser_{options.duplicatePolicy},
       runtime_{options.duplicatePolicy},
       lowering_{options.duplicatePolicy},
+      types_{assets::types::TypeControllerOptions{options.duplicatePolicy}},
       diagnostics_{},
       startDomain_{std::move(options.startDomain)},
       features_{},
@@ -503,6 +504,15 @@ void EngineController::requireStartDomain(const std::string &owner) const {
         diagnostics_.error(message);
         throw std::runtime_error(message);
     }
+}
+
+
+assets::types::TypeController &EngineController::types() {
+    return types_;
+}
+
+const assets::types::TypeController &EngineController::types() const {
+    return types_;
 }
 
 } // namespace novac::controllers

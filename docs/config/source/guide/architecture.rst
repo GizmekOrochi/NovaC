@@ -75,7 +75,8 @@ into registries:
 * AST node schemas;
 * runtime handlers by node kind;
 * AST-to-HIR lowerers;
-* HIR-to-MIR lowerers.
+* HIR-to-MIR lowerers;
+* generic type definitions, type-to-type conversions, operation signatures, and semantic rules.
 
 This is why independent language features can be composed without editing the
 Engine.
@@ -92,6 +93,10 @@ Controllers are convenience layers
 ``EssentialsController``
    Packages common imperative features: program roots, scopes, variables,
    functions, returns, conditionals, and loops.
+
+``TypeController``
+   Stores generic language-defined types and conversions, and attaches typing
+   semantics directly to Atomic literal and operation features.
 
 The upper layers do not replace the Engine; they configure it.
 

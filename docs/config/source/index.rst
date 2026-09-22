@@ -78,6 +78,7 @@ Where should I start?
    guide/engine
    guide/atomic
    guide/essentials
+   guide/types
    guide/native_functions
    guide/customization
    guide/ir
@@ -93,6 +94,7 @@ Where should I start?
    examples/calculator
    examples/complete_language
    examples/ir_builder
+   examples/type_system
 
 .. toctree::
    :maxdepth: 2

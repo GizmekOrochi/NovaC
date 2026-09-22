@@ -1,6 +1,6 @@
 # NovaC
 
-NovaC is a modular C++20 framework for building programming languages. Its engine provides tokenization, Pratt parsing, AST/runtime execution, diagnostics, and HIR/MIR infrastructure, while language behavior is composed through installable features instead of being hard-coded into the core.
+NovaC is a modular C++20 framework for building programming languages. Its engine provides tokenization, Pratt parsing, AST/runtime execution, diagnostics, HIR/MIR infrastructure, and an extensible typed semantic system, while language behavior is composed through installable features instead of being hard-coded into the core.
 
 ## Quick start
 
@@ -68,6 +68,20 @@ Remove an installation made with the same prefix using:
 ```bash
 sudo make uninstall PREFIX=/usr/local
 ```
+
+## Type system
+
+NovaC includes a language-defined type subsystem through `TypeController`.
+It provides a generic type registry, primitive layout helpers, immutable typed
+extensions, generic ranked conversions, literal typing and operation overload
+resolution. Type semantics deliberately reuse Atomic `LiteralFeature` and
+`OperationFeature`, so custom literals/operators do not need parallel Types-specific
+descriptors.
+
+The public asset stays small: `TypeController.hpp`, `model/Type.hpp`, and
+`semantics/TypeSemantics.hpp`. For compiler diagnostics,
+`resolveOperationDetailed` distinguishes successful resolution from no-match,
+ambiguity and unknown-operand cases. See the type-system guide for examples.
 
 ## Tests and reliability
 

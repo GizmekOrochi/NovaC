@@ -23,6 +23,7 @@ EXAMPLES = {
     "calculator.cpp": "1 + 2 * 3 -> 7\n10 >= 5 -> true\ntrue && !false -> true\n",
     "custom_language.cpp": "factorial(5) =\n120\nsum =\n10\nreturned: 130\n",
     "ir_builder.cpp": "entry\n  const\n  const\n  add\n  return\n",
+    "type_system.cpp": "u16\n1\n",
 }
 
 

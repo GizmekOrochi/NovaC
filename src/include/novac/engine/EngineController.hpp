@@ -9,6 +9,7 @@
 #include "syntax/Parser.hpp"
 #include "syntax/Token.hpp"
 #include "transformation/IR.hpp"
+#include "novac/assets/types/TypeController.hpp"
 
 #include <functional>
 #include <string>
@@ -934,6 +935,12 @@ public:
      */
     const ir::LoweringRegistry &lowering() const;
 
+    /** @brief Returns the language type controller. */
+    assets::types::TypeController &types();
+
+    /** @brief Returns the language type controller. */
+    const assets::types::TypeController &types() const;
+
 private:
     /**
      * @brief Stored metadata for an installed feature.
@@ -974,6 +981,7 @@ private:
     parser::ParserRegistry parser_;
     runtime::RuntimeRegistry runtime_;
     ir::LoweringRegistry lowering_;
+    assets::types::TypeController types_;
     mutable diagnostics::DiagnosticEngine diagnostics_;
     std::string startDomain_;
     std::vector<InstalledFeature> features_;

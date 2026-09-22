@@ -95,6 +95,19 @@ void installSimpleMIRLowering(EngineController &engine) {
     });
 }
 
+
+TEST(EngineController, ExposesTypeController) {
+    EngineController engine;
+    engine.types().definePrimitive("u24")
+        .bits(24)
+        .alignment(4)
+        .unsignedType()
+        .commit();
+
+    CHECK(engine.types().hasPrimitive("u24"));
+    CHECK_EQ(engine.types().requirePrimitive("u24").bitWidth, static_cast<std::size_t>(24));
+}
+
 } // namespace
 
 TEST(EngineController, DefaultConstruction) {
