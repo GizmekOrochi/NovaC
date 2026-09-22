@@ -1,56 +1,109 @@
 Using NovaC in your own project
 ===============================
 
-NovaC V1 is currently consumed from source. The repository Makefile builds the
-NovaC project itself, but it does not yet install ``libNovaC`` or export a CMake
-package.
+NovaC V1 can be consumed either directly from a source checkout or as an
+installed static library with a CMake package. For application projects, the
+installed ``NovaC::NovaC`` target is the preferred integration path.
 
-This page documents the practical integration model that works today.
+Install NovaC
+-------------
 
-Required include paths
-----------------------
-
-The umbrella header is ``src/NovaC.hpp`` and the public headers are under
-``src/include``. Therefore a consumer compiling directly from a checkout needs
-both include roots:
-
-.. code-block:: text
-
-   -I/path/to/NovaC/src
-   -I/path/to/NovaC/src/include
-
-Minimal direct build
---------------------
-
-Suppose your project contains ``main.cpp`` and NovaC lives in
-``../third_party/NovaC``:
+Build and install the library and public headers:
 
 .. code-block:: console
 
-   $ NOVAC=../third_party/NovaC
-   $ g++ -std=c++20 -Wall -Wextra \
-       -I"$NOVAC/src" \
+   $ make -j
+   $ sudo make install PREFIX=/usr/local
+
+This installs ``libNovaC.a``, the ``novac`` public header tree, and the NovaC
+CMake package files.
+
+To test an installation without modifying the host system, use a staged prefix:
+
+.. code-block:: console
+
+   $ make install DESTDIR="$PWD/stage" PREFIX=/usr
+
+CMake integration
+-----------------
+
+A consumer ``CMakeLists.txt`` can use the exported package directly:
+
+.. code-block:: cmake
+
+   cmake_minimum_required(VERSION 3.16)
+   project(MyLanguage LANGUAGES CXX)
+
+   find_package(NovaC CONFIG REQUIRED)
+
+   add_executable(my_language main.cpp)
+   target_link_libraries(my_language PRIVATE NovaC::NovaC)
+
+``NovaC::NovaC`` provides:
+
+* the installed ``libNovaC.a`` archive;
+* the installed public include directory;
+* the C++20 compile feature requirement.
+
+With the default installation prefix, CMake will normally discover NovaC under
+``/usr/local``. For a custom prefix, point CMake at it using a standard package
+search mechanism such as ``CMAKE_PREFIX_PATH``:
+
+.. code-block:: console
+
+   $ cmake -S . -B build -DCMAKE_PREFIX_PATH=/opt/novac
+   $ cmake --build build
+
+Direct source-tree linking
+--------------------------
+
+When working from a NovaC checkout, build the static library once:
+
+.. code-block:: console
+
+   $ make -j
+
+A small non-CMake consumer can then compile against the source-tree headers and
+link the archive explicitly:
+
+.. code-block:: console
+
+   $ NOVAC=/path/to/NovaC
+   $ g++ -std=c++20 \
        -I"$NOVAC/src/include" \
        main.cpp \
-       $(find "$NOVAC/src/core" -name '*.cpp') \
+       "$NOVAC/lib/libNovaC.a" \
        -o my_language
 
-This compiles your program together with NovaC's implementation sources.
+The supported public include root is ``src/include``. Consumer code should
+include public headers from the ``novac/...`` hierarchy, for example:
+
+.. code-block:: cpp
+
+   #include <novac/engine/EngineController.hpp>
+   #include <novac/assets/atomic/AtomicController.hpp>
+   #include <novac/assets/essentials/EssentialsController.hpp>
+
+Do not compile files from ``src/core`` directly into normal consumers. The
+static library is the distribution boundary for NovaC's implementation.
 
 A simple consumer Makefile
 --------------------------
 
+For a source checkout at ``../third_party/NovaC``:
+
 .. code-block:: make
 
    CXX ?= g++
-   CXXFLAGS = -Wall -Wextra -std=c++20
+   CXXFLAGS ?= -Wall -Wextra -std=c++20
    NOVAC ?= ../third_party/NovaC
 
-   NOVAC_SRC = $(shell find $(NOVAC)/src/core -name '*.cpp')
-   NOVAC_INC = -I$(NOVAC)/src -I$(NOVAC)/src/include
+   my_language: main.cpp $(NOVAC)/lib/libNovaC.a
+    $(CXX) $(CXXFLAGS) -I$(NOVAC)/src/include $< \
+        $(NOVAC)/lib/libNovaC.a -o $@
 
-   my_language: main.cpp $(NOVAC_SRC)
-   	$(CXX) $(CXXFLAGS) $(NOVAC_INC) $^ -o $@
+   $(NOVAC)/lib/libNovaC.a:
+    $(MAKE) -C $(NOVAC) -j
 
    run: my_language
    	./my_language
@@ -58,31 +111,25 @@ A simple consumer Makefile
    clean:
    	rm -f my_language
 
-Why two include directories?
-----------------------------
+Static linking model
+--------------------
 
-``#include "NovaC.hpp"`` resolves from ``src``. That umbrella header then
-includes headers such as ``novac/engine/EngineController.hpp``, which resolve
-from ``src/include``.
+NovaC V1 is distributed as a static library. Each executable that links
+``libNovaC.a`` receives the required NovaC implementation objects at link time.
+The public API remains defined by the headers under ``novac/``; ``src/core`` is
+an implementation directory and is not installed.
 
-For larger projects
--------------------
+Package-manager staging
+-----------------------
 
-Compiling every NovaC ``.cpp`` on every build is simple but not efficient. For
-a larger project, compile ``src/core`` into object files or a static library once
-and link that result into your application.
+``DESTDIR`` makes it possible to assemble a package tree without changing the
+logical installation prefix:
 
 .. code-block:: console
 
-   $ mkdir -p build/novac
-   $ # compile NovaC source files to .o files, then:
-   $ ar rcs build/libnovac.a build/novac/*.o
+   $ rm -rf stage
+   $ make install DESTDIR="$PWD/stage" PREFIX=/usr
+   $ find stage/usr -maxdepth 4 -type f
 
-Then link ``build/libnovac.a`` with your language executable.
-
-.. note::
-
-   A future package-oriented build system could expose a proper installed
-   library target. Until that exists in the repository, this page describes
-   the actual V1 integration contract instead of pretending an installation
-   target exists.
+This pattern is suitable for packaging systems that later copy the staged tree
+into its final filesystem location.
