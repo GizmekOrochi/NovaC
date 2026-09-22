@@ -15,11 +15,21 @@ From the repository root:
 make doc
 ```
 
+Compile and execute the documentation examples only:
+
+```bash
+make doc-examples
+```
+
 For release checks:
 
 ```bash
 make doc-strict
+make release-check
 ```
+
+`doc-strict` includes `doc-examples` and treats Sphinx warnings as errors.
+`release-check` requires the normal NovaC test suite and `doc-strict` to pass.
 
 Then open:
 
@@ -28,4 +38,5 @@ docs/documentation/index.html
 ```
 
 API facts belong in Doxygen comments in public headers. Concepts, tutorials,
-architecture, workflows, and longer examples belong in the Sphinx guides.
+architecture, workflows, installation/package guidance, and longer examples
+belong in the Sphinx guides.

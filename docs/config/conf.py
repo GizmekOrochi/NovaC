@@ -7,7 +7,7 @@ project = "NovaC"
 author = "GizmekOrochi"
 copyright = "2026, GizmekOrochi"
 version = "1.0"
-release = "1.0"
+release = "1.0.0"
 
 extensions = [
     "breathe",

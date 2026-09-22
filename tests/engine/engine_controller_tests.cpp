@@ -504,6 +504,38 @@ TEST(EngineController, LowersAstDirectlyToMIR) {
     CHECK(mir.blocks[0].instructions[0].op == "mov.i32");
 }
 
+TEST(EngineController, ReportsTokenizeErrorsToDiagnostics) {
+    EngineController engine{};
+    CHECK(throwsRuntimeError([&]() { static_cast<void>(engine.tokenize("@")); }));
+    CHECK(engine.diagnostics().hasErrors());
+    CHECK(engine.diagnostics().diagnostics().size() == 1);
+}
+
+TEST(EngineController, ReportsParseErrorsToDiagnostics) {
+    EngineController engine{EngineControllerOptions{DuplicatePolicy::Error, "expr"}};
+    installIntegerParser(engine);
+    CHECK(throwsRuntimeError([&]() { static_cast<void>(engine.parse("1 2")); }));
+    CHECK(engine.diagnostics().hasErrors());
+    CHECK(engine.diagnostics().diagnostics().size() == 1);
+}
+
+TEST(EngineController, ReportsRuntimeErrorsToDiagnostics) {
+    EngineController engine{};
+    Node node{"MissingRuntimeHandler"};
+    CHECK(throwsRuntimeError([&]() { static_cast<void>(engine.eval(node)); }));
+    CHECK(engine.diagnostics().hasErrors());
+    CHECK(engine.diagnostics().diagnostics().size() == 1);
+}
+
+TEST(EngineController, ReportsValidationErrorsToDiagnostics) {
+    EngineController engine{};
+    engine.node(literalSchema());
+    Node node{"IntegerLiteral"};
+    CHECK(throwsRuntimeError([&]() { engine.validate(node); }));
+    CHECK(engine.diagnostics().hasErrors());
+    CHECK(engine.diagnostics().diagnostics().size() == 1);
+}
+
 TEST(EngineController, ProvidesDiagnosticsAccess) {
     EngineController engine{};
 
