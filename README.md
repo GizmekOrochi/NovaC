@@ -27,18 +27,6 @@ g++ -std=c++20 -I/path/to/NovaC/src/include main.cpp \
     /path/to/NovaC/lib/libNovaC.a -o my-language
 ```
 
-## Architecture
-
-NovaC is organized in three main layers:
-
-- **Engine** — registries, lexer, Pratt parser, AST nodes, diagnostics, runtime, HIR and MIR.
-- **Atomic assets** — literals and operators that provide the basic expression vocabulary of a language.
-- **Essentials assets** — variables, functions, scopes, expression statements and control-flow features.
-
-Features advertise requirements/capabilities and are installed through controllers. This keeps the engine generic while allowing language configurations to opt into only the syntax and runtime behavior they need.
-
-More architecture notes are available in [`src/include/novac/engine/README.md`](src/include/novac/engine/README.md), [`src/include/novac/assets/atomic/README.md`](src/include/novac/assets/atomic/README.md), and [`src/include/novac/assets/essentials/README.md`](src/include/novac/assets/essentials/README.md).
-
 ## Build and installation
 
 Build the static library:
