@@ -1,4 +1,5 @@
-sphinx>=7.2,<9
-breathe>=4.35
-furo>=2024.8.6
-sphinx-copybutton>=0.5.2
+# Pinned for reproducible release documentation builds.
+sphinx==8.2.3
+breathe==4.36.0
+furo==2025.12.19
+sphinx-copybutton==0.5.2

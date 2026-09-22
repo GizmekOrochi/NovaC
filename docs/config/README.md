@@ -29,7 +29,7 @@ make release-check
 ```
 
 `doc-strict` includes `doc-examples` and treats Sphinx warnings as errors.
-`release-check` requires the normal NovaC test suite and `doc-strict` to pass.
+`release-check` requires the normal NovaC test suite, ASan, UBSan, the installed-package smoke test, and `doc-strict` to pass.
 
 Then open:
 

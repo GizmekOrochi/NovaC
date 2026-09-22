@@ -58,6 +58,11 @@ PACKAGE_SMOKE_BUILD := build/package-smoke
 PACKAGE_SMOKE_STAGE := $(PACKAGE_SMOKE_BUILD)/stage
 PACKAGE_SMOKE_CMAKE_BUILD := $(PACKAGE_SMOKE_BUILD)/consumer
 
+VERSION := 1.0.0
+DIST_DIR := dist
+DIST_NAME := NovaC-$(VERSION)
+DIST_ZIP := $(DIST_DIR)/$(DIST_NAME).zip
+
 all: $(LIB)
 
 $(LIB): $(LIB_OBJ)
@@ -198,6 +203,22 @@ doc-strict: doc-check doc-examples $(DOC_VENV)/.ready
 release-check: test test-asan test-ubsan package-smoke doc-strict
 	@echo "[NovaC release] Tests, sanitizers, and strict documentation validation passed."
 
+dist: release-check
+	@command -v git >/dev/null 2>&1 || { echo "Error: git is required to create a source release archive."; exit 1; }
+	@git diff --quiet --ignore-submodules -- && git diff --cached --quiet --ignore-submodules -- || { \
+		echo "Error: tracked files contain uncommitted changes. Commit them before creating a release archive."; \
+		exit 1; \
+	}
+	@test -z "$$(git ls-files --others --exclude-standard)" || { \
+		echo "Error: untracked files are present. Commit or remove them before creating a release archive."; \
+		git ls-files --others --exclude-standard; \
+		exit 1; \
+	}
+	@mkdir -p $(DIST_DIR)
+	@rm -f $(DIST_ZIP)
+	@git archive --format=zip --prefix=$(DIST_NAME)/ --output=$(DIST_ZIP) HEAD
+	@echo "[NovaC release] Created $(DIST_ZIP) from clean HEAD."
+
 doc-clean:
 	rm -rf $(DOC_OUTPUT) $(DOC_BUILD)
 
@@ -208,4 +229,4 @@ clean:
 	rm -rf bin lib build
 	rm -rf $(DOC_OUTPUT) $(DOC_BUILD)
 
-.PHONY: all tests test test-asan test-ubsan package-config install uninstall package-smoke doc-check doc doc-examples doc-strict release-check doc-clean doc-clean-all clean
+.PHONY: all tests test test-asan test-ubsan package-config install uninstall package-smoke doc-check doc doc-examples doc-strict release-check dist doc-clean doc-clean-all clean

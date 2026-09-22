@@ -114,11 +114,21 @@ A complete local release gate is available as:
 make release-check
 ```
 
-This requires the normal tests, ASan, UBSan, and strict documentation validation to pass.
+This requires the normal tests, ASan, UBSan, the installed-package smoke test, and strict documentation validation to pass.
+
+Continuous integration runs normal tests with GCC and Clang, sanitizer jobs, the installed CMake package smoke test, and strict documentation on clean Linux runners.
 
 ## Release
 
-NovaC 1.0.0 is the first stable public release.
+NovaC 1.0.0 is the first stable public release. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
+
+After committing all release changes and obtaining a green release gate, create a clean source archive from the committed `HEAD` with:
+
+```bash
+make dist
+```
+
+`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.0.0.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded.
 
 ## License
 

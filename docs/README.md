@@ -37,7 +37,4 @@ The repository release gate is:
 make release-check
 ```
 
-It requires the normal test suite and strict documentation validation to pass.
-For the full reliability matrix, also run `make test-asan` and
-`make test-ubsan`; GitHub CI runs GCC, Clang, sanitizers, installation, and
-strict documentation jobs on clean runners.
+It requires the normal test suite, ASan, UBSan, the installed-package smoke test, and strict documentation validation to pass. GitHub CI also runs GCC and Clang test/package jobs plus dedicated sanitizer and documentation jobs on clean runners.
