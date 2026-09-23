@@ -2,6 +2,8 @@
 *.o
 *.exe
 .Project-Info
+/build/
+/lib/
 
 # Generated documentation
 docs/config/.venv/
