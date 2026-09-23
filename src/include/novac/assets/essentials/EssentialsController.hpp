@@ -458,6 +458,16 @@ public:
     const functions::FunctionRegistry &functionRegistry() const;
 
     /**
+     * @brief Returns shared ownership of the native-function registry state.
+     *
+     * Installed engine callbacks use this handle so they remain valid even if
+     * the EssentialsController that performed installation is destroyed.
+     *
+     * @return Shared registry state.
+     */
+    std::shared_ptr<functions::FunctionRegistry> functionRegistryHandle() const;
+
+    /**
      * @brief Tests whether a feature identifier is already installed.
      *
      * @param id Feature identifier to search for.
@@ -504,7 +514,7 @@ private:
      */
     void rememberFeature(EssentialInfo info);
 
-    functions::FunctionRegistry functionRegistry_;
+    std::shared_ptr<functions::FunctionRegistry> functionRegistry_;
     controllers::EngineController &engine_;
     EssentialsControllerOptions options_;
     std::vector<EssentialInfo> features_;

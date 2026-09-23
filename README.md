@@ -60,7 +60,7 @@ The public umbrella header and version API are available after installation:
 #include <NovaC.hpp>
 
 static_assert(NOVAC_VERSION_MAJOR == 1);
-static_assert(novac::Version == "1.0.0");
+static_assert(novac::Version == "1.1.0");
 ```
 
 Remove an installation made with the same prefix using:
@@ -147,7 +147,7 @@ Continuous integration runs normal tests with GCC and Clang, sanitizer jobs, the
 
 ## Release
 
-NovaC 1.0.0 is the first stable public release. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
+NovaC 1.1.0 is the current stable public release. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
 
 After committing all release changes and obtaining a green release gate, create a clean source archive from the committed `HEAD` with:
 
@@ -155,7 +155,7 @@ After committing all release changes and obtaining a green release gate, create 
 make dist
 ```
 
-`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.0.0.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded.
+`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.1.0.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded.
 
 ## License
 

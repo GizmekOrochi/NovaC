@@ -37,7 +37,7 @@ TEST(SchemaHelpers, NodeListFieldBuildsSchema) {
     const auto field{novac::assets::essentials::helpers::nodeListField("items", true, {"Statement"}, {"statement"})};
 
     CHECK(field.name == "items");
-    CHECK(field.kind == FieldKind::NodeList);
+    CHECK(field.kind == FieldKind::NodeListField);
     CHECK(field.required);
     CHECK(field.allowedNodeKinds.size() == 1);
     CHECK(field.allowedNodeKinds[0] == "Statement");

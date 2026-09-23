@@ -50,11 +50,11 @@ NodeSchema binarySchema() {
 }
 
 NodeSchema blockSchema() {
-    return NodeSchema{"Block",{ FieldSchema{"statements", FieldKind::NodeList, true, {}, {"Statement"}}}, {"Statement"}, "Statement block."};
+    return NodeSchema{"Block",{ FieldSchema{"statements", FieldKind::NodeListField, true, {}, {"Statement"}}}, {"Statement"}, "Statement block."};
 }
 
 NodeSchema expressionListSchema() {
-    return NodeSchema{"ExpressionList", { FieldSchema{"items", FieldKind::NodeList, true, {}, {"Expression"}}}, {"Expression"}, "Expression list."};
+    return NodeSchema{"ExpressionList", { FieldSchema{"items", FieldKind::NodeListField, true, {}, {"Expression"}}}, {"Expression"}, "Expression list."};
 }
 
 NodeSchema allFieldKindsSchema() {
@@ -65,7 +65,7 @@ NodeSchema allFieldKindsSchema() {
             FieldSchema{"boolValue", FieldKind::Bool, true, {}, {}},
             FieldSchema{"stringValue", FieldKind::String, true, {}, {}},
             FieldSchema{"nodeValue", FieldKind::Node, true, {"IntegerLiteral"}, {}},
-            FieldSchema{"listValue", FieldKind::NodeList, true, {"IntegerLiteral"}, {}}
+            FieldSchema{"listValue", FieldKind::NodeListField, true, {"IntegerLiteral"}, {}}
         }, {}, "Schema containing every field kind."};
 }
 

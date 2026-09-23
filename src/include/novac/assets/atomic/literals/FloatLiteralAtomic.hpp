@@ -49,7 +49,7 @@ public:
      *
      * The parser consumes a floating-point token, validates exact or regex
      * suffix requirements when configured, converts the token text with
-     * std::stod(), and stores the result in the AST node.
+     * std::from_chars(), and stores the result in the AST node.
      *
      * Runtime evaluation reads the stored field and returns it as a floating
      * runtime value.

@@ -48,7 +48,7 @@ enum class FieldKind {
     Bool,
     String,
     Node,
-    NodeList
+    NodeListField
 };
 
 /**

@@ -5,7 +5,7 @@ All notable changes to NovaC are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-09-23
 
 ### Added
 
@@ -16,19 +16,6 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added structured overload-resolution diagnostics with ambiguous candidate/cost reporting.
 - Added `TypeController::validate()` / `finalize()` for asset-local validation and freezing.
 
-### Changed
-
-- Kept the Types asset compact: one controller implementation plus `model/Type.hpp` and `semantics/TypeSemantics.hpp`.
-- Type semantics reuse Atomic `LiteralFeature` and `OperationFeature` identities instead of maintaining a parallel literal/operator hierarchy.
-- Moved conversions out of `PrimitiveType`; conversions are now relations between arbitrary registered types.
-- Made committed extension payloads const and made `TypeDefinition::freeze()` framework-controlled with an `onFreeze()` extension hook.
-- Custom operation semantic rules now return declarative conversion requests; NovaC materializes conversion metadata from the registered conversion table.
-- Semantic rules are registered by ownership transfer and stored read-only inside the controller.
-- Separated primitive semantic bit width from physical storage width and kept alignment policy language/backend-defined.
-- Hardened overload resolution with arity/type validation, explicit ambiguity/configuration states, direct-conversion-only semantics, and conversion-cost overflow protection.
-- Removed the redundant `TypeKind` category tag and rely on the concrete descriptor type as the single source of truth.
-- Replacing a type descriptor no longer deletes independent conversion relations.
-- Removed the Types controller from `EngineController`; Types is now an explicitly constructed optional asset, matching NovaC's modular controller model.
 
 ## [1.0.0] - 2026-09-22
 
