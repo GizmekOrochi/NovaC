@@ -75,7 +75,8 @@ into registries:
 * AST node schemas;
 * runtime handlers by node kind;
 * AST-to-HIR lowerers;
-* HIR-to-MIR lowerers.
+* HIR-to-MIR lowerers;
+* generic type definitions, type-to-type conversions, operation signatures, and semantic rules.
 
 This is why independent language features can be composed without editing the
 Engine.
@@ -93,13 +94,21 @@ Controllers are convenience layers
    Packages common imperative features: program roots, scopes, variables,
    functions, returns, conditionals, and loops.
 
-The upper layers do not replace the Engine; they configure it.
+``TypeController``
+   Independent optional controller for generic language-defined types, aliases,
+   conversions, and typing semantics attached to Atomic literal/operation
+   features. It owns its own validation/finalization lifecycle and is not stored
+   inside ``EngineController``.
+
+The upper layers do not replace the Engine. Atomic and Essentials configure it;
+Types can coexist with it without becoming part of the engine core.
 
 Choose the smallest layer you need
 ----------------------------------
 
-A calculator may use only Engine + Atomic. A scripting language may use all
-three layers. A compiler experiment may use Engine and custom lowering rules
+A calculator may use only Engine + Atomic. A dynamically typed scripting language
+may use Engine + Atomic + Essentials without Types, while a statically typed
+language can add TypeController explicitly. A compiler experiment may use Engine and custom lowering rules
 without Essentials at all.
 
 That ability to stop at the level you need is a central design goal of NovaC.

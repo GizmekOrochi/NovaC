@@ -213,4 +213,46 @@ TEST(CoreReliability, FailedEssentialsInstallLeavesNoPartialState) {
     CHECK(tokens[0].kind == Kind::Identifier);
 }
 
+
+TEST(CoreReliability, AtomicCallbacksSurviveControllerDestruction) {
+    EngineController engine{};
+
+    {
+        AtomicController atomics{engine};
+        atomics.integer();
+        atomics.use(AddOperationAtomic{});
+    }
+
+    const auto expression{engine.parse("20 + 22")};
+    CHECK(engine.eval(*expression).asInt() == 42);
+}
+
+TEST(CoreReliability, EssentialsCallbacksSurviveControllerDestruction) {
+    EngineController engine{};
+
+    {
+        AtomicController atomics{engine};
+        atomics.integer();
+    }
+
+    {
+        EssentialsController essentials{engine};
+        essentials.installStandardCore();
+        essentials.functionRegistry().native(
+            "answer",
+            [](const novac::ast::NodeList &, novac::runtime::RuntimeContext &) {
+                return novac::runtime::Value::integer(42);
+            }
+        );
+    }
+
+    const auto program{engine.parse(R"(
+func main() {
+    return answer();
+}
+)")};
+
+    CHECK(engine.eval(*program).asInt() == 42);
+}
+
 } // namespace

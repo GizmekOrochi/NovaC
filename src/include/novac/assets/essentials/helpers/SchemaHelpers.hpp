@@ -51,7 +51,7 @@ inline ast::FieldSchema nodeField(std::string name, bool required, std::vector<s
 /**
  * @brief Creates a schema entry for a list of child AST nodes.
  *
- * The generated schema uses ast::FieldKind::NodeList. Any supplied kind or
+ * The generated schema uses ast::FieldKind::NodeListField. Any supplied kind or
  * trait restrictions are applied to the child nodes contained in the list.
  *
  * @param name Field name.
@@ -61,7 +61,7 @@ inline ast::FieldSchema nodeField(std::string name, bool required, std::vector<s
  * @return Configured node-list field schema.
  */
 inline ast::FieldSchema nodeListField(std::string name, bool required, std::vector<std::string> allowedKinds = {}, std::vector<std::string> allowedTraits = {}) {
-    return {std::move(name), ast::FieldKind::NodeList, required, std::move(allowedKinds), std::move(allowedTraits)};
+    return {std::move(name), ast::FieldKind::NodeListField, required, std::move(allowedKinds), std::move(allowedTraits)};
 }
 
 /**

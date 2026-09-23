@@ -6,8 +6,8 @@ PROJECT_ROOT = DOC_CONFIG.parent.parent
 project = "NovaC"
 author = "GizmekOrochi"
 copyright = "2026, GizmekOrochi"
-version = "1.0"
-release = "1.0.0"
+version = "1.1"
+release = "1.1.0"
 
 extensions = [
     "breathe",

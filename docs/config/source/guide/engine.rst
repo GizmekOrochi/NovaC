@@ -109,3 +109,21 @@ Optional lowering
 The Engine can also lower AST nodes into HIR and HIR into MIR. This path is not
 required for normal AST interpretation. See :doc:`ir` before using the lowering
 API.
+
+
+Optional asset controllers
+--------------------------
+
+The engine owns only the core language pipeline. Higher-level assets keep their
+own controllers and lifecycle instead of becoming permanent ``EngineController``
+members. For example:
+
+.. code-block:: cpp
+
+   controllers::EngineController engine;
+   atomic::AtomicController atomic{engine};
+   types::TypeController types;
+
+``AtomicController`` configures the engine because literals/operators affect the
+parser/runtime pipeline. ``TypeController`` remains independent and can be omitted
+for dynamic or otherwise untyped languages.

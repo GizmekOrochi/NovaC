@@ -207,7 +207,7 @@ bool NodeRegistry::fieldMatchesKind(const Field &field, FieldKind kind) {
         return std::holds_alternative<NodePtr>(field);
     }
 
-    if (kind == FieldKind::NodeList) {
+    if (kind == FieldKind::NodeListField) {
         return std::holds_alternative<NodeList>(field);
     }
 
@@ -258,7 +258,7 @@ void NodeRegistry::validateFieldTypes(const NodeSchema &schema, const Node &node
             validateChildConstraints(*fieldSchema, *child, node);
         }
 
-        if (fieldSchema->kind == FieldKind::NodeList) {
+        if (fieldSchema->kind == FieldKind::NodeListField) {
             const NodeList &children{std::get<NodeList>(field)};
 
             for (const NodePtr &child : children) {

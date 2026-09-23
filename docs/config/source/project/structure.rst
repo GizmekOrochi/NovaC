@@ -22,13 +22,18 @@ Repository structure
        |-- engine/
        `-- assets/
            |-- atomic/
-           `-- essentials/
+           |-- essentials/
+           `-- types/
 
 Public API
 ----------
 
-``src/include/novac`` is the public API tree. Doxygen scans it recursively so
-Breathe can expose the documented symbols in the API section.
+``src/include/novac`` is the public API tree. Like Atomic and Essentials, the Types
+asset keeps its controller at the asset root and only groups supporting concepts in
+small ``model/`` and ``semantics/`` subdirectories. Alias/canonicalization, conversion
+relations, validation and operation diagnostics remain inside that compact asset rather
+than being split into one-header-per-concept layers. Doxygen scans the tree recursively
+so Breathe can expose the documented symbols in the API section.
 
 Implementation
 --------------

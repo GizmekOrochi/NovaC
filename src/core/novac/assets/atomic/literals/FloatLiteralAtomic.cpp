@@ -1,33 +1,14 @@
 #include "novac/assets/atomic/literals/FloatLiteralAtomic.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
+#include "LiteralParsing.hpp"
 
-#include <regex>
 #include <stdexcept>
 #include <utility>
 #include <variant>
 
 namespace novac::assets::atomic::literals {
 
-namespace {
-
-void validateSuffix(const TokenPattern& pattern, const token::Token& item, const std::string& owner) {
-    if (pattern.mode == TokenPatternMode::Suffix) {
-        if (item.suffix != pattern.suffix) {
-            throw std::runtime_error(owner + ": expected suffix '" + pattern.suffix + "', got '" + item.suffix + "'");
-        }
-
-        return;
-    }
-
-    if (pattern.mode == TokenPatternMode::SuffixRegex) {
-        if (!std::regex_match(item.suffix, std::regex{pattern.suffixPattern})) {
-            throw std::runtime_error(owner + ": suffix '" + item.suffix + "' does not match regex '" + pattern.suffixPattern + "'");
-        }
-    }
-}
-
-} // namespace
 
 FloatLiteralAtomic::FloatLiteralAtomic(
     std::string nodeKind,
@@ -63,14 +44,16 @@ void FloatLiteralAtomic::install(AtomicController& controller) const {
 
     const std::string domain{controller.expressionDomain()};
     const std::string kind{nodeKind_};
-    const TokenPattern pattern{pattern_};
+    const auto preparedPattern{detail::prepareSuffixPattern(pattern_, "FloatLiteralAtomic::install")};
+    const TokenPattern &pattern{preparedPattern.pattern};
     const std::string key{pattern.tokenKey.empty() ? pattern.token : pattern.tokenKey};
+    auto *const engine{&controller.engine()};
 
-    controller.engine().prefix(domain, key, [kind, pattern, &controller](parser::ParserContext& context) {
+    controller.engine().prefix(domain, key, [kind, preparedPattern, engine](parser::ParserContext& context) {
         const token::Token item{context.consumeKind(token::Kind::Float)};
-        validateSuffix(pattern, item, "FloatLiteralAtomic::install");
-        ast::NodePtr node{controller.engine().makeNode(kind)};
-        node->set("value", std::stod(item.text));
+        detail::validateSuffix(preparedPattern, item, "FloatLiteralAtomic::install");
+        ast::NodePtr node{engine->makeNode(kind)};
+        node->set("value", detail::parseFloat(item.text, "FloatLiteralAtomic::install"));
 
         return node;
     });

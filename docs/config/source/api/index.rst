@@ -5,7 +5,7 @@ These pages are generated from Doxygen comments in NovaC's public C++ headers.
 Use the conceptual guides first when learning the framework; use this section
 when you need exact classes, methods, options, or signatures.
 
-The API reference is grouped by the three main layers to avoid registering the
+The API reference is grouped by the main public layers to avoid registering the
 same C++ declaration multiple times in Sphinx.
 
 .. toctree::
@@ -14,6 +14,7 @@ same C++ declaration multiple times in Sphinx.
    engine
    atomic
    essentials
+   types
 
 .. note::
 

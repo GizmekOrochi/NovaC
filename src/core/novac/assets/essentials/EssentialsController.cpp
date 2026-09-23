@@ -29,7 +29,7 @@ void rejectEmpty(const std::string &value, const char *name) {
 }
 
 EssentialsController::EssentialsController(controllers::EngineController &engine, EssentialsControllerOptions options) :
-    functionRegistry_{},
+    functionRegistry_{std::make_shared<functions::FunctionRegistry>()},
     engine_{engine},
     options_{std::move(options)},
     features_{},
@@ -44,7 +44,7 @@ EssentialsController &EssentialsController::use(const EssentialFeature &feature)
     validateFeature(info);
 
     const controllers::EngineController engineSnapshot{engine_.snapshot()};
-    const functions::FunctionRegistry functionRegistrySnapshot{functionRegistry_};
+    const functions::FunctionRegistry functionRegistrySnapshot{*functionRegistry_};
     const auto featuresSnapshot{features_};
     const auto featureIdsSnapshot{featureIds_};
     const std::size_t ownedFeaturesSize{ownedFeatures_.size()};
@@ -54,7 +54,7 @@ EssentialsController &EssentialsController::use(const EssentialFeature &feature)
         rememberFeature(std::move(info));
     } catch (...) {
         engine_.restore(engineSnapshot);
-        functionRegistry_ = functionRegistrySnapshot;
+        *functionRegistry_ = functionRegistrySnapshot;
         features_ = featuresSnapshot;
         featureIds_ = featureIdsSnapshot;
         ownedFeatures_.resize(ownedFeaturesSize);
@@ -226,10 +226,14 @@ const controllers::EngineController &EssentialsController::engine() const {
 }
 
 functions::FunctionRegistry &EssentialsController::functionRegistry() {
-    return functionRegistry_;
+    return *functionRegistry_;
 }
 
 const functions::FunctionRegistry &EssentialsController::functionRegistry() const {
+    return *functionRegistry_;
+}
+
+std::shared_ptr<functions::FunctionRegistry> EssentialsController::functionRegistryHandle() const {
     return functionRegistry_;
 }
 

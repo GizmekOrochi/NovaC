@@ -5,6 +5,18 @@ All notable changes to NovaC are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-09-23
+
+### Added
+
+- Added a generic `TypeController` registry for language-defined types, primitive layout helpers, Atomic literal typing, operation overload resolution, and custom semantic rules.
+- Added generic type-to-type conversions with ranked direct implicit conversion resolution and forward type declarations.
+- Added final type-system validation for unresolved declarations and dangling conversion endpoints.
+- Added type aliases, canonical type identity, nominal alias equivalence, and cycle detection.
+- Added structured overload-resolution diagnostics with ambiguous candidate/cost reporting.
+- Added `TypeController::validate()` / `finalize()` for asset-local validation and freezing.
+
+
 ## [1.0.0] - 2026-09-22
 
 ### Added

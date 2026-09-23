@@ -103,13 +103,15 @@ void FunctionsFeature::install(EssentialsController &controller) const {
         }
     );
 
+    const auto registry{controller.functionRegistryHandle()};
+
     controller.engine().expression(
-        options.callNodeKind,[options, &controller](const ast::Node &node, runtime::RuntimeContext &context) {
+        options.callNodeKind,[options, registry](const ast::Node &node, runtime::RuntimeContext &context) {
             const std::string name{node.str(options.nameField)};
             const ast::NodeList &arguments{node.list(options.argumentsField)};
 
-            if(controller.functionRegistry().hasNative(name))
-                return controller.functionRegistry().getNative(name)( arguments, context);
+            if(registry->hasNative(name))
+                return registry->getNative(name)(arguments, context);
 
             ast::NodePtr function{context.boundNode(name)};
 
