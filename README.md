@@ -72,16 +72,29 @@ sudo make uninstall PREFIX=/usr/local
 ## Type system
 
 NovaC includes a language-defined type subsystem through `TypeController`.
-It provides a generic type registry, primitive layout helpers, immutable typed
-extensions, generic ranked conversions, literal typing and operation overload
-resolution. Type semantics deliberately reuse Atomic `LiteralFeature` and
-`OperationFeature`, so custom literals/operators do not need parallel Types-specific
-descriptors.
+It provides a generic nominal type registry, aliases with canonical identity,
+immutable typed extensions, generic ranked conversions, literal typing and
+operation overload resolution. Type semantics deliberately reuse Atomic
+`LiteralFeature` and `OperationFeature`, so custom literals/operators do not need
+parallel Types-specific descriptors.
+
+`TypeController` is an optional asset-level controller; it is not stored inside
+`EngineController`:
+
+```cpp
+novac::controllers::EngineController engine;
+novac::assets::atomic::AtomicController atomic{engine};
+novac::assets::types::TypeController types;
+
+types.definePrimitive("i32").bits(32).signedType().commit();
+```
 
 The public asset stays small: `TypeController.hpp`, `model/Type.hpp`, and
-`semantics/TypeSemantics.hpp`. For compiler diagnostics,
-`resolveOperationDetailed` distinguishes successful resolution from no-match,
-ambiguity and unknown-operand cases. See the type-system guide for examples.
+`semantics/TypeSemantics.hpp`. `resolveOperationDetailed` keeps structured
+diagnostics for no-match, ambiguity, invalid arity, unknown operands and invalid
+semantic-rule configuration. `validate()` checks cross-type references and
+`finalize()` freezes the completed type configuration. See the type-system guide
+for examples.
 
 ## Tests and reliability
 

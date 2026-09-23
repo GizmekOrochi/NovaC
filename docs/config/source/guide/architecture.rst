@@ -95,16 +95,20 @@ Controllers are convenience layers
    functions, returns, conditionals, and loops.
 
 ``TypeController``
-   Stores generic language-defined types and conversions, and attaches typing
-   semantics directly to Atomic literal and operation features.
+   Independent optional controller for generic language-defined types, aliases,
+   conversions, and typing semantics attached to Atomic literal/operation
+   features. It owns its own validation/finalization lifecycle and is not stored
+   inside ``EngineController``.
 
-The upper layers do not replace the Engine; they configure it.
+The upper layers do not replace the Engine. Atomic and Essentials configure it;
+Types can coexist with it without becoming part of the engine core.
 
 Choose the smallest layer you need
 ----------------------------------
 
-A calculator may use only Engine + Atomic. A scripting language may use all
-three layers. A compiler experiment may use Engine and custom lowering rules
+A calculator may use only Engine + Atomic. A dynamically typed scripting language
+may use Engine + Atomic + Essentials without Types, while a statically typed
+language can add TypeController explicitly. A compiler experiment may use Engine and custom lowering rules
 without Essentials at all.
 
 That ability to stop at the level you need is a central design goal of NovaC.

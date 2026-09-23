@@ -25,24 +25,24 @@ int main() {
         .unsignedType()
         .commit();
 
-    types.validate();
+    types.registerAlias("word", TypeId{"u16"});
 
     IntegerLiteralAtomic integers;
     types.bindLiteral(integers, TypeId{"u8"});
 
     AddOperationAtomic add;
-    types.registerOperation(
-        add,
-        {TypeId{"u16"}, TypeId{"u16"}},
-        TypeId{"u16"}
-    );
+    types.registerOperation(add, {TypeId{"word"}, TypeId{"word"}}, TypeId{"word"});
 
-    const std::vector<TypeId> operands{TypeId{"u8"}, TypeId{"u16"}};
-    const auto result = types.resolveOperationDetailed(add, operands);
+    types.finalize();
+
+    const std::vector<TypeId> operands{TypeId{"u8"}, TypeId{"word"}};
+    const auto result{types.resolveOperationDetailed(add, operands)};
 
     if (!result.ok()) {
+        std::cerr << result.diagnostic.message << std::endl;
         return 1;
     }
-    std::cout << result.resolution->result.name << '\n';
-    std::cout << result.resolution->conversions.size() << '\n';
+
+    std::cout << result.resolution->result.name << std::endl;
+    std::cout << result.resolution->conversions.size() << std::endl;
 }

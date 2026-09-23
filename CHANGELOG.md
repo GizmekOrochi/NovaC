@@ -12,6 +12,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added a generic `TypeController` registry for language-defined types, primitive layout helpers, Atomic literal typing, operation overload resolution, and custom semantic rules.
 - Added generic type-to-type conversions with ranked direct implicit conversion resolution and forward type declarations.
 - Added final type-system validation for unresolved declarations and dangling conversion endpoints.
+- Added type aliases, canonical type identity, nominal alias equivalence, and cycle detection.
+- Added structured overload-resolution diagnostics with ambiguous candidate/cost reporting.
+- Added `TypeController::validate()` / `finalize()` for asset-local validation and freezing.
 
 ### Changed
 
@@ -20,8 +23,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Moved conversions out of `PrimitiveType`; conversions are now relations between arbitrary registered types.
 - Made committed extension payloads const and made `TypeDefinition::freeze()` framework-controlled with an `onFreeze()` extension hook.
 - Custom operation semantic rules now return declarative conversion requests; NovaC materializes conversion metadata from the registered conversion table.
+- Semantic rules are registered by ownership transfer and stored read-only inside the controller.
 - Separated primitive semantic bit width from physical storage width and kept alignment policy language/backend-defined.
-- Hardened overload resolution with arity/type validation, explicit ambiguity states, direct-conversion-only semantics, and conversion-cost overflow protection.
+- Hardened overload resolution with arity/type validation, explicit ambiguity/configuration states, direct-conversion-only semantics, and conversion-cost overflow protection.
+- Removed the redundant `TypeKind` category tag and rely on the concrete descriptor type as the single source of truth.
+- Replacing a type descriptor no longer deletes independent conversion relations.
+- Removed the Types controller from `EngineController`; Types is now an explicitly constructed optional asset, matching NovaC's modular controller model.
 
 ## [1.0.0] - 2026-09-22
 

@@ -4,9 +4,6 @@ Types API
 .. doxygenclass:: novac::assets::types::TypeController
    :members:
 
-.. doxygenclass:: novac::assets::types::TypeController::PrimitiveBuilder
-   :members:
-
 .. doxygenclass:: novac::assets::types::TypeDefinition
    :members:
 
@@ -26,6 +23,12 @@ Types API
    :members:
 
 .. doxygenstruct:: novac::assets::types::OperationResolution
+   :members:
+
+.. doxygenstruct:: novac::assets::types::OperationCandidateDiagnostic
+   :members:
+
+.. doxygenstruct:: novac::assets::types::OperationResolutionDiagnostic
    :members:
 
 .. doxygenstruct:: novac::assets::types::OperationResolutionResult

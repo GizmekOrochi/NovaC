@@ -4,6 +4,7 @@
 #include "novac/assets/atomic/OperationFeature.hpp"
 #include "novac/assets/types/TypeController.hpp"
 
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -47,6 +48,14 @@ public:
     int payload{42};
 };
 
+class FreezingType final : public types::TypeDefinition {
+public:
+    explicit FreezingType(TypeId id) : TypeDefinition{std::move(id)} {}
+    bool hookCalled{false};
+protected:
+    void onFreeze() override { hookCalled = true; }
+};
+
 class BadRule final : public types::OperationSemanticRule {
 public:
     std::optional<types::SemanticOperationResolution> resolve(
@@ -71,7 +80,7 @@ TEST(TypeController, RegistersGenericCustomTypes) {
     CHECK(controller.registerType(std::move(custom)) == novac::registry::RegisterStatus::Inserted);
     CHECK(controller.hasType(TypeId{"Widget"}));
     CHECK(!controller.hasPrimitive(TypeId{"Widget"}));
-    CHECK(controller.requireType(TypeId{"Widget"}).kind() == types::TypeKind::UserDefined);
+    CHECK(dynamic_cast<const CustomType *>(&controller.requireType(TypeId{"Widget"})) != nullptr);
 }
 
 TEST(TypeController, SeparatesSemanticAndStorageWidths) {
@@ -193,9 +202,11 @@ TEST(TypeController, ValidatesSemanticRuleConversionPlans) {
         .conversionTo(TypeId{"u16"}, types::ConversionKind::Implicit, 1).commit();
     controller.definePrimitive("u16").bits(16).commit();
     TestOperation add{"add", atomic::OperationArity::Binary};
-    controller.registerSemanticRule(add, std::make_shared<BadRule>());
+    controller.registerSemanticRule(add, std::make_unique<BadRule>());
     std::vector<TypeId> operands{TypeId{"u8"}, TypeId{"u8"}};
-    CHECK(throws([&] { (void)controller.resolveOperationDetailed(add, operands); }));
+    const auto result = controller.resolveOperationDetailed(add, operands);
+    CHECK(result.status == types::OperationResolutionStatus::InvalidConfiguration);
+    CHECK(!result.diagnostic.message.empty());
 }
 
 TEST(TypeController, LiteralFeatureIdentityAvoidsNodeKindOverwrite) {
@@ -252,12 +263,202 @@ TEST(TypeController, SemanticRulesUseRegisteredConversionMetadata) {
         .conversionTo(TypeId{"u16"}, types::ConversionKind::Implicit, 7).commit();
     controller.definePrimitive("u16").bits(16).commit();
     TestOperation unary{"promote", atomic::OperationArity::Unary};
-    controller.registerSemanticRule(unary, std::make_shared<Rule>());
+    controller.registerSemanticRule(unary, std::make_unique<Rule>());
     std::vector<TypeId> operands{TypeId{"u8"}};
     auto result = controller.resolveOperationDetailed(unary, operands);
     CHECK(result.ok());
     CHECK_EQ(result.resolution->conversions.size(), static_cast<std::size_t>(1));
     CHECK_EQ(result.resolution->conversions[0].conversion.rank, static_cast<std::size_t>(7));
+}
+
+
+TEST(TypeController, AliasesCanonicalizeWithoutCreatingConversions) {
+    types::TypeController controller;
+    controller.definePrimitive("u64").bits(64).commit();
+    CHECK(controller.registerAlias("size_t", TypeId{"u64"}) == novac::registry::RegisterStatus::Inserted);
+    CHECK(controller.hasAlias(TypeId{"size_t"}));
+    CHECK(controller.hasType(TypeId{"size_t"}));
+    CHECK(controller.canonical(TypeId{"size_t"}) == TypeId{"u64"});
+    CHECK(controller.equivalent(TypeId{"size_t"}, TypeId{"u64"}));
+    CHECK(&controller.requireType(TypeId{"size_t"}) == &controller.requireType(TypeId{"u64"}));
+    CHECK(controller.findConversion(TypeId{"size_t"}, TypeId{"u64"}) == nullptr);
+}
+
+TEST(TypeController, AliasChainsResolveAndCyclesAreRejected) {
+    types::TypeController controller;
+    controller.definePrimitive("u32").bits(32).commit();
+    controller.registerAlias("word", TypeId{"u32"});
+    controller.registerAlias("index", TypeId{"word"});
+    CHECK(controller.canonical(TypeId{"index"}) == TypeId{"u32"});
+
+    types::TypeController cyclic;
+    cyclic.declareType("B");
+    cyclic.registerAlias("A", TypeId{"B"});
+    CHECK(throws([&] { cyclic.registerAlias("B", TypeId{"A"}); }));
+}
+
+TEST(TypeController, AliasCanTargetForwardDeclarationAndValidateLater) {
+    types::TypeController controller;
+    controller.declareType("u64");
+    controller.registerAlias("size_t", TypeId{"u64"});
+    CHECK(throws([&] { controller.validate(); }));
+    controller.definePrimitive("u64").bits(64).commit();
+    controller.validate();
+    CHECK(controller.hasType(TypeId{"size_t"}));
+}
+
+TEST(TypeController, FinalizePreventsFurtherTypeMutation) {
+    types::TypeController controller;
+    controller.definePrimitive("i32").bits(32).commit();
+    controller.finalize();
+    CHECK(controller.finalized());
+    controller.finalize();
+    CHECK(throws([&] { controller.definePrimitive("i64"); }));
+    CHECK(throws([&] { controller.declareType("Future"); }));
+    CHECK(throws([&] { controller.registerAlias("int", TypeId{"i32"}); }));
+}
+
+TEST(TypeController, ReplacementPreservesIndependentConversions) {
+    types::TypeController controller{types::TypeControllerOptions{novac::registry::DuplicatePolicy::Replace}};
+    controller.definePrimitive("u8").bits(8).commit();
+    controller.definePrimitive("u16").bits(16).commit();
+    controller.registerConversion(TypeId{"u8"}, TypeId{"u16"}, types::ConversionKind::Implicit, 3);
+    controller.definePrimitive("u8").bits(8).storageBits(16).commit();
+    const auto *conversion = controller.findConversion(TypeId{"u8"}, TypeId{"u16"});
+    CHECK(conversion != nullptr);
+    CHECK_EQ(conversion->rank, static_cast<std::size_t>(3));
+}
+
+TEST(TypeController, DuplicateConversionPoliciesAreRespected) {
+    types::TypeController ignore{types::TypeControllerOptions{novac::registry::DuplicatePolicy::Ignore}};
+    ignore.definePrimitive("A").bits(8).commit();
+    ignore.definePrimitive("B").bits(8).commit();
+    ignore.registerConversion(TypeId{"A"}, TypeId{"B"}, types::ConversionKind::Implicit, 1);
+    CHECK(ignore.registerConversion(TypeId{"A"}, TypeId{"B"}, types::ConversionKind::Implicit, 9)
+          == novac::registry::RegisterStatus::Ignored);
+    CHECK_EQ(ignore.findConversion(TypeId{"A"}, TypeId{"B"})->rank, static_cast<std::size_t>(1));
+
+    types::TypeController replace{types::TypeControllerOptions{novac::registry::DuplicatePolicy::Replace}};
+    replace.definePrimitive("A").bits(8).commit();
+    replace.definePrimitive("B").bits(8).commit();
+    replace.registerConversion(TypeId{"A"}, TypeId{"B"}, types::ConversionKind::Implicit, 1);
+    CHECK(replace.registerConversion(TypeId{"A"}, TypeId{"B"}, types::ConversionKind::Implicit, 9)
+          == novac::registry::RegisterStatus::Replaced);
+    CHECK_EQ(replace.findConversion(TypeId{"A"}, TypeId{"B"})->rank, static_cast<std::size_t>(9));
+}
+
+TEST(TypeController, EqualCostOverloadsReportCandidates) {
+    types::TypeController controller;
+    controller.definePrimitive("u8").bits(8).commit();
+    controller.definePrimitive("u16").bits(16).commit();
+    controller.definePrimitive("u32").bits(32).commit();
+    controller.registerConversion(TypeId{"u8"}, TypeId{"u16"}, types::ConversionKind::Implicit, 1);
+    controller.registerConversion(TypeId{"u8"}, TypeId{"u32"}, types::ConversionKind::Implicit, 1);
+
+    TestOperation add{"add", atomic::OperationArity::Binary};
+    controller.registerOperation(add, {TypeId{"u16"}, TypeId{"u16"}}, TypeId{"u16"});
+    controller.registerOperation(add, {TypeId{"u32"}, TypeId{"u32"}}, TypeId{"u32"});
+    const std::vector<TypeId> operands{TypeId{"u8"}, TypeId{"u8"}};
+    const auto result = controller.resolveOperationDetailed(add, operands);
+    CHECK(result.status == types::OperationResolutionStatus::Ambiguous);
+    CHECK_EQ(result.diagnostic.candidates.size(), static_cast<std::size_t>(2));
+    CHECK(!result.diagnostic.message.empty());
+}
+
+TEST(TypeController, SemanticRulePriorityTiesAreAmbiguous) {
+    class Rule final : public types::OperationSemanticRule {
+    public:
+        explicit Rule(TypeId result) : result_{std::move(result)} {}
+        int priority() const noexcept override { return 5; }
+        std::optional<types::SemanticOperationResolution> resolve(
+            const types::TypeController &, std::span<const TypeId>
+        ) const override {
+            types::SemanticOperationResolution out;
+            out.result = result_;
+            return out;
+        }
+    private:
+        TypeId result_;
+    };
+
+    types::TypeController controller;
+    controller.definePrimitive("i32").bits(32).commit();
+    controller.definePrimitive("i64").bits(64).commit();
+    TestOperation unary{"promote", atomic::OperationArity::Unary};
+    controller.registerSemanticRule(unary, std::make_unique<Rule>(TypeId{"i32"}));
+    controller.registerSemanticRule(unary, std::make_unique<Rule>(TypeId{"i64"}));
+    const std::vector<TypeId> operands{TypeId{"i32"}};
+    const auto result = controller.resolveOperationDetailed(unary, operands);
+    CHECK(result.status == types::OperationResolutionStatus::Ambiguous);
+}
+
+TEST(TypeController, LiteralResolverMayReturnAliasAndIsCanonicalized) {
+    types::TypeController controller;
+    controller.definePrimitive("i32").bits(32).commit();
+    controller.registerAlias("int", TypeId{"i32"});
+    TestLiteral literal{"int-literal", "IntegerLiteral"};
+    controller.bindLiteral(literal, [](const novac::ast::Node &) -> std::optional<TypeId> {
+        return TypeId{"int"};
+    });
+    novac::ast::Node node{"IntegerLiteral"};
+    CHECK(controller.resolveLiteral(literal, node) == std::optional<TypeId>{TypeId{"i32"}});
+}
+
+TEST(TypeController, LiteralResolverUnknownTypeIsRejected) {
+    types::TypeController controller;
+    controller.definePrimitive("i32").bits(32).commit();
+    TestLiteral literal{"bad-literal", "IntegerLiteral"};
+    controller.bindLiteral(literal, [](const novac::ast::Node &) -> std::optional<TypeId> {
+        return TypeId{"Ghost"};
+    });
+    novac::ast::Node node{"IntegerLiteral"};
+    CHECK(throws([&] { (void)controller.resolveLiteral(literal, node); }));
+}
+
+TEST(TypeController, OverflowingConversionCostsDoNotBecomeBetterCandidates) {
+    types::TypeController controller;
+    controller.definePrimitive("A").bits(8).commit();
+    controller.definePrimitive("B").bits(8).commit();
+    controller.definePrimitive("C").bits(8).commit();
+    controller.registerConversion(
+        TypeId{"A"}, TypeId{"B"}, types::ConversionKind::Implicit,
+        std::numeric_limits<std::size_t>::max()
+    );
+    TestOperation add{"add", atomic::OperationArity::Binary};
+    controller.registerOperation(add, {TypeId{"B"}, TypeId{"B"}}, TypeId{"B"});
+    controller.registerOperation(add, {TypeId{"C"}, TypeId{"C"}}, TypeId{"C"});
+    controller.registerConversion(TypeId{"A"}, TypeId{"C"}, types::ConversionKind::Implicit, 10);
+    const std::vector<TypeId> operands{TypeId{"A"}, TypeId{"A"}};
+    const auto result = controller.resolveOperationDetailed(add, operands);
+    CHECK(result.ok());
+    CHECK(result.resolution->result == TypeId{"C"});
+}
+
+TEST(TypeController, DiagnosticExplainsInvalidArityAndUnknownOperand) {
+    types::TypeController controller;
+    controller.definePrimitive("i32").bits(32).commit();
+    TestOperation add{"add", atomic::OperationArity::Binary};
+    const std::vector<TypeId> one{TypeId{"i32"}};
+    const auto arity = controller.resolveOperationDetailed(add, one);
+    CHECK(arity.status == types::OperationResolutionStatus::InvalidArity);
+    CHECK(!arity.diagnostic.message.empty());
+
+    const std::vector<TypeId> unknown{TypeId{"i32"}, TypeId{"Ghost"}};
+    const auto operand = controller.resolveOperationDetailed(add, unknown);
+    CHECK(operand.status == types::OperationResolutionStatus::UnknownOperand);
+    CHECK(!operand.diagnostic.message.empty());
+}
+
+
+TEST(TypeController, CustomTypeFreezeHookCannotBypassBaseFreeze) {
+    types::TypeController controller;
+    auto custom = std::make_unique<FreezingType>(TypeId{"Frozen"});
+    custom->extensions.emplace<Marker>(Marker{12});
+    controller.registerType(std::move(custom));
+    const auto &stored = dynamic_cast<const FreezingType &>(controller.requireType(TypeId{"Frozen"}));
+    CHECK(stored.hookCalled);
+    CHECK(stored.extensions.frozen());
+    CHECK_EQ(stored.extensions.get<Marker>()->value, 12);
 }
 
 } // namespace

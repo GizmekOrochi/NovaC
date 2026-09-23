@@ -95,6 +95,7 @@ Where should I start?
    examples/complete_language
    examples/ir_builder
    examples/type_system
+   examples/typed_minilang
 
 .. toctree::
    :maxdepth: 2

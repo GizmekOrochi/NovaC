@@ -15,9 +15,6 @@ build/obj/core/novac/assets/atomic/AtomicController.o: \
  src/include/novac/engine/syntax/../syntax/Token.hpp \
  src/include/novac/engine/syntax/Parser.hpp \
  src/include/novac/engine/transformation/IR.hpp \
- src/include/novac/assets/types/TypeController.hpp \
- src/include/novac/assets/types/model/Type.hpp \
- src/include/novac/assets/types/semantics/TypeSemantics.hpp \
  src/include/novac/assets/atomic/literals/BooleanLiteralAtomic.hpp \
  src/include/novac/assets/atomic/literals/FloatLiteralAtomic.hpp \
  src/include/novac/assets/atomic/literals/IntegerLiteralAtomic.hpp \
@@ -40,9 +37,6 @@ src/include/novac/engine/syntax/Lexer.hpp:
 src/include/novac/engine/syntax/../syntax/Token.hpp:
 src/include/novac/engine/syntax/Parser.hpp:
 src/include/novac/engine/transformation/IR.hpp:
-src/include/novac/assets/types/TypeController.hpp:
-src/include/novac/assets/types/model/Type.hpp:
-src/include/novac/assets/types/semantics/TypeSemantics.hpp:
 src/include/novac/assets/atomic/literals/BooleanLiteralAtomic.hpp:
 src/include/novac/assets/atomic/literals/FloatLiteralAtomic.hpp:
 src/include/novac/assets/atomic/literals/IntegerLiteralAtomic.hpp:

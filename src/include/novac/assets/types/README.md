@@ -1,7 +1,15 @@
 # NovaC Types asset
 
-`Types` provides reusable type semantics while staying small and consistent with
-Atomic and Essentials.
+`Types` is NovaC's small reusable type-semantic layer. It deliberately answers
+three questions and stops there:
+
+1. what types exist and which names refer to the same canonical type;
+2. how types relate through explicit/implicit conversions;
+3. what type a literal or operation produces.
+
+It does **not** own parsing, literals, operators, ABI layout algorithms, memory,
+or ownership. Literal/operator identity comes from Atomic and future aggregate
+layout can be implemented independently.
 
 ```text
 types/
@@ -15,11 +23,28 @@ types/
 
 The implementation stays in one `TypeController.cpp`.
 
-## Generic type registry
+## Independent asset lifecycle
 
-`TypeController` owns a generic `TypeId -> TypeDefinition` registry. Primitives
-are only one built-in descriptor. Languages may register their own types without
-adding another controller API.
+`TypeController` is an asset-level controller, not a subsystem owned by
+`EngineController`. Create it explicitly when the language needs static type
+semantics:
+
+```cpp
+controllers::EngineController engine;
+atomic::AtomicController atomic{engine};
+types::TypeController types;
+```
+
+This keeps the engine unaware of optional type semantics. A dynamic language can
+use the engine and Atomic without constructing a `TypeController` at all. Types
+can still reuse Atomic feature descriptors for literal and operation typing.
+
+
+## Generic nominal type registry
+
+`TypeController` owns a generic `TypeId -> TypeDefinition` registry.
+`PrimitiveType` is only one built-in descriptor. A language can add a custom
+descriptor without changing the controller:
 
 ```cpp
 class VectorType final : public TypeDefinition {
@@ -34,11 +59,34 @@ auto vec = std::make_unique<VectorType>(TypeId{"vec4"}, 4);
 types.registerType(std::move(vec));
 ```
 
-`TypeDefinition::freeze()` is controlled by NovaC. A custom descriptor may
-implement the protected `onFreeze()` hook, but cannot bypass freezing of the
-base extension metadata.
+There is no parallel `TypeKind` enum. Runtime type queries use the actual C++
+descriptor type, so the registry cannot disagree with a second category tag.
 
-## Primitive layout
+`TypeDefinition::freeze()` is framework-owned. A custom descriptor can extend
+freeze behavior with protected `onFreeze()`, but cannot bypass freezing the base
+typed metadata.
+
+## Aliases and canonical identity
+
+Aliases are names for an existing (or forward-declared) type. They are **not**
+conversions:
+
+```cpp
+types.definePrimitive("u64").bits(64).commit();
+types.registerAlias("size_t", TypeId{"u64"});
+
+assert(types.canonical(TypeId{"size_t"}) == TypeId{"u64"});
+assert(types.equivalent(TypeId{"size_t"}, TypeId{"u64"}));
+```
+
+Alias chains are supported and cycles are rejected. Operation signatures,
+literal bindings and conversions are canonicalized when registered, so aliases
+do not create duplicate semantic universes.
+
+`equivalent(a, b)` is nominal equivalence after alias canonicalization. NovaC
+does not silently infer structural equivalence.
+
+## Primitive storage description
 
 Semantic width and storage width are separate:
 
@@ -52,16 +100,21 @@ types.definePrimitive("u24")
 ```
 
 `bitWidth` is semantic precision. `storageBits` is physical storage and defaults
-to `bitWidth`. Alignment only has to be non-zero; stricter ABI policies belong
-to a language/backend.
+to `bitWidth`. `alignment` is expressed in bytes and only has to be non-zero.
+Target/ABI-specific aggregate layout policy intentionally remains outside this
+asset.
 
-Extensions are typed C++ objects. Once committed, an `ExtensionSet` contains
-`const` objects and cannot be mutated through retained references.
+`IntegerRepresentation`, `FloatingPointRepresentation` and
+`FixedPointRepresentation` are convenience descriptors, not universal format
+models. A language can derive its own `PrimitiveRepresentation`.
+
+Extensions are typed C++ values stored as `const` objects. Once a type,
+conversion, signature, or semantic result is committed, its `ExtensionSet`
+cannot be mutated.
 
 ## Conversions are relations between types
 
-Conversions belong to `TypeController`, not to `PrimitiveType`. They therefore
-work for primitives, structs, pointers, arrays, or any future custom type.
+Conversions are owned globally by `TypeController`, not by `PrimitiveType`:
 
 ```cpp
 types.registerConversion(
@@ -71,7 +124,7 @@ types.registerConversion(
 );
 ```
 
-The primitive builder keeps `conversionTo()` as convenience syntax:
+The primitive builder keeps `conversionTo()` only as convenience syntax:
 
 ```cpp
 types.declareType("u16");
@@ -82,12 +135,10 @@ types.definePrimitive("u8")
 types.definePrimitive("u16").bits(16).commit();
 ```
 
-Call `types.validate()` after assembling a language. It rejects unresolved
-forward type declarations and dangling conversion endpoints.
-
-Only one direct implicit conversion per operand participates in overload
-resolution. NovaC deliberately does not chain implicit conversions. Ranks are
-additive costs and arithmetic is overflow-checked during overload resolution.
+Only **one direct implicit conversion per operand** participates in overload
+resolution. NovaC deliberately does not chain `u8 -> u16 -> u32`. Conversion
+ranks are language-defined additive costs and cost arithmetic is overflow-safe.
+Replacing a type descriptor does not silently delete conversion relations.
 
 ## Literal typing reuses Atomic literals
 
@@ -97,10 +148,10 @@ types.bindLiteral(integerLiteral, TypeId{"i32"});
 auto type = types.resolveLiteral(integerLiteral, node);
 ```
 
-A custom `LiteralFeature` may use a resolver when the type depends on the parsed
-literal value. Literal feature identity is preserved, so two custom literal
-features may intentionally share an AST node kind without overwriting each
-other.
+A custom `LiteralFeature` can provide a resolver when type depends on the parsed
+value. Resolver results are canonicalized, and returning an unknown type is a
+configuration error. Feature identity is retained even if multiple literal
+features produce the same AST node kind.
 
 ## Operation typing reuses Atomic operations
 
@@ -109,11 +160,10 @@ atomic::operations::AddOperationAtomic add;
 types.registerOperation(add, {TypeId{"u16"}, TypeId{"u16"}}, TypeId{"u16"});
 ```
 
-Registration validates operation arity and every operand/result type. Concrete
-signatures are resolved before semantic rules.
+Registration validates arity and all operand/result types. Concrete signatures
+are resolved before semantic rules.
 
-Custom semantic rules are intentionally declarative. They return a result type
-and requested operand conversions:
+Custom rules are intentionally declarative:
 
 ```cpp
 class Promote final : public OperationSemanticRule {
@@ -130,8 +180,43 @@ public:
 };
 ```
 
-The rule cannot forge conversion rank or metadata. `TypeController` materializes
-each request from the registered direct implicit conversion.
+Rules cannot forge conversion rank or metadata. The controller materializes
+each request from the registered direct implicit conversion. Rule registration
+uses ``std::unique_ptr`` ownership transfer and the controller exposes stored rules
+read-only.
 
-`resolveOperationDetailed()` distinguishes `Resolved`, `NoMatch`, `Ambiguous`,
-`UnknownOperand`, and `InvalidArity`.
+`resolveOperationDetailed()` returns structured failure information:
+
+- `Resolved`
+- `NoMatch`
+- `Ambiguous`
+- `UnknownOperand`
+- `InvalidArity`
+- `InvalidConfiguration`
+
+The result also carries a human-readable diagnostic message. Ambiguous concrete
+overloads include their operand/result signatures and conversion costs in
+`diagnostic.candidates`.
+
+## Validation and finalization
+
+Forward declarations allow mutually dependent feature installation:
+
+```cpp
+types.declareType("Future");
+// ... register relations referring to Future ...
+types.definePrimitive("Future").bits(32).commit();
+```
+
+Call `validate()` to check that every declaration, alias, and conversion endpoint
+is complete. `finalize()` performs the same validation and then rejects all
+further type-system mutation:
+
+```cpp
+types.finalize();
+assert(types.finalized());
+```
+
+Validation belongs to the Types asset itself. The engine does not own or
+implicitly validate a `TypeController`; call `validate()` or `finalize()` on the
+controller you created. This keeps optional type semantics out of the engine core.
