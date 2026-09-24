@@ -30,9 +30,11 @@ Public API
 
 ``src/include/novac`` is the public API tree. Like Atomic and Essentials, the Types
 asset keeps its controller at the asset root and only groups supporting concepts in
-small ``model/`` and ``semantics/`` subdirectories. Alias/canonicalization, conversion
-relations, validation and operation diagnostics remain inside that compact asset rather
-than being split into one-header-per-concept layers. Doxygen scans the tree recursively
+small ``model/``, ``semantics/`` and ``aggregate/`` subdirectories. Generic complex-type
+behavior lives in ``model/Capabilities.hpp``; physical layout is orchestrated by
+``LayoutController``; ``StructType`` is a reference implementation rather than a
+``TypeController`` special case. Alias/canonicalization, conversion relations, validation
+and operation diagnostics remain inside the compact asset. Doxygen scans the tree recursively
 so Breathe can expose the documented symbols in the API section.
 
 Implementation

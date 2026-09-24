@@ -5,6 +5,14 @@ All notable changes to NovaC are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added generic type capabilities for composition, layout, and member behavior without special-casing complex types in `TypeController`.
+- Added `LayoutController` with recursive layout resolution and cycle detection.
+- Added `StructType` as the reference aggregate implementation with natural aligned layout and named member access.
+
 ## [1.1.0] - 2026-09-23
 
 ### Added

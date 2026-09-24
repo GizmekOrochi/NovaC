@@ -95,6 +95,8 @@ Where should I start?
    examples/complete_language
    examples/ir_builder
    examples/type_system
+   examples/complex_types
+   examples/cardinal_direction
    examples/typed_minilang
 
 .. toctree::

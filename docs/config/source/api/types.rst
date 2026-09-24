@@ -36,3 +36,30 @@ Types API
 
 .. doxygenclass:: novac::assets::types::OperationSemanticRule
    :members:
+
+Complex type capabilities
+-------------------------
+
+.. doxygenclass:: novac::assets::types::TypeCapability
+   :members:
+
+.. doxygenclass:: novac::assets::types::TypeCapabilities
+   :members:
+
+.. doxygenclass:: novac::assets::types::CompositionCapability
+   :members:
+
+.. doxygenclass:: novac::assets::types::LayoutCapability
+   :members:
+
+.. doxygenclass:: novac::assets::types::MemberCapability
+   :members:
+
+.. doxygenclass:: novac::assets::types::LayoutController
+   :members:
+
+.. doxygenclass:: novac::assets::types::aggregate::StructType
+   :members:
+
+.. doxygenclass:: novac::assets::types::aggregate::StructBuilder
+   :members:

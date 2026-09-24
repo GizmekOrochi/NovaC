@@ -25,6 +25,8 @@ EXAMPLES = {
     "ir_builder.cpp": "entry\n  const\n  const\n  add\n  return\n",
     "type_system.cpp": "u16\n1\n",
     "typed_minilang.cpp": "10\n30\n25\n",
+    "complex_types.cpp": "Example\nsize=12 align=4\n0:0\n1:4\n2:8\nb:int\n",
+    "cardinal_direction.cpp": "CardinalDirection uses 2 bits\n← -> CardinalDirection (0)\n↑ -> CardinalDirection (1)\n→ -> CardinalDirection (2)\n↓ -> CardinalDirection (3)\n",
 }
 
 

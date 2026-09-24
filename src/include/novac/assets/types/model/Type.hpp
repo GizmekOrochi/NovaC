@@ -161,10 +161,82 @@ private:
 };
 
 /**
+ * @brief Base class for optional behavior attached to a type descriptor.
+ *
+ * Capabilities complement ExtensionSet: extensions store immutable metadata,
+ * while capabilities expose polymorphic behavior such as composition, layout,
+ * or member lookup.
+ */
+class TypeCapability {
+public:
+    virtual ~TypeCapability() = default;
+};
+
+/**
+ * @brief Type-indexed registry of behavior capabilities.
+ *
+ * Capabilities are registered by their public interface type. This lets a
+ * language replace one behavior implementation with another while consumers
+ * query only the stable capability interface.
+ */
+class TypeCapabilities final {
+public:
+    template <typename Capability, typename Implementation = Capability, typename... Args>
+    const Implementation &emplace(Args &&...args) {
+        static_assert(std::is_base_of_v<TypeCapability, Capability>, "Capability must derive from TypeCapability");
+        static_assert(std::is_base_of_v<Capability, Implementation>, "Implementation must derive from Capability");
+        ensureMutable();
+        auto value{std::make_shared<const Implementation>(std::forward<Args>(args)...)};
+        const Implementation &reference{*value};
+        values_.insert_or_assign(std::type_index(typeid(Capability)), std::move(value));
+        return reference;
+    }
+
+    template <typename Capability>
+    bool has() const noexcept {
+        static_assert(std::is_base_of_v<TypeCapability, Capability>, "Capability must derive from TypeCapability");
+        return values_.find(std::type_index(typeid(Capability))) != values_.end();
+    }
+
+    template <typename Capability>
+    const Capability *get() const noexcept {
+        static_assert(std::is_base_of_v<TypeCapability, Capability>, "Capability must derive from TypeCapability");
+        const auto it{values_.find(std::type_index(typeid(Capability)))};
+        return it == values_.end() ? nullptr : static_cast<const Capability *>(it->second.get());
+    }
+
+    template <typename Capability>
+    void erase() {
+        static_assert(std::is_base_of_v<TypeCapability, Capability>, "Capability must derive from TypeCapability");
+        ensureMutable();
+        values_.erase(std::type_index(typeid(Capability)));
+    }
+
+    void clear() {
+        ensureMutable();
+        values_.clear();
+    }
+
+    void freeze() noexcept { frozen_ = true; }
+    bool frozen() const noexcept { return frozen_; }
+    std::size_t size() const noexcept { return values_.size(); }
+    bool empty() const noexcept { return values_.empty(); }
+
+private:
+    void ensureMutable() const {
+        if (frozen_)
+            throw std::runtime_error("TypeCapabilities: committed behavior is immutable");
+    }
+
+    std::unordered_map<std::type_index, std::shared_ptr<const TypeCapability>> values_{};
+    bool frozen_{false};
+};
+
+/**
  * @brief Base descriptor stored by TypeController.
  *
- * Custom type kinds can derive from this class and attach additional strongly
- * typed metadata through extensions.
+ * Custom type kinds can derive from this class, attach strongly typed metadata
+ * through extensions, and expose optional behavior through capabilities.
  */
 class TypeDefinition {
 public:
@@ -181,23 +253,36 @@ public:
     TypeId id{};
     /** @brief Language-defined metadata attached to the type. */
     ExtensionSet extensions{};
+    /** @brief Optional polymorphic behavior exposed by the type. */
+    TypeCapabilities capabilities{};
 
     /**
-     * @brief Freezes the descriptor's extension metadata and invokes onFreeze().
+     * @brief Finalizes the descriptor and freezes metadata and capabilities.
      *
-     * This operation is owned by the framework. Derived descriptors may extend
-     * freeze behavior through onFreeze().
+     * This operation is owned by the framework. Derived descriptors may finish
+     * their own state in onFreeze() before the public extension points become
+     * immutable. Calling freeze() more than once is harmless.
      */
     void freeze() {
-        extensions.freeze();
+        if (frozen_)
+            return;
         onFreeze();
+        extensions.freeze();
+        capabilities.freeze();
+        frozen_ = true;
     }
+
+    /** @brief Reports whether the descriptor has been finalized. */
+    bool frozen() const noexcept { return frozen_; }
 
 protected:
     /**
-     * @brief Hook invoked by freeze() for derived descriptors.
+     * @brief Hook invoked once by freeze() before extension points are frozen.
      */
     virtual void onFreeze() {}
+
+private:
+    bool frozen_{false};
 };
 
 /**

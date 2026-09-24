@@ -7,21 +7,27 @@ three questions and stops there:
 2. how types relate through explicit/implicit conversions;
 3. what type a literal or operation produces.
 
-It does **not** own parsing, literals, operators, ABI layout algorithms, memory,
-or ownership. Literal/operator identity comes from Atomic and future aggregate
-layout can be implemented independently.
+It does **not** own parsing, literals, operators, memory, or ownership.
+Literal/operator identity comes from Atomic. Optional complex-type behavior and
+layout are exposed through capabilities and `LayoutController`, without turning
+`TypeController` into an ABI-specific controller.
 
 ```text
 types/
 ├── TypeController.hpp
+├── LayoutController.hpp
 ├── README.md
 ├── model/
-│   └── Type.hpp
+│   ├── Type.hpp
+│   └── Capabilities.hpp
+├── aggregate/
+│   └── StructType.hpp
 └── semantics/
     └── TypeSemantics.hpp
 ```
 
-The implementation stays in one `TypeController.cpp`.
+The public surface stays compact while layout and the reference aggregate
+implementation remain separate from `TypeController`.
 
 ## Independent asset lifecycle
 
@@ -220,3 +226,63 @@ assert(types.finalized());
 Validation belongs to the Types asset itself. The engine does not own or
 implicitly validate a `TypeController`; call `validate()` or `finalize()` on the
 controller you created. This keeps optional type semantics out of the engine core.
+
+## Complex types through capabilities
+
+Complex types do not require a new branch in `TypeController`. Every
+`TypeDefinition` can expose optional behavior through `TypeCapabilities`.
+Capabilities are registered by interface type and become immutable when the
+containing type is registered.
+
+```cpp
+class MatrixLayout final : public LayoutCapability {
+public:
+    TypeLayout compute(
+        const LayoutContext &context,
+        const TypeDefinition &type
+    ) const override;
+};
+
+auto matrix = std::make_unique<MyMatrixType>(TypeId{"mat4"});
+matrix->capabilities.emplace<LayoutCapability, MatrixLayout>();
+types.registerType(std::move(matrix));
+```
+
+`ExtensionSet` remains metadata; `TypeCapabilities` represents behavior.
+NovaC currently provides three generic capability interfaces:
+`CompositionCapability`, `LayoutCapability`, and `MemberCapability`.
+
+## Layout is a separate concern
+
+`LayoutController` resolves physical layout without adding ABI methods to
+`TypeDefinition` or special cases for structs to `TypeController`:
+
+```cpp
+LayoutController layouts{types};
+TypeLayout layout = layouts.compute(TypeId{"Point"});
+```
+
+Primitive descriptors use their existing `storageBits` and `alignment`.
+Non-primitive types opt in through `LayoutCapability`. Recursive by-value
+layouts are rejected instead of recursing indefinitely.
+
+## Struct is the reference aggregate implementation
+
+`StructType` demonstrates the generic capability model; it is not built into
+`TypeController`:
+
+```cpp
+using namespace novac::assets::types::aggregate;
+
+defineStruct(types, "Point")
+    .field("x", TypeId{"i32"})
+    .field("y", TypeId{"i32"})
+    .commit();
+
+LayoutController layouts{types};
+auto point = layouts.compute(TypeId{"Point"});
+```
+
+The default struct installs `CompositionCapability`, `NaturalStructLayout`, and
+`NamedMemberAccess`. A language can replace a capability in the builder or
+register a completely unrelated `TypeDefinition` with its own behavior.

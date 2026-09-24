@@ -13,12 +13,17 @@ Subsystem layout
 
    novac/assets/types/
    ├── TypeController.hpp
+   ├── LayoutController.hpp
    ├── model/
-   │   └── Type.hpp
+   │   ├── Type.hpp
+   │   └── Capabilities.hpp
+   ├── aggregate/
+   │   └── StructType.hpp
    └── semantics/
        └── TypeSemantics.hpp
 
-The implementation lives in one ``TypeController.cpp``.
+``TypeController`` stays focused on type identity and semantics. Layout and the
+reference struct implementation have separate implementation files.
 
 Independent from EngineController
 ---------------------------------
@@ -223,3 +228,126 @@ tracks variable types and verifies each declaration before runtime evaluation.
 
 See :doc:`../examples/typed_minilang` for the complete tested implementation.
 
+
+Complex types and capabilities
+------------------------------
+
+Custom types may expose behavior without adding virtual methods to
+``TypeDefinition``. ``ExtensionSet`` remains typed metadata, while
+``TypeCapabilities`` contains optional polymorphic behavior.
+
+The initial generic interfaces are deliberately small:
+
+- ``CompositionCapability`` exposes logical child components;
+- ``LayoutCapability`` computes physical layout;
+- ``MemberCapability`` resolves named semantic members.
+
+A completely custom type can install its own behavior:
+
+.. code-block:: cpp
+
+   class MatrixLayout final : public LayoutCapability {
+   public:
+      TypeLayout compute(
+         const LayoutContext &context,
+         const TypeDefinition &type
+      ) const override;
+   };
+
+   auto matrix = std::make_unique<MyMatrixType>(TypeId{"mat4"});
+   matrix->capabilities.emplace<LayoutCapability, MatrixLayout>();
+   types.registerType(std::move(matrix));
+
+Capabilities become immutable when the descriptor is registered. No capability
+is required: compile-time-only or opaque types may intentionally expose none.
+
+Layout remains separate
+-----------------------
+
+``LayoutController`` is separate from ``TypeController``. Primitive layout uses
+``storageBits`` and ``alignment``; a non-primitive type provides a
+``LayoutCapability`` when it has a physical representation.
+
+.. code-block:: cpp
+
+   LayoutController layouts{types};
+   TypeLayout layout{layouts.compute(TypeId{"Point"})};
+
+Recursive by-value layout is diagnosed. This leaves future pointer/reference
+semantics free to break recursive type graphs without teaching aggregate code
+about pointers.
+
+Struct as a reference implementation
+------------------------------------
+
+``StructType`` is implemented on top of the generic capability mechanism rather
+than as a special case in ``TypeController``:
+
+.. code-block:: cpp
+
+   using namespace novac::assets::types::aggregate;
+
+   defineStruct(types, "Example")
+       .field("a", TypeId{"short"})
+       .field("b", TypeId{"int"})
+       .field("c", TypeId{"short"})
+       .commit();
+
+   types.finalize();
+
+   LayoutController layouts{types};
+   TypeLayout layout{layouts.compute(TypeId{"Example"})};
+
+The descriptor can also be queried through its generic behavior interfaces:
+
+.. code-block:: cpp
+
+   const TypeDefinition &example{types.requireType(TypeId{"Example"})};
+   const auto *members{example.capabilities.get<MemberCapability>()};
+   const auto member{members->findMember(example, "b")};
+
+   // member->type == TypeId{"int"}
+
+With 2-byte ``short`` and 4-byte ``int``, ``NaturalStructLayout`` produces
+field offsets 0, 4 and 8, a 4-byte alignment, and a final size of 12 bytes.
+The same infrastructure can support tuples, records, matrices, GPU values, or
+other language-defined complex types without changing ``TypeController``.
+
+See :doc:`../examples/complex_types` for the complete tested example.
+
+
+Custom literal type: two-bit cardinal directions
+------------------------------------------------
+
+Custom types can also define their own source literals through Atomic. For
+example, a language can model the four cardinal directions as a two-bit type:
+
+.. code-block:: text
+
+   ← = 00
+   ↑ = 01
+   → = 10
+   ↓ = 11
+
+A custom ``LiteralFeature`` installs the four arrow symbols while Types only
+needs to know that the feature produces ``CardinalDirection``:
+
+.. code-block:: cpp
+
+   CardinalDirectionLiteral arrows;
+   atomic.use(arrows);
+
+   types.definePrimitive("CardinalDirection")
+       .bits(2)
+       .storageBits(2)
+       .alignment(1)
+       .unsignedType()
+       .representation<CardinalDirectionRepresentation>()
+       .commit();
+
+   types.bindLiteral(arrows, TypeId{"CardinalDirection"});
+
+This keeps lexical syntax in Atomic and type identity/representation in Types.
+No arrow token or cardinal-direction rule is hard-coded into NovaC.
+
+See :doc:`../examples/cardinal_direction` for the complete tested example.
