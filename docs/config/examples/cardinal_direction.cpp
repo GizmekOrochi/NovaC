@@ -45,9 +45,7 @@ public:
 
         controller.engine().node({
             .kind = "CardinalDirectionLiteral",
-            .fields = {
-                {.name = "value", .kind = ast::FieldKind::Int, .required = true}
-            },
+            .fields = {{.name = "value", .kind = ast::FieldKind::Int, .required = true}},
             .traits = {"expr", "literal"},
             .doc = "Two-bit cardinal direction literal"
         });
@@ -67,11 +65,9 @@ public:
             });
         }
 
-        controller.engine().expression(
-            "CardinalDirectionLiteral",
-            [](const ast::Node &node, runtime::RuntimeContext &) {
+        controller.engine().expression("CardinalDirectionLiteral", [](const ast::Node &node, runtime::RuntimeContext &) {
                 return runtime::Value::integer(node.integer("value"));
-            });
+        });
     }
 };
 
@@ -95,12 +91,9 @@ int main() {
     types.bindLiteral(arrows, TypeId{"CardinalDirection"});
     types.finalize();
 
-    const PrimitiveType &directionType{
-        types.requirePrimitive(TypeId{"CardinalDirection"})
-    };
+    const PrimitiveType &directionType{types.requirePrimitive(TypeId{"CardinalDirection"})};
 
-    std::cout << directionType.id.name
-              << " uses " << directionType.bitWidth << " bits\n";
+    std::cout << directionType.id.name << " uses " << directionType.bitWidth << " bits\n";
 
     for (const std::string source : {"←", "↑", "→", "↓"}) {
         const ast::NodePtr node{engine.parse(source)};
@@ -111,7 +104,6 @@ int main() {
             return 1;
         }
 
-        std::cout << source << " -> " << type->name
-                  << " (" << engine.eval(*node).asInt() << ")\n";
+        std::cout << source << " -> " << type->name << " (" << engine.eval(*node).asInt() << ")\n";
     }
 }
