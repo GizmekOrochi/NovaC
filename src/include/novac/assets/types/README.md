@@ -16,6 +16,7 @@ layout are exposed through capabilities and `LayoutController`, without turning
 types/
 ├── TypeController.hpp
 ├── LayoutController.hpp
+├── StorageController.hpp
 ├── README.md
 ├── model/
 │   ├── Type.hpp
@@ -94,19 +95,17 @@ does not silently infer structural equivalence.
 
 ## Primitive storage description
 
-Semantic width and storage width are separate:
+Primitive bit width is exact:
 
 ```cpp
 types.definePrimitive("u24")
     .bits(24)
-    .storageBits(32)
-    .alignment(4)
+    .alignmentBits(32)
     .unsignedType()
     .commit();
 ```
 
-`bitWidth` is semantic precision. `storageBits` is physical storage and defaults
-to `bitWidth`. `alignment` is expressed in bytes and only has to be non-zero.
+``bits`` is the exact number of bits occupied by the type. `alignmentBits` is the exact storage alignment in bits and only has to be non-zero. `alignmentBytes()` is available as convenience syntax for byte-oriented targets.
 Target/ABI-specific aggregate layout policy intentionally remains outside this
 asset.
 
@@ -232,7 +231,8 @@ controller you created. This keeps optional type semantics out of the engine cor
 Complex types do not require a new branch in `TypeController`. Every
 `TypeDefinition` can expose optional behavior through `TypeCapabilities`.
 Capabilities are registered by interface type and become immutable when the
-containing type is registered.
+containing type is registered. There is one active implementation per interface;
+registering another implementation replaces the previous behavior.
 
 ```cpp
 class MatrixLayout final : public LayoutCapability {
@@ -254,17 +254,22 @@ NovaC currently provides three generic capability interfaces:
 
 ## Layout is a separate concern
 
-`LayoutController` resolves physical layout without adding ABI methods to
-`TypeDefinition` or special cases for structs to `TypeController`:
+`LayoutController` resolves layout without adding ABI methods to
+`TypeDefinition` or special cases for structs to `TypeController`. Layouts are
+expressed in bits so sub-byte and packed representations remain representable:
 
 ```cpp
 LayoutController layouts{types};
 TypeLayout layout = layouts.compute(TypeId{"Point"});
 ```
 
-Primitive descriptors use their existing `storageBits` and `alignment`.
-Non-primitive types opt in through `LayoutCapability`. Recursive by-value
-layouts are rejected instead of recursing indefinitely.
+Primitive descriptors use their exact `bits` and exact bit alignment by
+default. Any descriptor may install `LayoutCapability`; for primitives, a custom
+layout may change alignment or attach layout metadata but must preserve the
+declared exact bit size. `TypeLayout::sizeBytes()` and related helpers provide
+rounded byte views when needed. Recursive by-value layouts are rejected instead
+of recursing indefinitely, and repeated nested layouts are cached during one
+resolution.
 
 ## Struct is the reference aggregate implementation
 
@@ -286,3 +291,12 @@ auto point = layouts.compute(TypeId{"Point"});
 The default struct installs `CompositionCapability`, `NaturalStructLayout`, and
 `NamedMemberAccess`. A language can replace a capability in the builder or
 register a completely unrelated `TypeDefinition` with its own behavior.
+
+
+## Low-level bit storage
+
+`StorageController` materializes layouts through a bit-addressed `BitStorage`.
+Types may attach `StorageCapability` to override direct bit-for-bit load/store
+behavior. The capability may validate or transform the type bits during load/store, but the type has only one width: `bits`. Raw storage accesses issued through `StorageContext` are bounded to the current value's `TypeLayout` range, and repeated layout queries share one resolution session/cache. `BitValue` exposes extraction,
+insertion, shifts and masks for parity, tagging, compression, and other custom
+representations without changing `TypeController`.

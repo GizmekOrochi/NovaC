@@ -175,9 +175,11 @@ public:
 /**
  * @brief Type-indexed registry of behavior capabilities.
  *
- * Capabilities are registered by their public interface type. This lets a
- * language replace one behavior implementation with another while consumers
- * query only the stable capability interface.
+ * Capabilities are registered by their public interface type. Exactly one
+ * active implementation is stored per capability interface; registering the
+ * same interface again replaces the previous behavior. Target- or ABI-specific
+ * variants should therefore be selected by the capability/context rather than
+ * stored as parallel entries under the same interface.
  */
 class TypeCapabilities final {
 public:
@@ -476,34 +478,20 @@ public:
      */
     explicit PrimitiveType(TypeId typeId = {}) : TypeDefinition{std::move(typeId)} {}
 
-    /** @brief Semantic precision or value width in bits. */
-    std::size_t bitWidth{0};
-    /** @brief Physical storage occupied by a value, in bits. */
-    std::size_t storageBits{0};
-    /** @brief Storage alignment in bytes. */
-    std::size_t alignment{1};
+    /** @brief Exact number of bits occupied by a value of this type. */
+    std::size_t bits{0};
+    /** @brief Exact storage alignment in bits. */
+    std::size_t alignmentBits{1};
     /** @brief Signedness classification of the primitive. */
     PrimitiveSignedness signedness{PrimitiveSignedness::NotApplicable};
-    /** @brief Optional physical/value representation descriptor. */
+    /** @brief Optional representation descriptor for the type bits. */
     std::shared_ptr<const PrimitiveRepresentation> representation{std::make_shared<OpaqueRepresentation>()};
 
     /**
-     * @brief Returns the minimum byte count required by bitWidth.
-     * @return Value width rounded up to full bytes.
+     * @brief Returns the byte count required to contain the type bits.
+     * @return Bit width rounded up to full bytes.
      */
-    std::size_t valueByteWidth() const noexcept { return (bitWidth + 7U) / 8U; }
-
-    /**
-     * @brief Returns the byte count occupied by storageBits.
-     * @return Storage width rounded up to full bytes.
-     */
-    std::size_t storageByteWidth() const noexcept { return (storageBits + 7U) / 8U; }
-
-    /**
-     * @brief Returns the primitive storage width in bytes.
-     * @return Same value as storageByteWidth().
-     */
-    std::size_t byteWidth() const noexcept { return storageByteWidth(); }
+    std::size_t byteWidth() const noexcept { return (bits + 7U) / 8U; }
 };
 
 } // namespace novac::assets::types

@@ -7,11 +7,19 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-24
+
 ### Added
 
 - Added generic type capabilities for composition, layout, and member behavior without special-casing complex types in `TypeController`.
 - Added `LayoutController` with recursive layout resolution and cycle detection.
 - Added `StructType` as the reference aggregate implementation with natural aligned layout and named member access.
+- Added bit-granular layout descriptors with byte-view helpers, allowing sub-byte and packed custom types.
+- Added per-resolution layout caching and preserved field metadata through generic member lookup.
+- Added low-level bit-addressed `BitStorage`, `BitValue`, and `StorageController` APIs.
+- Added `StorageCapability` so custom types can define exact bit-level load/store behavior instead of only descriptive layout.
+- Hardened storage semantics with bounded bit access and shared layout-resolution sessions.
+- Simplified primitive sizing to one exact `bits` width: the declared bits are the real bits occupied by the type, with no separate logical/storage width.
 
 ## [1.1.0] - 2026-09-23
 

@@ -25,17 +25,25 @@ feature to the custom type:
    TypeController types;
    types.definePrimitive("CardinalDirection")
        .bits(2)
-       .storageBits(2)
-       .alignment(1)
+       .alignmentBits(1)
        .unsignedType()
        .representation<CardinalDirectionRepresentation>()
+       .capability<LayoutCapability, CardinalDirectionLayout>()
+       .capability<StorageCapability, CardinalDirectionStorage>()
        .commit();
 
    types.bindLiteral(arrows, TypeId{"CardinalDirection"});
    types.finalize();
 
-Parsing any arrow therefore produces the same semantic type while preserving a
-compact direction value from 0 to 3.
+The primitive uses an explicit one-bit alignment, so its two declared bits pack directly with adjacent values.
+so ``LayoutController`` preserves the real two-bit storage instead of rounding
+the representation to a byte. ``CardinalDirectionStorage`` then implements the
+bit-level load/store contract using exact two-bit operations.
+
+The example allocates one ``BitStorage`` of eight bits and stores ``← ↑ → ↓`` at
+offsets 0, 2, 4 and 6. The four language values therefore share one real backing
+byte. With the example encoding the byte is ``0xE4`` (decimal 228). Parsing each
+arrow still produces the same semantic type with a compact value from 0 to 3.
 
 .. literalinclude:: ../../examples/cardinal_direction.cpp
    :language: cpp

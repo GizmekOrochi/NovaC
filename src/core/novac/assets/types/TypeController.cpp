@@ -40,19 +40,21 @@ std::string formatTypeList(std::span<const TypeId> types) {
 TypeController::PrimitiveBuilder::PrimitiveBuilder(TypeController &controller, TypeId id)
     : controller_{&controller}, type_{std::move(id)} {}
 
-TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::bits(size_t bitWidth) {
-    type_.bitWidth = bitWidth;
+TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::bits(size_t bits) {
+    type_.bits = bits;
     return *this;
 }
 
-TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::storageBits(size_t storageBits) {
-    type_.storageBits = storageBits;
+TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::alignmentBits(size_t alignmentBits) {
+    type_.alignmentBits = alignmentBits;
     return *this;
 }
 
-TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::alignment(size_t alignmentBytes) {
-    type_.alignment = alignmentBytes;
-    return *this;
+TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::alignmentBytes(size_t alignmentBytes) {
+    constexpr size_t bitsPerByte{8U};
+    if (alignmentBytes > std::numeric_limits<size_t>::max() / bitsPerByte)
+        throw std::runtime_error("TypeController::PrimitiveBuilder::alignmentBytes: alignment overflow");
+    return alignmentBits(alignmentBytes * bitsPerByte);
 }
 
 TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::signedness(PrimitiveSignedness value) {
@@ -283,9 +285,6 @@ registry::RegisterStatus TypeController::registerPrimitive(PrimitiveType type) {
 
 registry::RegisterStatus TypeController::commitPrimitive(PrimitiveType type, std::unordered_map<TypeId, TypeConversion, TypeIdHash> conversions) {
     ensureMutable("TypeController::PrimitiveBuilder::commit");
-    if (type.storageBits == 0) {
-        type.storageBits = type.bitWidth;
-    }
     validatePrimitive(type);
 
     std::unordered_map<TypeId, TypeConversion, TypeIdHash> normalized{};
@@ -779,13 +778,10 @@ void TypeController::validatePrimitive(const PrimitiveType &type) const {
     if (hasAlias(type.id))
         throw std::runtime_error("TypeController::registerPrimitive: name '" + type.id.name + "' is already a type alias");
 
-    if (type.bitWidth == 0)
+    if (type.bits == 0)
         throw std::runtime_error("TypeController::registerPrimitive: primitive '" + type.id.name + "' must use at least one bit");
 
-    if (type.storageBits < type.bitWidth)
-        throw std::runtime_error("TypeController::registerPrimitive: storage width for '" + type.id.name +"' cannot be smaller than its semantic bit width");
-
-    if (type.alignment == 0)
+    if (type.alignmentBits == 0)
         throw std::runtime_error("TypeController::registerPrimitive: alignment for '" + type.id.name + "' must be non-zero");
 
     if (!type.representation)

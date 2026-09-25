@@ -89,19 +89,18 @@ canonicalization; NovaC does not silently infer structural equivalence.
 Primitive storage description
 -----------------------------
 
-Semantic precision and physical storage are separate:
+Primitive bit width is exact:
 
 .. code-block:: cpp
 
    types.definePrimitive("u24")
        .bits(24)
-       .storageBits(32)
-       .alignment(4)
+       .alignmentBits(32)
        .unsignedType()
        .commit();
 
-``bitWidth`` is meaningful precision. ``storageBits`` is physical storage and
-defaults to ``bitWidth``. Alignment only has to be non-zero. More restrictive
+``bits`` is the exact number of bits occupied by the primitive. There is no
+second logical/storage width. Alignment only has to be non-zero. More restrictive
 ABI and aggregate-layout policies belong outside Types.
 
 The built-in representation classes are convenience descriptors. Languages can
@@ -258,24 +257,96 @@ A completely custom type can install its own behavior:
    matrix->capabilities.emplace<LayoutCapability, MatrixLayout>();
    types.registerType(std::move(matrix));
 
-Capabilities become immutable when the descriptor is registered. No capability
-is required: compile-time-only or opaque types may intentionally expose none.
+Capabilities become immutable when the descriptor is registered. One active
+implementation is stored per capability interface; installing another layout
+implementation replaces the previous one. Target-specific variants should be
+selected through their context rather than stored as parallel capabilities. No
+capability is required: compile-time-only or opaque types may expose none.
 
 Layout remains separate
 -----------------------
 
-``LayoutController`` is separate from ``TypeController``. Primitive layout uses
-``storageBits`` and ``alignment``; a non-primitive type provides a
-``LayoutCapability`` when it has a physical representation.
+``LayoutController`` is separate from ``TypeController``. Layout values are
+expressed in bits, so sub-byte types and packed/custom representations are not
+lost by premature byte rounding. Primitive descriptors use their exact ``bits`` and exact bit alignment by default;
+any type, including a primitive, may override that default with ``LayoutCapability``.
 
 .. code-block:: cpp
 
    LayoutController layouts{types};
    TypeLayout layout{layouts.compute(TypeId{"Point"})};
+   auto bytes{layout.sizeBytes()};
 
 Recursive by-value layout is diagnosed. This leaves future pointer/reference
 semantics free to break recursive type graphs without teaching aggregate code
 about pointers.
+
+Low-level bit storage
+---------------------
+
+Layout is not only descriptive. ``StorageController`` exposes a bit-addressed
+storage API that can materialize the active type layout. ``BitStorage`` owns the
+backing bytes while ``BitAddress`` addresses individual bits inside that
+storage:
+
+.. code-block:: cpp
+
+   LayoutController layouts{types};
+   StorageController storage{types, layouts};
+
+   BitStorage memory{8};
+   storage.storeBits(memory, BitAddress{2}, BitValue::fromUnsigned(3, 2));
+
+   auto value{storage.loadBits(memory, BitAddress{2}, 2)};
+
+``BitValue`` also provides low-level ``extract``, ``insert``, shifts and masks.
+Bit zero is the least-significant bit of the first backing byte.
+
+A type may install ``StorageCapability`` when direct bit-for-bit storage is not
+enough. The capability receives a ``StorageContext`` and can issue exact
+``loadBits``/``storeBits`` operations itself:
+
+.. code-block:: cpp
+
+   class DirectionStorage final : public StorageCapability {
+   public:
+      BitValue load(
+         const StorageContext &context,
+         const TypeDefinition &,
+         const BitStorage &memory,
+         BitAddress address
+      ) const override {
+         return context.loadBits(memory, address, 2);
+      }
+
+      void store(
+         const StorageContext &context,
+         const TypeDefinition &,
+         BitStorage &memory,
+         BitAddress address,
+         const BitValue &value
+      ) const override {
+         context.storeBits(memory, address, value);
+      }
+   };
+
+``StorageCapability`` works on the type's exact bits. ``load()`` returns a
+``BitValue`` whose width matches the type layout, and ``store()`` receives the
+same width. Raw ``loadBits``/``storeBits`` requests are bounded to the current
+value's ``TypeLayout`` range, so a custom capability cannot accidentally
+overwrite neighboring storage.
+
+Without a ``StorageCapability``, ``StorageController`` uses direct bit-for-bit
+storage. A custom capability may validate, normalize, invert, tag, or otherwise
+transform those same bits without inventing a second width for the type.
+
+One storage operation also shares one layout-resolution session. Repeated
+``context.layoutOf(...)`` calls made by a custom capability reuse the same
+recursion guard and cache instead of restarting layout resolution.
+
+This is storage behavior, not the host C++ representation used by NovaC's
+runtime evaluator. The API can pack multiple sub-byte language values into the
+same backing byte and can later be consumed by a native backend or memory asset.
 
 Struct as a reference implementation
 ------------------------------------
@@ -306,12 +377,15 @@ The descriptor can also be queried through its generic behavior interfaces:
    const auto *members{example.capabilities.get<MemberCapability>()};
    const auto member{members->findMember(example, "b")};
 
-   // member->type == TypeId{"int"}
+   // member->type() == TypeId{"int"}
+   // member->extensions() exposes field metadata without copying it.
 
 With 2-byte ``short`` and 4-byte ``int``, ``NaturalStructLayout`` produces
-field offsets 0, 4 and 8, a 4-byte alignment, and a final size of 12 bytes.
-The same infrastructure can support tuples, records, matrices, GPU values, or
-other language-defined complex types without changing ``TypeController``.
+bit offsets 0, 32 and 64, a 32-bit alignment, and a final size of 96 bits
+(12 bytes). ``ComponentLayout::byteOffset()`` and ``TypeLayout::sizeBytes()``
+provide byte-oriented helpers when the layout is byte-addressable. The same
+infrastructure can support packed fields, tuples, records, matrices, GPU values,
+or other language-defined complex types without changing ``TypeController``.
 
 See :doc:`../examples/complex_types` for the complete tested example.
 
@@ -339,15 +413,19 @@ needs to know that the feature produces ``CardinalDirection``:
 
    types.definePrimitive("CardinalDirection")
        .bits(2)
-       .storageBits(2)
-       .alignment(1)
+       .alignmentBits(1)
        .unsignedType()
        .representation<CardinalDirectionRepresentation>()
        .commit();
 
    types.bindLiteral(arrows, TypeId{"CardinalDirection"});
 
-This keeps lexical syntax in Atomic and type identity/representation in Types.
-No arrow token or cardinal-direction rule is hard-coded into NovaC.
+The example also attaches ``StorageCapability`` and uses ``StorageController``
+to pack the four values at bit offsets 0, 2, 4 and 6. They therefore occupy one
+actual backing byte (``0xE4`` for ``← ↑ → ↓`` with the example encoding).
+
+This keeps lexical syntax in Atomic and type identity/representation/storage
+behavior in Types. No arrow token or cardinal-direction rule is hard-coded into
+NovaC.
 
 See :doc:`../examples/cardinal_direction` for the complete tested example.

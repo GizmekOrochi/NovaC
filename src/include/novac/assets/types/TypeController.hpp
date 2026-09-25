@@ -59,12 +59,12 @@ public:
          */
         PrimitiveBuilder(TypeController &controller, TypeId id);
 
-        /** @brief Sets the semantic/value width in bits. */
-        PrimitiveBuilder &bits(std::size_t bitWidth);
-        /** @brief Sets the physical storage width in bits. */
-        PrimitiveBuilder &storageBits(std::size_t storageBits);
-        /** @brief Sets storage alignment in bytes. */
-        PrimitiveBuilder &alignment(std::size_t alignmentBytes);
+        /** @brief Sets the exact number of bits occupied by the primitive. */
+        PrimitiveBuilder &bits(std::size_t bits);
+        /** @brief Sets the exact storage alignment in bits. */
+        PrimitiveBuilder &alignmentBits(std::size_t alignmentBits);
+        /** @brief Convenience setter for byte-based alignments. */
+        PrimitiveBuilder &alignmentBytes(std::size_t alignmentBytes);
         /** @brief Sets primitive signedness explicitly. */
         PrimitiveBuilder &signedness(PrimitiveSignedness value);
         /** @brief Marks the primitive as signed. */
@@ -98,6 +98,20 @@ public:
         template <typename Extension, typename... Args>
         PrimitiveBuilder &extension(Args &&...args) {
             type_.extensions.emplace<Extension>(std::forward<Args>(args)...);
+            return *this;
+        }
+
+        /**
+         * @brief Attaches or replaces a behavioral capability on the primitive.
+         * @tparam Capability Public capability interface.
+         * @tparam Implementation Concrete implementation stored for that interface.
+         * @tparam Args Constructor argument types.
+         * @param args Arguments forwarded to the capability implementation.
+         * @return This builder.
+         */
+        template <typename Capability, typename Implementation = Capability, typename... Args>
+        PrimitiveBuilder &capability(Args &&...args) {
+            type_.capabilities.emplace<Capability, Implementation>(std::forward<Args>(args)...);
             return *this;
         }
 

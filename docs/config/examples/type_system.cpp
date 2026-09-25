@@ -21,7 +21,7 @@ int main() {
 
     types.definePrimitive("u16")
         .bits(16)
-        .alignment(2)
+        .alignmentBytes(2)
         .unsignedType()
         .commit();
 

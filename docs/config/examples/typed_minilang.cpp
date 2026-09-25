@@ -148,8 +148,7 @@ int main(int argc, char **argv) {
 
     types.definePrimitive("short")
         .bits(16)
-        .storageBits(16)
-        .alignment(2)
+        .alignmentBytes(2)
         .signedType()
         .representation<assets::types::IntegerRepresentation>(
             assets::types::IntegerEncoding::TwosComplement)
@@ -157,8 +156,7 @@ int main(int argc, char **argv) {
 
     types.definePrimitive("int")
         .bits(32)
-        .storageBits(32)
-        .alignment(4)
+        .alignmentBytes(4)
         .signedType()
         .representation<assets::types::IntegerRepresentation>(
             assets::types::IntegerEncoding::TwosComplement)
@@ -166,8 +164,7 @@ int main(int argc, char **argv) {
 
     types.definePrimitive("long")
         .bits(64)
-        .storageBits(64)
-        .alignment(8)
+        .alignmentBytes(8)
         .signedType()
         .representation<assets::types::IntegerRepresentation>(
             assets::types::IntegerEncoding::TwosComplement)

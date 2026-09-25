@@ -46,21 +46,21 @@ TypeLayout NaturalStructLayout::compute(const LayoutContext &context, const Type
     const auto components{composition.components(type)};
 
     TypeLayout result{};
-    result.alignment = 1;
+    result.alignmentBits = 1;
     result.components.reserve(components.size());
 
-    std::size_t cursor{0};
+    std::size_t cursorBits{0};
     for (std::size_t index{0}; index < components.size(); ++index) {
         const TypeLayout child{context.layoutOf(components[index].type)};
-        cursor = alignUp(cursor, child.alignment);
-        result.components.push_back(ComponentLayout{index, cursor, child.size, child.alignment});
-        if (cursor > std::numeric_limits<std::size_t>::max() - child.size)
+        cursorBits = alignUp(cursorBits, child.alignmentBits);
+        result.components.push_back(ComponentLayout{index, cursorBits, child.bitSize, child.alignmentBits});
+        if (cursorBits > std::numeric_limits<std::size_t>::max() - child.bitSize)
             throw std::runtime_error("NaturalStructLayout: layout size overflow");
-        cursor += child.size;
-        result.alignment = std::max(result.alignment, child.alignment);
+        cursorBits += child.bitSize;
+        result.alignmentBits = std::max(result.alignmentBits, child.alignmentBits);
     }
 
-    result.size = alignUp(cursor, result.alignment);
+    result.bitSize = alignUp(cursorBits, result.alignmentBits);
     return result;
 }
 
@@ -69,7 +69,7 @@ std::optional<TypeMember> NamedMemberAccess::findMember(const TypeDefinition &ty
     const auto components{composition.components(type)};
     for (std::size_t index{0}; index < components.size(); ++index) {
         if (components[index].name == name)
-            return TypeMember{components[index].name, components[index].type, index};
+            return TypeMember{&components[index], index};
     }
     return std::nullopt;
 }

@@ -13,6 +13,31 @@ namespace {
 
 class CardinalDirectionRepresentation final : public PrimitiveRepresentation {};
 
+
+class CardinalDirectionStorage final : public StorageCapability {
+public:
+    BitValue load(
+        const StorageContext &context,
+        const TypeDefinition &,
+        const BitStorage &storage,
+        BitAddress address
+    ) const override {
+        return context.loadBits(storage, address, 2);
+    }
+
+    void store(
+        const StorageContext &context,
+        const TypeDefinition &,
+        BitStorage &storage,
+        BitAddress address,
+        const BitValue &value
+    ) const override {
+        if (value.bitSize() != 2)
+            throw std::runtime_error("CardinalDirectionStorage: expected a 2-bit value");
+        context.storeBits(storage, address, value);
+    }
+};
+
 class CardinalDirectionLiteral final : public assets::atomic::LiteralFeature {
 public:
     assets::atomic::LiteralInfo info() const override {
@@ -82,19 +107,26 @@ int main() {
     TypeController types;
     types.definePrimitive("CardinalDirection")
         .bits(2)
-        .storageBits(2)
-        .alignment(1)
+        .alignmentBits(1)
         .unsignedType()
         .representation<CardinalDirectionRepresentation>()
+        .capability<StorageCapability, CardinalDirectionStorage>()
         .commit();
 
     types.bindLiteral(arrows, TypeId{"CardinalDirection"});
     types.finalize();
 
     const PrimitiveType &directionType{types.requirePrimitive(TypeId{"CardinalDirection"})};
+    LayoutController layouts{types};
+    const TypeLayout directionLayout{layouts.compute(TypeId{"CardinalDirection"})};
 
-    std::cout << directionType.id.name << " uses " << directionType.bitWidth << " bits\n";
+    std::cout << directionType.id.name << " uses " << directionType.bits << " bits\n";
+    std::cout << "layout=" << directionLayout.bitSize << " bits align=" << directionLayout.alignmentBits << " bit\n";
 
+    StorageController storageController{types, layouts};
+    BitStorage packedDirections{8};
+
+    std::size_t bitOffset{0};
     for (const std::string source : {"←", "↑", "→", "↓"}) {
         const ast::NodePtr node{engine.parse(source)};
         const std::optional<TypeId> type{types.resolveLiteral(arrows, *node)};
@@ -104,6 +136,17 @@ int main() {
             return 1;
         }
 
-        std::cout << source << " -> " << type->name << " (" << engine.eval(*node).asInt() << ")\n";
+        const int value{engine.eval(*node).asInt()};
+        storageController.store(
+            TypeId{"CardinalDirection"},
+            packedDirections,
+            BitAddress{bitOffset},
+            BitValue::fromUnsigned(static_cast<std::uint64_t>(value), 2));
+
+        std::cout << source << " -> " << type->name << " (" << value << ")\n";
+        bitOffset += 2;
     }
+
+    std::cout << "packed bytes=" << packedDirections.byteSize() << '\n';
+    std::cout << "packed value=" << static_cast<unsigned>(packedDirections.bytes()[0]) << '\n';
 }

@@ -11,15 +11,13 @@ int main() {
 
     types.definePrimitive("short")
         .bits(16)
-        .storageBits(16)
-        .alignment(2)
+        .alignmentBytes(2)
         .signedType()
         .commit();
 
     types.definePrimitive("int")
         .bits(32)
-        .storageBits(32)
-        .alignment(4)
+        .alignmentBytes(4)
         .signedType()
         .commit();
 
@@ -48,10 +46,12 @@ int main() {
     }
 
     std::cout << example.id.name << std::endl;
-    std::cout << "size=" << layout.size << " align=" << layout.alignment << std::endl;
+    std::cout << "bits=" << layout.bitSize
+              << " size=" << layout.sizeBytes()
+              << " align=" << layout.alignmentBytes() << std::endl;
 
     for (const auto &component : layout.components)
-        std::cout << component.componentIndex << ':' << component.offset << std::endl;
+        std::cout << component.componentIndex << ':' << component.byteOffset() << std::endl;
 
-    std::cout << "b:" << member->type.name << std::endl;
+    std::cout << "b:" << member->type().name << std::endl;
 }

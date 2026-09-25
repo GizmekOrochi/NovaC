@@ -7,4 +7,5 @@
 #include "novac/assets/essentials/EssentialsController.hpp"
 #include "novac/assets/types/TypeController.hpp"
 #include "novac/assets/types/LayoutController.hpp"
+#include "novac/assets/types/StorageController.hpp"
 #include "novac/assets/types/aggregate/StructType.hpp"

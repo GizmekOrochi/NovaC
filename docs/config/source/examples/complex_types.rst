@@ -19,7 +19,7 @@ The struct is registered as an ordinary ``TypeDefinition``. Its behavior comes
 from capabilities installed by the reference struct implementation:
 
 * ``CompositionCapability`` exposes its fields as logical components;
-* ``LayoutCapability`` lets ``LayoutController`` compute physical layout;
+* ``LayoutCapability`` lets ``LayoutController`` compute bit layout;
 * ``MemberCapability`` provides named member lookup.
 
 There is no ``TypeController::defineStruct`` or ``requireStruct`` special case.
@@ -35,17 +35,19 @@ Expected output
 .. code-block:: text
 
    Example
-   size=12 align=4
+   bits=96 size=12 align=4
    0:0
    1:4
    2:8
    b:int
 
-The natural layout places ``a`` at byte 0, aligns ``b`` to byte 4, places ``c``
-at byte 8, and adds tail padding so the complete type occupies 12 bytes with
-4-byte alignment.
+The natural layout is internally bit-based: ``a`` starts at bit 0, ``b`` at
+bit 32, and ``c`` at bit 64. The byte helpers render those as offsets 0, 4 and 8,
+with a total size of 96 bits (12 bytes) and 32-bit (4-byte) alignment.
 
-The final member lookup intentionally goes through ``MemberCapability``. This
-shows the important architectural property: a language-defined type can expose
-custom behavior without adding another type-specific method to
+The final member lookup intentionally goes through ``MemberCapability``. The
+returned ``TypeMember`` references the original ``TypeComponent``, so field
+metadata remains available through ``member->extensions()`` without duplication.
+This shows the important architectural property: a language-defined type can
+expose custom behavior without adding another type-specific method to
 ``TypeController``.

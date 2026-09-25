@@ -83,21 +83,18 @@ TEST(TypeController, RegistersGenericCustomTypes) {
     CHECK(dynamic_cast<const CustomType *>(&controller.requireType(TypeId{"Widget"})) != nullptr);
 }
 
-TEST(TypeController, SeparatesSemanticAndStorageWidths) {
+TEST(TypeController, PrimitiveBitsAreTheRealStoredBits) {
     types::TypeController controller;
-    controller.definePrimitive("u24").bits(24).storageBits(32).alignment(4).unsignedType().commit();
+    controller.definePrimitive("u24").bits(24).alignmentBytes(4).unsignedType().commit();
     const auto &type = controller.requirePrimitive("u24");
-    CHECK_EQ(type.bitWidth, static_cast<std::size_t>(24));
-    CHECK_EQ(type.storageBits, static_cast<std::size_t>(32));
-    CHECK_EQ(type.valueByteWidth(), static_cast<std::size_t>(3));
-    CHECK_EQ(type.storageByteWidth(), static_cast<std::size_t>(4));
-    CHECK_EQ(type.byteWidth(), static_cast<std::size_t>(4));
+    CHECK_EQ(type.bits, static_cast<std::size_t>(24));
+    CHECK_EQ(type.byteWidth(), static_cast<std::size_t>(3));
 }
 
 TEST(TypeController, AcceptsNonPowerOfTwoAlignment) {
     types::TypeController controller;
-    controller.definePrimitive("packed24").bits(24).storageBits(24).alignment(3).commit();
-    CHECK_EQ(controller.requirePrimitive("packed24").alignment, static_cast<std::size_t>(3));
+    controller.definePrimitive("packed24").bits(24).alignmentBits(3).commit();
+    CHECK_EQ(controller.requirePrimitive("packed24").alignmentBits, static_cast<std::size_t>(3));
 }
 
 TEST(TypeController, RequiresConversionTargetsToExistOrBeDeclared) {
@@ -323,7 +320,7 @@ TEST(TypeController, ReplacementPreservesIndependentConversions) {
     controller.definePrimitive("u8").bits(8).commit();
     controller.definePrimitive("u16").bits(16).commit();
     controller.registerConversion(TypeId{"u8"}, TypeId{"u16"}, types::ConversionKind::Implicit, 3);
-    controller.definePrimitive("u8").bits(8).storageBits(16).commit();
+    controller.definePrimitive("u8").bits(9).commit();
     const auto *conversion = controller.findConversion(TypeId{"u8"}, TypeId{"u16"});
     CHECK(conversion != nullptr);
     CHECK_EQ(conversion->rank, static_cast<std::size_t>(3));

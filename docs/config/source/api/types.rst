@@ -58,6 +58,18 @@ Complex type capabilities
 .. doxygenclass:: novac::assets::types::LayoutController
    :members:
 
+.. doxygenclass:: novac::assets::types::StorageController
+   :members:
+
+.. doxygenclass:: novac::assets::types::BitValue
+   :members:
+
+.. doxygenclass:: novac::assets::types::BitStorage
+   :members:
+
+.. doxygenclass:: novac::assets::types::StorageCapability
+   :members:
+
 .. doxygenclass:: novac::assets::types::aggregate::StructType
    :members:
 
