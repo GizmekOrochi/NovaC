@@ -376,18 +376,20 @@ void MemoryController::storeBits(Address addressValue, const types::BitValue &va
     invoke<StoreBitsOperation>(addressValue.space, StoreBitsOperation::Request{addressValue, value});
 }
 
+MemoryTarget MemoryController::targetFor(const MemoryReference &referenceValue) noexcept {
+    if (referenceValue.provenance)
+        return *referenceValue.provenance;
+    return referenceValue.address.space;
+}
+
 types::BitValue MemoryController::load(const MemoryReference &referenceValue) const {
     const AddressRange range{dereference(referenceValue)};
 
     // StorageController's stable public API is BitStorage-based. Materialize
     // exactly this value's physical bits so existing StorageCapability behavior
     // remains the single authority for type encoding without coupling Memory to it.
-    MemoryTarget target{range.begin.space};
-    if (referenceValue.provenance)
-        target = *referenceValue.provenance;
-
     const types::BitValue physical{invoke<LoadBitsOperation>(
-        target, LoadBitsOperation::Request{range.begin, range.bitSize}
+        targetFor(referenceValue), LoadBitsOperation::Request{range.begin, range.bitSize}
     )};
     types::BitStorage temporary{range.bitSize};
     temporary.storeBits(types::BitAddress{0}, physical);
@@ -404,11 +406,7 @@ void MemoryController::store(const MemoryReference &referenceValue, const types:
     storage_->store(referenceValue.type, temporary, types::BitAddress{0}, value);
     const types::BitValue physical{temporary.loadBits(types::BitAddress{0}, range.bitSize)};
 
-    MemoryTarget target{range.begin.space};
-    if (referenceValue.provenance)
-        target = *referenceValue.provenance;
-
-    invoke<StoreBitsOperation>(target, StoreBitsOperation::Request{range.begin, physical});
+    invoke<StoreBitsOperation>(targetFor(referenceValue), StoreBitsOperation::Request{range.begin, physical});
 }
 
 } // namespace novac::assets::memory

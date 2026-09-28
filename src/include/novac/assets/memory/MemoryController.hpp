@@ -22,13 +22,9 @@ namespace novac::assets::memory {
 /** Bit-precise, policy-light, behavior-extensible memory orchestration. */
 class MemoryController final {
 public:
-    MemoryController(
-        const types::TypeController &types,
-        const types::LayoutController &layouts,
-        const types::StorageController &storage
-    );
+    MemoryController(const types::TypeController &types, const types::LayoutController &layouts, const types::StorageController &storage);
 
-    // Global behavior ------------------------------------------------------
+    //Global behavior
 
     MemoryCapabilitySet &capabilities() noexcept;
     const MemoryCapabilitySet &capabilities() const noexcept;
@@ -42,10 +38,7 @@ public:
      * clients without modifying NovaC core.
      */
     template <typename Operation>
-    typename Operation::Result invoke(
-        MemoryTarget target,
-        const typename Operation::Request &request
-    ) {
+    typename Operation::Result invoke(MemoryTarget target, const typename Operation::Request &request) {
         auto *handler{resolveHandler<Operation>(target)};
         if (!handler) {
             throw MemoryError{
@@ -58,10 +51,7 @@ public:
     }
 
     template <typename Operation>
-    typename Operation::Result invoke(
-        MemoryTarget target,
-        const typename Operation::Request &request
-    ) const {
+    typename Operation::Result invoke(MemoryTarget target, const typename Operation::Request &request) const {
         const auto *handler{resolveHandler<Operation>(target)};
         if (!handler) {
             throw MemoryError{
@@ -73,20 +63,11 @@ public:
         return handler->execute(context, request);
     }
 
-    // Address spaces -------------------------------------------------------
+    //Address spaces
 
-    AddressSpaceId registerAddressSpace(
-        AddressSpaceDefinition definition,
-        std::unique_ptr<BitAccess> access
-    );
+    AddressSpaceId registerAddressSpace(AddressSpaceDefinition definition, std::unique_ptr<BitAccess> access);
 
-    AddressSpaceId createAddressSpace(
-        std::string name,
-        std::size_t bitSize,
-        std::unique_ptr<BitAccess> access,
-        types::ExtensionSet extensions = {},
-        MemoryCapabilitySet capabilities = {}
-    );
+    AddressSpaceId createAddressSpace(std::string name, std::size_t bitSize, std::unique_ptr<BitAccess> access, types::ExtensionSet extensions = {}, MemoryCapabilitySet capabilities = {});
 
     bool hasAddressSpace(AddressSpaceId id) const noexcept;
     const AddressSpaceDefinition *findAddressSpace(AddressSpaceId id) const noexcept;
@@ -94,14 +75,9 @@ public:
     const BitAccess &access(AddressSpaceId id) const;
     BitAccess &access(AddressSpaceId id);
 
-    // Regions --------------------------------------------------------------
+    //Regions
 
-    RegionId createRegion(
-        std::string name,
-        AddressRange range,
-        types::ExtensionSet extensions = {},
-        MemoryCapabilitySet capabilities = {}
-    );
+    RegionId createRegion(std::string name, AddressRange range, types::ExtensionSet extensions = {}, MemoryCapabilitySet capabilities = {});
 
     void setAllocationStrategy(RegionId region, std::unique_ptr<AllocationStrategy> strategy);
 
@@ -109,24 +85,11 @@ public:
     const MemoryRegion *findRegion(RegionId id) const noexcept;
     const MemoryRegion &requireRegion(RegionId id) const;
 
-    // Allocations ----------------------------------------------------------
+    //Allocations
 
-    Allocation allocateBits(
-        RegionId region,
-        std::size_t bitSize,
-        std::size_t alignmentBits = 1,
-        std::optional<LifetimeId> lifetime = std::nullopt,
-        types::ExtensionSet extensions = {},
-        MemoryCapabilitySet capabilities = {}
-    );
+    Allocation allocateBits(RegionId region, std::size_t bitSize, std::size_t alignmentBits = 1, std::optional<LifetimeId> lifetime = std::nullopt, types::ExtensionSet extensions = {}, MemoryCapabilitySet capabilities = {});
 
-    MemoryReference allocate(
-        RegionId region,
-        types::TypeId type,
-        std::optional<LifetimeId> lifetime = std::nullopt,
-        types::ExtensionSet extensions = {},
-        MemoryCapabilitySet capabilities = {}
-    );
+    MemoryReference allocate(RegionId region, types::TypeId type, std::optional<LifetimeId> lifetime = std::nullopt, types::ExtensionSet extensions = {}, MemoryCapabilitySet capabilities = {});
 
     void release(AllocationId id);
 
@@ -134,7 +97,7 @@ public:
     const Allocation &requireAllocation(AllocationId id) const;
     bool allocationActive(AllocationId id) const;
 
-    // Lifetimes ------------------------------------------------------------
+    //Lifetimes
 
     LifetimeId beginLifetime(types::ExtensionSet extensions = {});
     void endLifetime(LifetimeId id);
@@ -142,23 +105,19 @@ public:
     const Lifetime *findLifetime(LifetimeId id) const noexcept;
     const Lifetime &requireLifetime(LifetimeId id) const;
 
-    // References -----------------------------------------------------------
+    //References
 
-    MemoryReference reference(
-        Address address,
-        types::TypeId type,
-        std::optional<AllocationId> provenance = std::nullopt
-    ) const;
+    MemoryReference reference(Address address, types::TypeId type, std::optional<AllocationId> provenance = std::nullopt) const;
 
     AddressRange dereference(const MemoryReference &reference) const;
     void validateReference(const MemoryReference &reference) const;
 
-    // Raw bit access -------------------------------------------------------
+    //Raw bit access
 
     types::BitValue loadBits(Address address, std::size_t bitSize) const;
     void storeBits(Address address, const types::BitValue &value);
 
-    // Typed access ---------------------------------------------------------
+    //Typed access
 
     types::BitValue load(const MemoryReference &reference) const;
     void store(const MemoryReference &reference, const types::BitValue &value);
@@ -176,6 +135,8 @@ private:
         using Handler = MemoryOperationHandler<Operation>;
         if (const auto *allocationId{std::get_if<AllocationId>(&target)}) {
             Allocation &allocation{requireAllocationMutable(*allocationId)};
+            if (!allocation.active())
+                throw MemoryError{MemoryErrorCode::ReleasedAllocation, "MemoryController::invoke: target allocation has been released"};
             if (auto *handler{allocation.capabilities.template get<Handler>()})
                 return handler;
             MemoryRegion &region{requireRegionMutable(allocation.region)};
@@ -204,6 +165,8 @@ private:
         using Handler = MemoryOperationHandler<Operation>;
         if (const auto *allocationId{std::get_if<AllocationId>(&target)}) {
             const Allocation &allocation{requireAllocation(*allocationId)};
+            if (!allocation.active())
+                throw MemoryError{MemoryErrorCode::ReleasedAllocation, "MemoryController::invoke: target allocation has been released"};
             if (const auto *handler{allocation.capabilities.template get<Handler>()})
                 return handler;
             const MemoryRegion &region{requireRegion(allocation.region)};
@@ -230,6 +193,7 @@ private:
     static std::size_t checkedAdd(std::size_t left, std::size_t right, const char *owner);
     static void validateAlignment(std::size_t alignmentBits, const char *owner);
     static bool aligned(std::size_t bitOffset, std::size_t alignmentBits) noexcept;
+    static MemoryTarget targetFor(const MemoryReference &reference) noexcept;
 
     AddressSpaceRecord &requireAddressSpaceRecord(AddressSpaceId id);
     const AddressSpaceRecord &requireAddressSpaceRecord(AddressSpaceId id) const;

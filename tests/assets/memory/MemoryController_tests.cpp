@@ -409,6 +409,21 @@ TEST(Memory, TypedStoreUsesAllocationCapabilityFromProvenance) {
     CHECK_EQ(f.memory.loadBits(ref.address, 4).toUnsigned(), static_cast<std::uint64_t>(0b1100));
 }
 
+TEST(Memory, InvokeRejectsReleasedAllocationTarget) {
+    Fixture f;
+    MemoryCapabilitySet capabilities;
+    capabilities.emplace<MemoryOperationHandler<ScopeNameOperation>, ConstantScopeHandler>(3);
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
+    const auto region{f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8})};
+    const auto allocation{f.memory.allocateBits(region, 4, 1, std::nullopt, ExtensionSet{}, std::move(capabilities))};
+
+    f.memory.release(allocation.id);
+
+    CHECK(throwsCode([&] {
+        (void)f.memory.invoke<ScopeNameOperation>(allocation.id, {});
+    }, MemoryErrorCode::ReleasedAllocation));
+}
+
 TEST(Memory, MissingCustomOperationReportsUnsupportedOperation) {
     Fixture f;
     const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
