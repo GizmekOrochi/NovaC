@@ -30,10 +30,7 @@ struct Fixture {
 
 class OverlayStrategy final : public AllocationStrategy {
 public:
-    std::optional<AllocationPlacement> place(
-        const AllocationRequest &,
-        std::span<const Allocation>
-    ) override {
+    std::optional<AllocationPlacement> place(const AllocationRequest &, std::span<const Allocation>) override {
         return AllocationPlacement{0};
     }
 };
@@ -119,25 +116,14 @@ public:
 
 class InvertedThreeBitStorage final : public StorageCapability {
 public:
-    BitValue load(
-        const StorageContext &context,
-        const TypeDefinition &,
-        const BitStorage &storage,
-        BitAddress address
-    ) const override {
+    BitValue load(const StorageContext &context, const TypeDefinition &, const BitStorage &storage, BitAddress address) const override {
         BitValue physical{context.loadBits(storage, address, 3)};
         for (std::size_t index{0}; index < 3; ++index)
             physical.setBit(index, !physical.bit(index));
         return physical;
     }
 
-    void store(
-        const StorageContext &context,
-        const TypeDefinition &,
-        BitStorage &storage,
-        BitAddress address,
-        const BitValue &value
-    ) const override {
+    void store(const StorageContext &context, const TypeDefinition &, BitStorage &storage, BitAddress address, const BitValue &value) const override {
         BitValue physical{value};
         for (std::size_t index{0}; index < 3; ++index)
             physical.setBit(index, !physical.bit(index));
@@ -147,7 +133,7 @@ public:
 
 TEST(Memory, RawBitAccessIsBitPrecise) {
     Fixture f;
-    const auto ram = f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16));
+    const auto ram{f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16))};
 
     f.memory.storeBits(Address{ram, 3}, BitValue::fromUnsigned(0b10101, 5));
     const BitValue value{f.memory.loadBits(Address{ram, 3}, 5)};
@@ -158,8 +144,8 @@ TEST(Memory, RawBitAccessIsBitPrecise) {
 
 TEST(Memory, AddressSpacesRemainIndependent) {
     Fixture f;
-    const auto first = f.memory.createAddressSpace("first", 8, std::make_unique<BitStorageAccess>(8));
-    const auto second = f.memory.createAddressSpace("second", 8, std::make_unique<BitStorageAccess>(8));
+    const auto first{f.memory.createAddressSpace("first", 8, std::make_unique<BitStorageAccess>(8))};
+    const auto second{f.memory.createAddressSpace("second", 8, std::make_unique<BitStorageAccess>(8))};
 
     f.memory.storeBits(Address{first, 0}, BitValue::fromUnsigned(3, 2));
     f.memory.storeBits(Address{second, 0}, BitValue::fromUnsigned(1, 2));
@@ -177,7 +163,7 @@ TEST(Memory, AddressSpaceBackendMustMatchDeclaredWidth) {
 
 TEST(Memory, RegionMustFitInsideAddressSpace) {
     Fixture f;
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
     CHECK(throwsCode([&] {
         (void)f.memory.createRegion("bad", AddressRange{Address{ram, 4}, 5});
     }, MemoryErrorCode::OutOfBounds));
@@ -186,13 +172,13 @@ TEST(Memory, RegionMustFitInsideAddressSpace) {
 TEST(Memory, TypedAllocationsPackExactTwoBitValues) {
     Fixture f;
     f.types.definePrimitive("CardinalDirection").bits(2).alignmentBits(1).commit();
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
-    const auto all = f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8});
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
+    const auto all{f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8})};
 
-    const auto a = f.memory.allocate(all, TypeId{"CardinalDirection"});
-    const auto b = f.memory.allocate(all, TypeId{"CardinalDirection"});
-    const auto c = f.memory.allocate(all, TypeId{"CardinalDirection"});
-    const auto d = f.memory.allocate(all, TypeId{"CardinalDirection"});
+    const auto a{f.memory.allocate(all, TypeId{"CardinalDirection"})};
+    const auto b{f.memory.allocate(all, TypeId{"CardinalDirection"})};
+    const auto c{f.memory.allocate(all, TypeId{"CardinalDirection"})};
+    const auto d{f.memory.allocate(all, TypeId{"CardinalDirection"})};
 
     CHECK_EQ(a.address.bitOffset, static_cast<std::size_t>(0));
     CHECK_EQ(b.address.bitOffset, static_cast<std::size_t>(2));
@@ -213,8 +199,8 @@ TEST(Memory, TypedAllocationsPackExactTwoBitValues) {
 
 TEST(Memory, AllocationUsesAbsoluteBitAlignment) {
     Fixture f;
-    const auto ram = f.memory.createAddressSpace("ram", 32, std::make_unique<BitStorageAccess>(32));
-    const auto region = f.memory.createRegion("odd", AddressRange{Address{ram, 1}, 20});
+    const auto ram{f.memory.createAddressSpace("ram", 32, std::make_unique<BitStorageAccess>(32))};
+    const auto region{f.memory.createRegion("odd", AddressRange{Address{ram, 1}, 20})};
 
     const Allocation allocation{f.memory.allocateBits(region, 2, 3)};
     CHECK_EQ(allocation.range.begin.bitOffset, static_cast<std::size_t>(3));
@@ -223,8 +209,8 @@ TEST(Memory, AllocationUsesAbsoluteBitAlignment) {
 
 TEST(Memory, ReleasedAllocationCanBeReusedByDefaultStrategy) {
     Fixture f;
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
-    const auto region = f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8});
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
+    const auto region{f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8})};
 
     const Allocation first{f.memory.allocateBits(region, 4)};
     f.memory.release(first.id);
@@ -237,9 +223,9 @@ TEST(Memory, ReleasedAllocationCanBeReusedByDefaultStrategy) {
 
 TEST(Memory, DefaultStrategyAvoidsAllocationsFromOverlappingRegions) {
     Fixture f;
-    const auto ram = f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16));
-    const auto left = f.memory.createRegion("left", AddressRange{Address{ram, 0}, 12});
-    const auto right = f.memory.createRegion("right", AddressRange{Address{ram, 4}, 12});
+    const auto ram{f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16))};
+    const auto left{f.memory.createRegion("left", AddressRange{Address{ram, 0}, 12})};
+    const auto right{f.memory.createRegion("right", AddressRange{Address{ram, 4}, 12})};
 
     const Allocation first{f.memory.allocateBits(left, 8)};
     const Allocation second{f.memory.allocateBits(right, 4)};
@@ -250,8 +236,8 @@ TEST(Memory, DefaultStrategyAvoidsAllocationsFromOverlappingRegions) {
 
 TEST(Memory, CustomAllocationStrategyMayIntentionallyOverlay) {
     Fixture f;
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
-    const auto region = f.memory.createRegion("overlay", AddressRange{Address{ram, 0}, 8});
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
+    const auto region{f.memory.createRegion("overlay", AddressRange{Address{ram, 0}, 8})};
     f.memory.setAllocationStrategy(region, std::make_unique<OverlayStrategy>());
 
     const Allocation first{f.memory.allocateBits(region, 4)};
@@ -263,10 +249,10 @@ TEST(Memory, CustomAllocationStrategyMayIntentionallyOverlay) {
 TEST(Memory, LifetimeInvalidatesManagedReferenceButNotRawBits) {
     Fixture f;
     f.types.definePrimitive("u3").bits(3).alignmentBits(1).commit();
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
-    const auto region = f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8});
-    const auto lifetime = f.memory.beginLifetime();
-    const auto ref = f.memory.allocate(region, TypeId{"u3"}, lifetime);
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
+    const auto region{f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8})};
+    const auto lifetime{f.memory.beginLifetime()};
+    const auto ref{f.memory.allocate(region, TypeId{"u3"}, lifetime)};
 
     f.memory.store(ref, BitValue::fromUnsigned(5, 3));
     f.memory.endLifetime(lifetime);
@@ -278,9 +264,9 @@ TEST(Memory, LifetimeInvalidatesManagedReferenceButNotRawBits) {
 TEST(Memory, ReleasedProvenanceInvalidatesTypedReference) {
     Fixture f;
     f.types.definePrimitive("u2").bits(2).alignmentBits(1).commit();
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
-    const auto region = f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8});
-    const auto ref = f.memory.allocate(region, TypeId{"u2"});
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
+    const auto region{f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8})};
+    const auto ref{f.memory.allocate(region, TypeId{"u2"})};
 
     f.memory.release(*ref.provenance);
     CHECK(throwsCode([&] { (void)f.memory.load(ref); }, MemoryErrorCode::ReleasedAllocation));
@@ -289,8 +275,8 @@ TEST(Memory, ReleasedProvenanceInvalidatesTypedReference) {
 TEST(Memory, ProvenancePreventsTypedRangeFromEscapingAllocation) {
     Fixture f;
     f.types.definePrimitive("u4").bits(4).alignmentBits(1).commit();
-    const auto ram = f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16));
-    const auto region = f.memory.createRegion("all", AddressRange{Address{ram, 0}, 16});
+    const auto ram{f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16))};
+    const auto region{f.memory.createRegion("all", AddressRange{Address{ram, 0}, 16})};
     const Allocation allocation{f.memory.allocateBits(region, 4)};
 
     CHECK(throwsCode([&] {
@@ -301,8 +287,8 @@ TEST(Memory, ProvenancePreventsTypedRangeFromEscapingAllocation) {
 TEST(Memory, DereferenceResolvesExactTypedBitRange) {
     Fixture f;
     f.types.definePrimitive("u5").bits(5).alignmentBits(1).commit();
-    const auto ram = f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16));
-    const auto ref = f.memory.reference(Address{ram, 6}, TypeId{"u5"});
+    const auto ram{f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16))};
+    const auto ref{f.memory.reference(Address{ram, 6}, TypeId{"u5"})};
 
     const AddressRange range{f.memory.dereference(ref)};
     CHECK_EQ(range.begin.bitOffset, static_cast<std::size_t>(6));
@@ -312,16 +298,15 @@ TEST(Memory, DereferenceResolvesExactTypedBitRange) {
 TEST(Memory, RawTypedReferenceDoesNotRequireAllocation) {
     Fixture f;
     f.types.definePrimitive("u4").bits(4).alignmentBits(1).commit();
-    const auto ram = f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16));
-
-    const auto ref = f.memory.reference(Address{ram, 7}, TypeId{"u4"});
+    const auto ram{f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16))};
+    const auto ref{f.memory.reference(Address{ram, 7}, TypeId{"u4"})};
     f.memory.store(ref, BitValue::fromUnsigned(0xA, 4));
     CHECK_EQ(f.memory.load(ref).toUnsigned(), static_cast<std::uint64_t>(0xA));
 }
 
 TEST(Memory, CustomBitAccessControlsPhysicalAddressSpaceBehavior) {
     Fixture f;
-    const auto weird = f.memory.createAddressSpace("weird", 8, std::make_unique<InvertingAccess>(8));
+    const auto weird{f.memory.createAddressSpace("weird", 8, std::make_unique<InvertingAccess>(8))};
 
     f.memory.storeBits(Address{weird, 0}, BitValue::fromUnsigned(0b101, 3));
     CHECK_EQ(f.memory.loadBits(Address{weird, 0}, 3).toUnsigned(), static_cast<std::uint64_t>(0b101));
@@ -329,14 +314,14 @@ TEST(Memory, CustomBitAccessControlsPhysicalAddressSpaceBehavior) {
 
 TEST(Memory, TypedAccessReusesExistingStorageCapability) {
     Fixture f;
-    auto primitive = f.types.definePrimitive("encoded3");
+    auto primitive{f.types.definePrimitive("encoded3")};
     primitive.bits(3).alignmentBits(1);
     primitive.capability<StorageCapability, InvertedThreeBitStorage>();
     primitive.commit();
 
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
-    const auto region = f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8});
-    const auto ref = f.memory.allocate(region, TypeId{"encoded3"});
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
+    const auto region{f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8})};
+    const auto ref{f.memory.allocate(region, TypeId{"encoded3"})};
 
     f.memory.store(ref, BitValue::fromUnsigned(0b001, 3));
 
@@ -346,8 +331,8 @@ TEST(Memory, TypedAccessReusesExistingStorageCapability) {
 
 TEST(Memory, AllocationFailsWhenRegionHasNoRemainingSpace) {
     Fixture f;
-    const auto ram = f.memory.createAddressSpace("ram", 4, std::make_unique<BitStorageAccess>(4));
-    const auto region = f.memory.createRegion("all", AddressRange{Address{ram, 0}, 4});
+    const auto ram{f.memory.createAddressSpace("ram", 4, std::make_unique<BitStorageAccess>(4))};
+    const auto region{f.memory.createRegion("all", AddressRange{Address{ram, 0}, 4})};
     (void)f.memory.allocateBits(region, 4);
 
     CHECK(throwsCode([&] { (void)f.memory.allocateBits(region, 1); }, MemoryErrorCode::OutOfMemory));
@@ -356,7 +341,7 @@ TEST(Memory, AllocationFailsWhenRegionHasNoRemainingSpace) {
 
 TEST(Memory, UnknownFutureOperationCanBeDefinedOutsideNovaCCore) {
     Fixture f;
-    const auto ram = f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16));
+    const auto ram{f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16))};
     f.memory.storeBits(Address{ram, 0}, BitValue::fromUnsigned(0b10101, 5));
 
     f.memory.capabilities().emplace<MemoryOperationHandler<TeleportMemoryOperation>, TeleportMemoryHandler>();
@@ -372,21 +357,15 @@ TEST(Memory, CapabilityResolutionUsesMostSpecificScope) {
     Fixture f;
     MemoryCapabilitySet spaceCapabilities;
     spaceCapabilities.emplace<MemoryOperationHandler<ScopeNameOperation>, ConstantScopeHandler>(1);
-    const auto ram = f.memory.createAddressSpace(
-        "ram", 16, std::make_unique<BitStorageAccess>(16), ExtensionSet{}, std::move(spaceCapabilities)
-    );
+    const auto ram{f.memory.createAddressSpace("ram", 16, std::make_unique<BitStorageAccess>(16), ExtensionSet{}, std::move(spaceCapabilities))};
 
     MemoryCapabilitySet regionCapabilities;
     regionCapabilities.emplace<MemoryOperationHandler<ScopeNameOperation>, ConstantScopeHandler>(2);
-    const auto region = f.memory.createRegion(
-        "region", AddressRange{Address{ram, 0}, 16}, ExtensionSet{}, std::move(regionCapabilities)
-    );
+    const auto region{f.memory.createRegion("region", AddressRange{Address{ram, 0}, 16}, ExtensionSet{}, std::move(regionCapabilities))};
 
     MemoryCapabilitySet allocationCapabilities;
     allocationCapabilities.emplace<MemoryOperationHandler<ScopeNameOperation>, ConstantScopeHandler>(3);
-    const auto allocation = f.memory.allocateBits(
-        region, 4, 1, std::nullopt, ExtensionSet{}, std::move(allocationCapabilities)
-    );
+    const auto allocation{f.memory.allocateBits(region, 4, 1, std::nullopt, ExtensionSet{}, std::move(allocationCapabilities))};
 
     CHECK_EQ(f.memory.invoke<ScopeNameOperation>(ram, {}), static_cast<std::size_t>(1));
     CHECK_EQ(f.memory.invoke<ScopeNameOperation>(region, {}), static_cast<std::size_t>(2));
@@ -397,9 +376,7 @@ TEST(Memory, AddressSpaceMayOverrideBuiltInLoadOperation) {
     Fixture f;
     MemoryCapabilitySet capabilities;
     capabilities.emplace<MemoryOperationHandler<LoadBitsOperation>, ConstantLoadHandler>();
-    const auto space = f.memory.createAddressSpace(
-        "synthetic", 8, std::make_unique<BitStorageAccess>(8), ExtensionSet{}, std::move(capabilities)
-    );
+    const auto space{f.memory.createAddressSpace("synthetic", 8, std::make_unique<BitStorageAccess>(8), ExtensionSet{}, std::move(capabilities))};
 
     CHECK_EQ(f.memory.loadBits(Address{space, 0}, 4).toUnsigned(), static_cast<std::uint64_t>(0b1010));
 }
@@ -407,14 +384,12 @@ TEST(Memory, AddressSpaceMayOverrideBuiltInLoadOperation) {
 TEST(Memory, TypedLoadUsesRegionCapabilityThroughAllocationProvenance) {
     Fixture f;
     f.types.definePrimitive("u4").bits(4).alignmentBits(1).commit();
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
 
     MemoryCapabilitySet regionCapabilities;
     regionCapabilities.emplace<MemoryOperationHandler<LoadBitsOperation>, ConstantLoadHandler>(0b0011);
-    const auto region = f.memory.createRegion(
-        "synthetic", AddressRange{Address{ram, 0}, 8}, ExtensionSet{}, std::move(regionCapabilities)
-    );
-    const auto ref = f.memory.allocate(region, TypeId{"u4"});
+    const auto region{f.memory.createRegion("synthetic", AddressRange{Address{ram, 0}, 8}, ExtensionSet{}, std::move(regionCapabilities))};
+    const auto ref{f.memory.allocate(region, TypeId{"u4"})};
 
     CHECK_EQ(f.memory.load(ref).toUnsigned(), static_cast<std::uint64_t>(0b0011));
 }
@@ -422,14 +397,12 @@ TEST(Memory, TypedLoadUsesRegionCapabilityThroughAllocationProvenance) {
 TEST(Memory, TypedStoreUsesAllocationCapabilityFromProvenance) {
     Fixture f;
     f.types.definePrimitive("u4").bits(4).alignmentBits(1).commit();
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
-    const auto region = f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8});
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
+    const auto region{f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8})};
 
     MemoryCapabilitySet allocationCapabilities;
     allocationCapabilities.emplace<MemoryOperationHandler<StoreBitsOperation>, InvertingStoreHandler>();
-    const auto ref = f.memory.allocate(
-        region, TypeId{"u4"}, std::nullopt, ExtensionSet{}, std::move(allocationCapabilities)
-    );
+    const auto ref{f.memory.allocate(region, TypeId{"u4"}, std::nullopt, ExtensionSet{}, std::move(allocationCapabilities))};
 
     f.memory.store(ref, BitValue::fromUnsigned(0b0011, 4));
 
@@ -438,7 +411,7 @@ TEST(Memory, TypedStoreUsesAllocationCapabilityFromProvenance) {
 
 TEST(Memory, MissingCustomOperationReportsUnsupportedOperation) {
     Fixture f;
-    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
+    const auto ram{f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8))};
     CHECK(throwsCode([&] {
         (void)f.memory.invoke<ScopeNameOperation>(ram, {});
     }, MemoryErrorCode::UnsupportedOperation));
