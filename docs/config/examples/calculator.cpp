@@ -19,8 +19,6 @@ int main() {
         const auto expression{engine.parse(source)};
         engine.validate(*expression);
 
-        std::cout << source << " -> "
-                  << engine.eval(*expression).toString()
-                  << '\n';
+        std::cout << source << " -> " << engine.eval(*expression).toString() << '\n';
     }
 }

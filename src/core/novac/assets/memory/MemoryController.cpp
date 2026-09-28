@@ -382,7 +382,13 @@ types::BitValue MemoryController::load(const MemoryReference &referenceValue) co
     // StorageController's stable public API is BitStorage-based. Materialize
     // exactly this value's physical bits so existing StorageCapability behavior
     // remains the single authority for type encoding without coupling Memory to it.
-    const types::BitValue physical{loadBits(range.begin, range.bitSize)};
+    MemoryTarget target{range.begin.space};
+    if (referenceValue.provenance)
+        target = *referenceValue.provenance;
+
+    const types::BitValue physical{invoke<LoadBitsOperation>(
+        target, LoadBitsOperation::Request{range.begin, range.bitSize}
+    )};
     types::BitStorage temporary{range.bitSize};
     temporary.storeBits(types::BitAddress{0}, physical);
     return storage_->load(referenceValue.type, temporary, types::BitAddress{0});
@@ -397,7 +403,12 @@ void MemoryController::store(const MemoryReference &referenceValue, const types:
     types::BitStorage temporary{range.bitSize};
     storage_->store(referenceValue.type, temporary, types::BitAddress{0}, value);
     const types::BitValue physical{temporary.loadBits(types::BitAddress{0}, range.bitSize)};
-    storeBits(range.begin, physical);
+
+    MemoryTarget target{range.begin.space};
+    if (referenceValue.provenance)
+        target = *referenceValue.provenance;
+
+    invoke<StoreBitsOperation>(target, StoreBitsOperation::Request{range.begin, physical});
 }
 
 } // namespace novac::assets::memory

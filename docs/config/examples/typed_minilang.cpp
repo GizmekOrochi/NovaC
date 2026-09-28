@@ -15,11 +15,11 @@ namespace {
 
 using novac::assets::types::TypeId;
 
-constexpr const char *kDeclaration = "TypedVariableDeclaration";
-constexpr const char *kVariable = "TypedVariableExpression";
-constexpr const char *kPrint = "PrintStatement";
-constexpr const char *kBinary = "BinaryExpr";
-constexpr const char *kInteger = "IntegerLiteral";
+constexpr const char *kDeclaration{"TypedVariableDeclaration"};
+constexpr const char *kVariable{"TypedVariableExpression"};
+constexpr const char *kPrint{"PrintStatement"};
+constexpr const char *kBinary{"BinaryExpr"};
+constexpr const char *kInteger{"IntegerLiteral"};
 
 class TypeChecker {
 public:

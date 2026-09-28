@@ -97,8 +97,23 @@ private:
 
 class ConstantLoadHandler final : public MemoryOperationHandler<LoadBitsOperation> {
 public:
+    explicit ConstantLoadHandler(std::size_t value = 0b10101010) : value_{value} {}
+
     BitValue execute(MemoryContext &, const Request &request) const override {
-        return BitValue::fromUnsigned(0b10101010, request.bitSize);
+        return BitValue::fromUnsigned(value_, request.bitSize);
+    }
+
+private:
+    std::size_t value_{0};
+};
+
+class InvertingStoreHandler final : public MemoryOperationHandler<StoreBitsOperation> {
+public:
+    void execute(MemoryContext &context, const Request &request) const override {
+        BitValue physical{request.value};
+        for (std::size_t index{0}; index < physical.bitSize(); ++index)
+            physical.setBit(index, !physical.bit(index));
+        context.access(request.address.space).storeBits(request.address.bitOffset, physical);
     }
 };
 
@@ -387,6 +402,38 @@ TEST(Memory, AddressSpaceMayOverrideBuiltInLoadOperation) {
     );
 
     CHECK_EQ(f.memory.loadBits(Address{space, 0}, 4).toUnsigned(), static_cast<std::uint64_t>(0b1010));
+}
+
+TEST(Memory, TypedLoadUsesRegionCapabilityThroughAllocationProvenance) {
+    Fixture f;
+    f.types.definePrimitive("u4").bits(4).alignmentBits(1).commit();
+    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
+
+    MemoryCapabilitySet regionCapabilities;
+    regionCapabilities.emplace<MemoryOperationHandler<LoadBitsOperation>, ConstantLoadHandler>(0b0011);
+    const auto region = f.memory.createRegion(
+        "synthetic", AddressRange{Address{ram, 0}, 8}, ExtensionSet{}, std::move(regionCapabilities)
+    );
+    const auto ref = f.memory.allocate(region, TypeId{"u4"});
+
+    CHECK_EQ(f.memory.load(ref).toUnsigned(), static_cast<std::uint64_t>(0b0011));
+}
+
+TEST(Memory, TypedStoreUsesAllocationCapabilityFromProvenance) {
+    Fixture f;
+    f.types.definePrimitive("u4").bits(4).alignmentBits(1).commit();
+    const auto ram = f.memory.createAddressSpace("ram", 8, std::make_unique<BitStorageAccess>(8));
+    const auto region = f.memory.createRegion("all", AddressRange{Address{ram, 0}, 8});
+
+    MemoryCapabilitySet allocationCapabilities;
+    allocationCapabilities.emplace<MemoryOperationHandler<StoreBitsOperation>, InvertingStoreHandler>();
+    const auto ref = f.memory.allocate(
+        region, TypeId{"u4"}, std::nullopt, ExtensionSet{}, std::move(allocationCapabilities)
+    );
+
+    f.memory.store(ref, BitValue::fromUnsigned(0b0011, 4));
+
+    CHECK_EQ(f.memory.loadBits(ref.address, 4).toUnsigned(), static_cast<std::uint64_t>(0b1100));
 }
 
 TEST(Memory, MissingCustomOperationReportsUnsupportedOperation) {

@@ -16,22 +16,11 @@ class CardinalDirectionRepresentation final : public PrimitiveRepresentation {};
 
 class CardinalDirectionStorage final : public StorageCapability {
 public:
-    BitValue load(
-        const StorageContext &context,
-        const TypeDefinition &,
-        const BitStorage &storage,
-        BitAddress address
-    ) const override {
+    BitValue load(const StorageContext &context, const TypeDefinition &, const BitStorage &storage, BitAddress address) const override {
         return context.loadBits(storage, address, 2);
     }
 
-    void store(
-        const StorageContext &context,
-        const TypeDefinition &,
-        BitStorage &storage,
-        BitAddress address,
-        const BitValue &value
-    ) const override {
+    void store(const StorageContext &context, const TypeDefinition &, BitStorage &storage, BitAddress address, const BitValue &value) const override {
         if (value.bitSize() != 2)
             throw std::runtime_error("CardinalDirectionStorage: expected a 2-bit value");
         context.storeBits(storage, address, value);
@@ -91,7 +80,7 @@ public:
         }
 
         controller.engine().expression("CardinalDirectionLiteral", [](const ast::Node &node, runtime::RuntimeContext &) {
-                return runtime::Value::integer(node.integer("value"));
+            return runtime::Value::integer(node.integer("value"));
         });
     }
 };
