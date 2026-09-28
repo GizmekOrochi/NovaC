@@ -9,6 +9,11 @@ int main() {
     static_assert(novac::Version == std::string_view{"1.2.0"});
 
     novac::controllers::EngineController engine;
+    novac::assets::types::TypeController types;
+    novac::assets::types::LayoutController layouts{types};
+    novac::assets::types::StorageController storage{types, layouts};
+    novac::assets::memory::MemoryController memory{types, layouts, storage};
     (void)engine;
+    (void)memory;
     return 0;
 }

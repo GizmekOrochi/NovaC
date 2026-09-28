@@ -9,3 +9,4 @@
 #include "novac/assets/types/LayoutController.hpp"
 #include "novac/assets/types/StorageController.hpp"
 #include "novac/assets/types/aggregate/StructType.hpp"
+#include "novac/assets/memory/MemoryController.hpp"

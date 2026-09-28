@@ -15,6 +15,7 @@ same C++ declaration multiple times in Sphinx.
    atomic
    essentials
    types
+   memory
 
 .. note::
 
