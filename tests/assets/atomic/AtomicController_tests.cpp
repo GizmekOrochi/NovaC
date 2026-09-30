@@ -170,6 +170,17 @@ TEST(AtomicController, FailedOperationInstallRollsBackEngineAndController) {
         });
 }
 
+
+TEST(AtomicController, EmptyLiteralPatternIsRejectedBeforeInstall) {
+    EngineController engine;
+    AtomicController controller{engine};
+    IntegerLiteralAtomic feature{"BrokenInteger", novac::assets::atomic::TokenPattern::text("")};
+
+    CHECK(throwsRuntimeError([&]() { controller.use(feature); }));
+    CHECK(!controller.hasLiteral("core.literal.integer"));
+    CHECK(engine.nodes().find("BrokenInteger") == nullptr);
+}
+
 TEST(AtomicController, UseLiteralFeature) {
     EngineController engine;
     AtomicController controller{engine};
