@@ -443,6 +443,9 @@ void AtomicController::validateLiteral(const LiteralInfo &info) const {
     if(info.nodeKind.empty())
         throw std::runtime_error("AtomicController::validateLiteral: literal node kind cannot be empty");
 
+    if(info.pattern.token.empty() && info.pattern.tokenKey.empty())
+        throw std::runtime_error("AtomicController::validateLiteral: literal pattern cannot be empty");
+
     if(hasLiteral(info.id))
         throw std::runtime_error("AtomicController::validateLiteral: duplicate literal '" + info.id + "'");
 
