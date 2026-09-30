@@ -55,9 +55,9 @@ void NumericBinaryOperationAtomic::install(AtomicController &controller) const {
 
     const auto builder{[binaryKind, opId, engine](parser::ParserContext &, ast::NodePtr left, const token::Token &, ast::NodePtr right) {
         ast::NodePtr node{engine->makeNode(binaryKind)};
-        node->set("op", opId);
-        node->set("left", left);
-        node->set("right", right);
+        node->set(fields::Operation, opId);
+        node->set(fields::Left, left);
+        node->set(fields::Right, right);
         return node;
     }};
 
@@ -66,8 +66,8 @@ void NumericBinaryOperationAtomic::install(AtomicController &controller) const {
     const Evaluator evaluator{makeEvaluator()};
 
     controller.engine().binaryOperator(operation.id, [evaluator](const ast::Node &node, runtime::RuntimeContext &context) {
-        const runtime::Value left{context.eval(*node.child("left"))};
-        const runtime::Value right{context.eval(*node.child("right"))};
+        const runtime::Value left{context.eval(*node.child(fields::Left))};
+        const runtime::Value right{context.eval(*node.child(fields::Right))};
         return evaluator(left, right);
     });
 }

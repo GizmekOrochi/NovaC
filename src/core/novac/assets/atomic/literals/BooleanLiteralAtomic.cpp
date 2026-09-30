@@ -1,4 +1,5 @@
 #include "novac/assets/atomic/literals/BooleanLiteralAtomic.hpp"
+#include "novac/assets/atomic/AtomicIds.hpp"
 #include "novac/assets/AssetTraits.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
@@ -18,7 +19,7 @@ BooleanLiteralAtomic::BooleanLiteralAtomic(std::string nodeKind, BooleanLiteralT
         throw std::runtime_error("BooleanLiteralAtomic::BooleanLiteralAtomic: boolean tokens cannot be empty");
 
     if (tokens_.trueToken == tokens_.falseToken)
-        throw std::runtime_error("BooleanLiteralAtomic::BooleanLiteralAtomic: true and false tokens must be different");
+        throw std::runtime_error("BooleanLiteralAtomic::BooleanLiteralAtomic: true and false tokens must be distinct");
 }
 
 LiteralInfo BooleanLiteralAtomic::info() const {
@@ -31,8 +32,8 @@ void BooleanLiteralAtomic::install(AtomicController &controller) const {
 
     controller.engine().node({
         .kind = nodeKind_,
-        .fields = {{.name = "value", .kind = ast::FieldKind::Bool, .required = true}},
-        .traits = {novac::assets::traits::Expression, "literal"},
+        .fields = {{.name = fields::Value.value, .kind = ast::FieldKind::Bool, .required = true}},
+        .traits = {novac::assets::traits::Expression, novac::assets::traits::Literal},
         .doc = "Boolean literal expression"
     });
 
@@ -44,7 +45,7 @@ void BooleanLiteralAtomic::install(AtomicController &controller) const {
     const auto makeBoolean{[kind, trueToken, engine](parser::ParserContext &context) {
         const token::Token item{context.consumeKind(token::Kind::Keyword)};
         ast::NodePtr node{engine->makeNode(kind)};
-        node->set("value", item.text == trueToken);
+        node->set(fields::Value, item.text == trueToken);
         return node;
     }};
 
@@ -52,7 +53,7 @@ void BooleanLiteralAtomic::install(AtomicController &controller) const {
     controller.engine().prefix(domain, tokens_.falseToken, makeBoolean);
 
     controller.engine().expression(kind, [](const ast::Node &node, runtime::RuntimeContext &) {
-        const ast::Field &field{node.field("value")};
+        const ast::Field &field{node.field(fields::Value)};
         return runtime::Value::boolean(std::get<bool>(field));
     });
 }

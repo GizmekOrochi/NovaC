@@ -1,4 +1,5 @@
 #include "novac/assets/atomic/literals/IntegerLiteralAtomic.hpp"
+#include "novac/assets/atomic/AtomicIds.hpp"
 #include "novac/assets/AssetTraits.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
@@ -27,12 +28,12 @@ void IntegerLiteralAtomic::install(AtomicController& controller) const {
         .kind = nodeKind_,
         .fields = {
             {
-                .name = "value",
+                .name = fields::Value.value,
                 .kind = ast::FieldKind::Int,
                 .required = true
             }
         },
-        .traits = {novac::assets::traits::Expression, "literal"},
+        .traits = {novac::assets::traits::Expression, novac::assets::traits::Literal},
         .doc = "Integer literal expression"
     });
 
@@ -47,13 +48,13 @@ void IntegerLiteralAtomic::install(AtomicController& controller) const {
         const token::Token item{context.consumeKind(token::Kind::Integer)};
         detail::validateSuffix(preparedPattern, item, "IntegerLiteralAtomic::install");
         ast::NodePtr node{engine->makeNode(kind)};
-        node->set("value", detail::parseInteger(item.text, "IntegerLiteralAtomic::install"));
+        node->set(fields::Value, detail::parseInteger(item.text, "IntegerLiteralAtomic::install"));
 
         return node;
     });
 
     controller.engine().expression(kind,[](const ast::Node& node, runtime::RuntimeContext&){
-        return runtime::Value::integer(node.integer("value"));
+        return runtime::Value::integer(node.integer(fields::Value));
     });
 }
 

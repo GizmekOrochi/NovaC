@@ -154,7 +154,7 @@ AtomicController &AtomicController::use(const LiteralFeature &feature) {
     try {
         feature.install(*this);
         rememberLiteral(std::move(info));
-    } 
+    }
     catch (...) {
         engine_.restore(engineSnapshot);
         literals_ = literalsSnapshot;
@@ -192,7 +192,7 @@ AtomicController &AtomicController::use(const OperationFeature &feature) {
     try {
         feature.install(*this);
         rememberOperation(std::move(info));
-    } 
+    }
     catch (...) {
         engine_.restore(engineSnapshot);
         literals_ = literalsSnapshot;
@@ -384,9 +384,9 @@ void AtomicController::ensureBinaryExpressionNode() {
     engine_.node({
         .kind = options_.binaryNodeKind,
         .fields = {
-            {.name = "op", .kind = ast::FieldKind::String, .required = true},
-            {.name = "left", .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {novac::assets::traits::Expression}},
-            {.name = "right", .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {novac::assets::traits::Expression}}
+            {.name = fields::Operation.value, .kind = ast::FieldKind::String, .required = true},
+            {.name = fields::Left.value, .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {novac::assets::traits::Expression}},
+            {.name = fields::Right.value, .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {novac::assets::traits::Expression}}
         },
         .traits = {novac::assets::traits::Expression},
         .doc = "Atomic binary expression carrier"
@@ -403,15 +403,15 @@ void AtomicController::ensureUnaryExpressionNode() {
     engine_.node({
         .kind = options_.unaryNodeKind,
         .fields = {
-            {.name = "op", .kind = ast::FieldKind::String, .required = true},
-            {.name = "expr", .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {novac::assets::traits::Expression}}
+            {.name = fields::Operation.value, .kind = ast::FieldKind::String, .required = true},
+            {.name = fields::Expression.value, .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {novac::assets::traits::Expression}}
         },
         .traits = {novac::assets::traits::Expression},
         .doc = "Atomic unary expression carrier"
     });
 
     engine_.expression(options_.unaryNodeKind, [this](const ast::Node &node, runtime::RuntimeContext &context) {
-        const std::string op{node.str("op")};
+        const std::string op{node.str(fields::Operation)};
         const auto iter{unaryHandlers_.find(op)};
 
         if(iter == unaryHandlers_.end())
@@ -442,9 +442,6 @@ void AtomicController::validateLiteral(const LiteralInfo &info) const {
 
     if(info.nodeKind.empty())
         throw std::runtime_error("AtomicController::validateLiteral: literal node kind cannot be empty");
-
-    if(info.pattern.token.empty() && info.pattern.tokenKey.empty())
-        throw std::runtime_error("AtomicController::validateLiteral: literal pattern cannot be empty");
 
     if(hasLiteral(info.id))
         throw std::runtime_error("AtomicController::validateLiteral: duplicate literal '" + info.id + "'");

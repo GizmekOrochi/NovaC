@@ -12,4 +12,7 @@ namespace novac::assets::traits {
 /** Marks AST nodes that can be evaluated as expressions. */
 inline constexpr const char *Expression{"expr"};
 
+/** Marks AST nodes that directly represent literal values. */
+inline constexpr const char *Literal{"literal"};
+
 } // namespace novac::assets::traits

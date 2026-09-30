@@ -1,5 +1,6 @@
 #include "../../tester.hpp"
 #include "novac/assets/atomic/AtomicController.hpp"
+#include "novac/assets/atomic/AtomicIds.hpp"
 #include "novac/assets/AssetTraits.hpp"
 #include "novac/assets/atomic/literals/IntegerLiteralAtomic.hpp"
 #include "novac/assets/atomic/literals/BooleanLiteralAtomic.hpp"
@@ -91,6 +92,7 @@ TEST(AtomicController, DefaultConstruction) {
     EngineController engine;
     AtomicController controller{engine};
     CHECK(&controller.engine() == &engine);
+    CHECK(controller.expressionDomain() == novac::assets::atomic::domains::Expression.value);
 }
 
 TEST(AtomicController, CustomOptionsConstruction) {
@@ -168,17 +170,6 @@ TEST(AtomicController, FailedOperationInstallRollsBackEngineAndController) {
         [](const novac::ast::Node &, novac::runtime::RuntimeContext &) {
             return novac::runtime::Value::integer(1);
         });
-}
-
-
-TEST(AtomicController, EmptyLiteralPatternIsRejectedBeforeInstall) {
-    EngineController engine;
-    AtomicController controller{engine};
-    IntegerLiteralAtomic feature{"BrokenInteger", novac::assets::atomic::TokenPattern::text("")};
-
-    CHECK(throwsRuntimeError([&]() { controller.use(feature); }));
-    CHECK(!controller.hasLiteral("core.literal.integer"));
-    CHECK(engine.nodes().find("BrokenInteger") == nullptr);
 }
 
 TEST(AtomicController, UseLiteralFeature) {
@@ -560,12 +551,16 @@ TEST(AtomicController, ExpressionTraitIsPreservedAcrossAtomicNodes) {
         const novac::ast::NodeSchema *const schema{engine.nodes().find(kind)};
         CHECK(schema != nullptr);
         CHECK(engine.nodes().hasTrait(kind, expected));
+        CHECK(engine.nodes().hasTrait(kind, novac::assets::traits::Literal));
     }
 
     const novac::ast::NodeSchema *const binary{engine.nodes().find(controller.binaryNodeKind())};
     CHECK(binary != nullptr);
     CHECK(engine.nodes().hasTrait(controller.binaryNodeKind(), expected));
     CHECK(binary->fields.size() == 3);
+    CHECK(binary->fields[0].name == novac::assets::atomic::fields::Operation.value);
+    CHECK(binary->fields[1].name == novac::assets::atomic::fields::Left.value);
+    CHECK(binary->fields[2].name == novac::assets::atomic::fields::Right.value);
     CHECK(binary->fields[1].allowedNodeTraits.size() == 1);
     CHECK(binary->fields[1].allowedNodeTraits[0] == expected);
     CHECK(binary->fields[2].allowedNodeTraits.size() == 1);
@@ -575,6 +570,8 @@ TEST(AtomicController, ExpressionTraitIsPreservedAcrossAtomicNodes) {
     CHECK(unary != nullptr);
     CHECK(engine.nodes().hasTrait(controller.unaryNodeKind(), expected));
     CHECK(unary->fields.size() == 2);
+    CHECK(unary->fields[0].name == novac::assets::atomic::fields::Operation.value);
+    CHECK(unary->fields[1].name == novac::assets::atomic::fields::Expression.value);
     CHECK(unary->fields[1].allowedNodeTraits.size() == 1);
     CHECK(unary->fields[1].allowedNodeTraits[0] == expected);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "novac/assets/atomic/AtomicIds.hpp"
 #include "novac/assets/atomic/LiteralFeature.hpp"
 #include "novac/assets/atomic/OperationFeature.hpp"
 #include "novac/engine/EngineController.hpp"
@@ -21,7 +22,7 @@ namespace novac::assets::atomic {
 */
 struct AtomicControllerOptions {
     /** Parser domain used for atomic expressions. */
-    std::string expressionDomain{"expr"};
+    std::string expressionDomain{domains::Expression.value};
 
     /** AST node kind used to represent binary operations. */
     std::string binaryNodeKind{"BinaryExpr"};

@@ -1,4 +1,5 @@
 #include "novac/assets/atomic/literals/StringLiteralAtomic.hpp"
+#include "novac/assets/atomic/AtomicIds.hpp"
 #include "novac/assets/AssetTraits.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
@@ -27,12 +28,12 @@ void StringLiteralAtomic::install(AtomicController& controller) const {
         .kind = nodeKind_,
         .fields = {
             {
-                .name = "value",
+                .name = fields::Value.value,
                 .kind = ast::FieldKind::String,
                 .required = true
             }
         },
-        .traits = {novac::assets::traits::Expression, "literal"},
+        .traits = {novac::assets::traits::Expression, novac::assets::traits::Literal},
         .doc = "String literal expression"
     });
 
@@ -47,13 +48,13 @@ void StringLiteralAtomic::install(AtomicController& controller) const {
             const token::Token item{context.consumeKind(token::Kind::String)};
             detail::validateSuffix(preparedPattern, item, "StringLiteralAtomic::install");
             ast::NodePtr node{engine->makeNode(kind)};
-            node->set("value", item.text);
+            node->set(fields::Value, item.text);
 
             return node;
         });
 
     controller.engine().expression(kind, [](const ast::Node& node, runtime::RuntimeContext&) {
-        return runtime::Value::string(node.str("value"));
+        return runtime::Value::string(node.str(fields::Value));
     });
 }
 
