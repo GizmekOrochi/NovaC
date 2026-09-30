@@ -1,5 +1,6 @@
 #include "../../tester.hpp"
 #include "novac/assets/atomic/AtomicController.hpp"
+#include "novac/assets/AssetTraits.hpp"
 #include "novac/assets/atomic/literals/IntegerLiteralAtomic.hpp"
 #include "novac/assets/atomic/literals/BooleanLiteralAtomic.hpp"
 #include "novac/assets/atomic/operations/NumericOperations.hpp"
@@ -530,6 +531,41 @@ TEST(AtomicController, RegisterUnaryOperationWithNullHandlerThrows) {
     EngineController engine;
     AtomicController controller{engine};
     CHECK(throwsRuntimeError([&]() { controller.registerUnaryOperation("test", nullptr); }));
+}
+
+
+TEST(AtomicController, ExpressionTraitIsPreservedAcrossAtomicNodes) {
+    EngineController engine;
+    AtomicController controller{engine};
+
+    controller.standardLiterals();
+    controller.ensureBinaryExpressionNode();
+    controller.ensureUnaryExpressionNode();
+
+    const char *const expected{novac::assets::traits::Expression};
+    const char *const literalKinds[]{"IntegerLiteral", "FloatLiteral", "StringLiteral", "BooleanLiteral"};
+
+    for (const char *const kind : literalKinds) {
+        const novac::ast::NodeSchema *const schema{engine.nodes().find(kind)};
+        CHECK(schema != nullptr);
+        CHECK(engine.nodes().hasTrait(kind, expected));
+    }
+
+    const novac::ast::NodeSchema *const binary{engine.nodes().find(controller.binaryNodeKind())};
+    CHECK(binary != nullptr);
+    CHECK(engine.nodes().hasTrait(controller.binaryNodeKind(), expected));
+    CHECK(binary->fields.size() == 3);
+    CHECK(binary->fields[1].allowedNodeTraits.size() == 1);
+    CHECK(binary->fields[1].allowedNodeTraits[0] == expected);
+    CHECK(binary->fields[2].allowedNodeTraits.size() == 1);
+    CHECK(binary->fields[2].allowedNodeTraits[0] == expected);
+
+    const novac::ast::NodeSchema *const unary{engine.nodes().find(controller.unaryNodeKind())};
+    CHECK(unary != nullptr);
+    CHECK(engine.nodes().hasTrait(controller.unaryNodeKind(), expected));
+    CHECK(unary->fields.size() == 2);
+    CHECK(unary->fields[1].allowedNodeTraits.size() == 1);
+    CHECK(unary->fields[1].allowedNodeTraits[0] == expected);
 }
 
 } // namespace

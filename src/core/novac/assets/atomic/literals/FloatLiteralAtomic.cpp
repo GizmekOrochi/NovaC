@@ -1,7 +1,8 @@
 #include "novac/assets/atomic/literals/FloatLiteralAtomic.hpp"
+#include "novac/assets/AssetTraits.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
-#include "LiteralParsing.hpp"
+#include "novac/assets/atomic/literals/LiteralParsing.hpp"
 
 #include <stdexcept>
 #include <utility>
@@ -10,16 +11,10 @@
 namespace novac::assets::atomic::literals {
 
 
-FloatLiteralAtomic::FloatLiteralAtomic(
-    std::string nodeKind,
-    TokenPattern pattern)
-    : nodeKind_{std::move(nodeKind)},
-      pattern_{std::move(pattern)}
-{
-    if (nodeKind_.empty()) {
-        throw std::runtime_error(
-            "FloatLiteralAtomic::FloatLiteralAtomic: node kind cannot be empty");
-    }
+FloatLiteralAtomic::FloatLiteralAtomic(std::string nodeKind, TokenPattern pattern)
+    : nodeKind_{std::move(nodeKind)}, pattern_{std::move(pattern)} {
+    if (nodeKind_.empty())
+        throw std::runtime_error("FloatLiteralAtomic::FloatLiteralAtomic: node kind cannot be empty");
 }
 
 LiteralInfo FloatLiteralAtomic::info() const {
@@ -38,7 +33,7 @@ void FloatLiteralAtomic::install(AtomicController& controller) const {
                 .required = true
             }
         },
-        .traits = {"expr", "literal"},
+        .traits = {novac::assets::traits::Expression, "literal"},
         .doc = "Floating-point literal expression"
     });
 
@@ -59,9 +54,7 @@ void FloatLiteralAtomic::install(AtomicController& controller) const {
     });
 
     controller.engine().expression(kind, [](const ast::Node& node, runtime::RuntimeContext&) {
-        const ast::Field& field{
-            node.field("value")
-        };
+        const ast::Field& field{node.field("value")};
 
         return runtime::Value::floating(
             std::get<double>(field));

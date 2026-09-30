@@ -1,7 +1,8 @@
 #include "novac/assets/atomic/literals/StringLiteralAtomic.hpp"
+#include "novac/assets/AssetTraits.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
-#include "LiteralParsing.hpp"
+#include "novac/assets/atomic/literals/LiteralParsing.hpp"
 
 #include <stdexcept>
 #include <utility>
@@ -11,9 +12,8 @@ namespace novac::assets::atomic::literals {
 
 StringLiteralAtomic::StringLiteralAtomic(std::string nodeKind, TokenPattern pattern)
     : nodeKind_{std::move(nodeKind)}, pattern_{std::move(pattern)} {
-    if (nodeKind_.empty()) {
+    if (nodeKind_.empty())
         throw std::runtime_error("StringLiteralAtomic::StringLiteralAtomic: node kind cannot be empty");
-    }
 }
 
 LiteralInfo StringLiteralAtomic::info() const {
@@ -32,7 +32,7 @@ void StringLiteralAtomic::install(AtomicController& controller) const {
                 .required = true
             }
         },
-        .traits = {"expr", "literal"},
+        .traits = {novac::assets::traits::Expression, "literal"},
         .doc = "String literal expression"
     });
 

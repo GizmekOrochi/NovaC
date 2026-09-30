@@ -1,4 +1,5 @@
 #include "novac/assets/atomic/literals/BooleanLiteralAtomic.hpp"
+#include "novac/assets/AssetTraits.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
 
@@ -10,13 +11,11 @@ namespace novac::assets::atomic::literals {
 
 BooleanLiteralAtomic::BooleanLiteralAtomic(std::string nodeKind, BooleanLiteralTokens tokens)
     : nodeKind_{std::move(nodeKind)}, tokens_{std::move(tokens)} {
-    if (nodeKind_.empty()) {
+    if (nodeKind_.empty())
         throw std::runtime_error("BooleanLiteralAtomic::BooleanLiteralAtomic: node kind cannot be empty");
-    }
 
-    if (tokens_.trueToken.empty() || tokens_.falseToken.empty()) {
+    if (tokens_.trueToken.empty() || tokens_.falseToken.empty())
         throw std::runtime_error("BooleanLiteralAtomic::BooleanLiteralAtomic: boolean tokens cannot be empty");
-    }
 }
 
 LiteralInfo BooleanLiteralAtomic::info() const {
@@ -30,7 +29,7 @@ void BooleanLiteralAtomic::install(AtomicController &controller) const {
     controller.engine().node({
         .kind = nodeKind_,
         .fields = {{.name = "value", .kind = ast::FieldKind::Bool, .required = true}},
-        .traits = {"expr", "literal"},
+        .traits = {novac::assets::traits::Expression, "literal"},
         .doc = "Boolean literal expression"
     });
 

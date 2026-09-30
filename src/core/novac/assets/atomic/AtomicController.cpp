@@ -1,4 +1,5 @@
 #include "novac/assets/atomic/AtomicController.hpp"
+#include "novac/assets/AssetTraits.hpp"
 
 #include "novac/assets/atomic/literals/BooleanLiteralAtomic.hpp"
 #include "novac/assets/atomic/literals/FloatLiteralAtomic.hpp"
@@ -29,10 +30,9 @@ struct RegexEscaper {
         std::string result{};
         result.reserve(value.size() * 2);
 
-        for (const char item : value) {
-            if (needsEscape(item)) {
+        for(const char item : value) {
+            if(needsEscape(item))
                 result += '\\';
-            }
 
             result += item;
         }
@@ -43,17 +43,14 @@ struct RegexEscaper {
 
 struct SuffixNormalizer {
     static std::string normalize(std::string suffix) {
-        if (suffix.empty()) {
+        if(suffix.empty())
             throw std::runtime_error("SuffixNormalizer::normalize: suffix cannot be empty");
-        }
 
-        if (suffix.front() == '_') {
+        if(suffix.front() == '_')
             suffix.erase(suffix.begin());
-        }
 
-        if (suffix.empty()) {
+        if(suffix.empty())
             throw std::runtime_error("SuffixNormalizer::normalize: suffix cannot be only '_'");
-        }
 
         return suffix;
     }
@@ -61,28 +58,24 @@ struct SuffixNormalizer {
 
 struct TokenPatternFactory {
     static TokenPattern token(std::string token) {
-        if (token.empty()) {
+        if(token.empty())
             throw std::runtime_error("TokenPatternFactory::token: token cannot be empty");
-        }
 
         const bool keyword{std::all_of( token.begin(), token.end(), [](unsigned char value) { return std::isalnum(value) != 0 || value == '_'; })};
 
-        if (keyword) {
+        if(keyword)
             return TokenPattern::keywordText(std::move(token));
-        }
 
         return TokenPattern::text(std::move(token));
     }
 
     static TokenPattern suffix(std::string tokenKey, std::string suffix) {
-        return TokenPattern::suffixed(
-            std::move(tokenKey), "_" + SuffixNormalizer::normalize(std::move(suffix)));
+        return TokenPattern::suffixed(std::move(tokenKey), "_" + SuffixNormalizer::normalize(std::move(suffix)));
     }
 
     static TokenPattern suffixRegex(std::string tokenKey, std::string suffixRegex) {
-        if (suffixRegex.empty()) {
+        if(suffixRegex.empty())
             throw std::runtime_error("TokenPatternFactory::suffixRegex: suffix regex cannot be empty");
-        }
 
         return TokenPattern::suffixRegex(std::move(tokenKey), std::move(suffixRegex));
     }
@@ -90,16 +83,14 @@ struct TokenPatternFactory {
 
 struct SuffixPatternBuilder {
     static std::string regexFromList(const std::vector<std::string> &suffixes) {
-        if (suffixes.empty()) {
+        if(suffixes.empty())
             throw std::runtime_error("SuffixPatternBuilder::regexFromList: suffix list cannot be empty");
-        }
 
         std::string result{"_("};
 
-        for (std::size_t index{}; index < suffixes.size(); ++index) {
-            if (index != 0) {
+        for(std::size_t index{}; index < suffixes.size(); ++index) {
+            if(index != 0)
                 result += '|';
-            }
 
             result += RegexEscaper::literal(SuffixNormalizer::normalize(suffixes[index]));
         }
@@ -110,44 +101,36 @@ struct SuffixPatternBuilder {
     }
 
     static TokenPattern regex(std::string tokenKey, const std::vector<std::string> &suffixes) {
-        return TokenPatternFactory::suffixRegex(
-            std::move(tokenKey),
-            regexFromList(suffixes));
+        return TokenPatternFactory::suffixRegex(std::move(tokenKey), regexFromList(suffixes));
     }
 };
 
 } // namespace detail
 
 LiteralPack &LiteralPack::merge(LiteralPack pack) {
-    for (auto &feature : pack.features) {
+    for(auto &feature : pack.features)
         features.push_back(std::move(feature));
-    }
 
     return *this;
 }
 
 OperationPack &OperationPack::merge(OperationPack pack) {
-    for (auto &feature : pack.features) {
+    for(auto &feature : pack.features)
         features.push_back(std::move(feature));
-    }
 
     return *this;
 }
 
 AtomicController::AtomicController(controllers::EngineController &engine, AtomicControllerOptions options)
-    : engine_{engine},
-      options_{std::move(options)} {
-    if (options_.expressionDomain.empty()) {
+    : engine_{engine}, options_{std::move(options)} {
+    if(options_.expressionDomain.empty())
         throw std::runtime_error("AtomicController::AtomicController: expression domain cannot be empty");
-    }
 
-    if (options_.binaryNodeKind.empty()) {
+    if(options_.binaryNodeKind.empty())
         throw std::runtime_error("AtomicController::AtomicController: binary node kind cannot be empty");
-    }
 
-    if (options_.unaryNodeKind.empty()) {
+    if(options_.unaryNodeKind.empty())
         throw std::runtime_error("AtomicController::AtomicController: unary node kind cannot be empty");
-    }
 
     engine_.setStartDomain(options_.expressionDomain);
 }
@@ -171,7 +154,8 @@ AtomicController &AtomicController::use(const LiteralFeature &feature) {
     try {
         feature.install(*this);
         rememberLiteral(std::move(info));
-    } catch (...) {
+    }
+    catch (...) {
         engine_.restore(engineSnapshot);
         literals_ = literalsSnapshot;
         operations_ = operationsSnapshot;
@@ -208,7 +192,8 @@ AtomicController &AtomicController::use(const OperationFeature &feature) {
     try {
         feature.install(*this);
         rememberOperation(std::move(info));
-    } catch (...) {
+    }
+    catch (...) {
         engine_.restore(engineSnapshot);
         literals_ = literalsSnapshot;
         operations_ = operationsSnapshot;
@@ -227,25 +212,22 @@ AtomicController &AtomicController::use(const OperationFeature &feature) {
 }
 
 AtomicController &AtomicController::use(LiteralPack pack) {
-    for (auto &feature : pack.features) {
+    for(auto &feature : pack.features)
         own(std::move(feature));
-    }
 
     return *this;
 }
 
 AtomicController &AtomicController::use(OperationPack pack) {
-    for (auto &feature : pack.features) {
+    for(auto &feature : pack.features)
         own(std::move(feature));
-    }
 
     return *this;
 }
 
 AtomicController &AtomicController::own(std::unique_ptr<LiteralFeature> feature) {
-    if (!feature) {
+    if(!feature)
         throw std::runtime_error("AtomicController::own: literal feature cannot be null");
-    }
 
     use(*feature);
     ownedLiterals_.push_back(std::move(feature));
@@ -254,9 +236,8 @@ AtomicController &AtomicController::own(std::unique_ptr<LiteralFeature> feature)
 }
 
 AtomicController &AtomicController::own(std::unique_ptr<OperationFeature> feature) {
-    if (!feature) {
+    if(!feature)
         throw std::runtime_error("AtomicController::own: operation feature cannot be null");
-    }
 
     use(*feature);
     ownedOperations_.push_back(std::move(feature));
@@ -380,38 +361,34 @@ const std::vector<OperationInfo> &AtomicController::operations() const {
 }
 
 void AtomicController::registerPattern(const TokenPattern &pattern) {
-    if (pattern.token.empty()) {
+    if(pattern.token.empty())
         return;
-    }
 
     const std::string key{pattern.keyword ? "keyword:" + pattern.token : "symbol:" + pattern.token};
 
-    if (registeredPatterns_.find(key) != registeredPatterns_.end()) {
+    if(registeredPatterns_.find(key) != registeredPatterns_.end())
         return;
-    }
 
-    if (pattern.keyword) {
+    if(pattern.keyword)
         engine_.keyword(pattern.token);
-    } else {
+    else
         engine_.symbol(pattern.token);
-    }
 
     registeredPatterns_.insert(key);
 }
 
 void AtomicController::ensureBinaryExpressionNode() {
-    if (binaryNodeInstalled_) {
+    if(binaryNodeInstalled_)
         return;
-    }
 
     engine_.node({
         .kind = options_.binaryNodeKind,
         .fields = {
             {.name = "op", .kind = ast::FieldKind::String, .required = true},
-            {.name = "left", .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {"expr"}},
-            {.name = "right", .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {"expr"}}
+            {.name = "left", .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {novac::assets::traits::Expression}},
+            {.name = "right", .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {novac::assets::traits::Expression}}
         },
-        .traits = {"expr"},
+        .traits = {novac::assets::traits::Expression},
         .doc = "Atomic binary expression carrier"
     });
 
@@ -420,17 +397,16 @@ void AtomicController::ensureBinaryExpressionNode() {
 }
 
 void AtomicController::ensureUnaryExpressionNode() {
-    if (unaryNodeInstalled_) {
+    if(unaryNodeInstalled_)
         return;
-    }
 
     engine_.node({
         .kind = options_.unaryNodeKind,
         .fields = {
             {.name = "op", .kind = ast::FieldKind::String, .required = true},
-            {.name = "expr", .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {"expr"}}
+            {.name = "expr", .kind = ast::FieldKind::Node, .required = true, .allowedNodeTraits = {novac::assets::traits::Expression}}
         },
-        .traits = {"expr"},
+        .traits = {novac::assets::traits::Expression},
         .doc = "Atomic unary expression carrier"
     });
 
@@ -438,9 +414,8 @@ void AtomicController::ensureUnaryExpressionNode() {
         const std::string op{node.str("op")};
         const auto iter{unaryHandlers_.find(op)};
 
-        if (iter == unaryHandlers_.end()) {
+        if(iter == unaryHandlers_.end())
             throw std::runtime_error("AtomicController::ensureUnaryExpressionNode: missing unary operation handler for '" + op + "'");
-        }
 
         return iter->second(node, context);
     });
@@ -449,92 +424,74 @@ void AtomicController::ensureUnaryExpressionNode() {
 }
 
 void AtomicController::registerUnaryOperation(std::string operationId, runtime::ExprHandler handler) {
-    if (operationId.empty()) {
+    if(operationId.empty())
         throw std::runtime_error("AtomicController::registerUnaryOperation: operation id cannot be empty");
-    }
 
-    if (!handler) {
+    if(!handler)
         throw std::runtime_error("AtomicController::registerUnaryOperation: handler cannot be empty");
-    }
 
     const auto result{unaryHandlers_.emplace(std::move(operationId), std::move(handler))};
 
-    if (!result.second) {
+    if(!result.second)
         throw std::runtime_error("AtomicController::registerUnaryOperation: duplicate unary operation handler");
-    }
 }
 
 void AtomicController::validateLiteral(const LiteralInfo &info) const {
-    if (info.id.empty()) {
+    if(info.id.empty())
         throw std::runtime_error("AtomicController::validateLiteral: literal id cannot be empty");
-    }
 
-    if (info.nodeKind.empty()) {
+    if(info.nodeKind.empty())
         throw std::runtime_error("AtomicController::validateLiteral: literal node kind cannot be empty");
-    }
 
-    if (hasLiteral(info.id)) {
+    if(hasLiteral(info.id))
         throw std::runtime_error("AtomicController::validateLiteral: duplicate literal '" + info.id + "'");
-    }
 
-    for (const std::string &capability : info.capabilities) {
-        if (capability.empty()) {
+    for(const std::string &capability : info.capabilities) {
+        if(capability.empty())
             throw std::runtime_error("AtomicController::validateLiteral: provided capability cannot be empty");
-        }
     }
 
-    for (const std::string &requirement : info.requiredCapabilities) {
-        if (requirement.empty()) {
+    for(const std::string &requirement : info.requiredCapabilities) {
+        if(requirement.empty())
             throw std::runtime_error("AtomicController::validateLiteral: required capability cannot be empty");
-        }
-        if (!hasCapability(requirement)) {
+        if(!hasCapability(requirement))
             throw std::runtime_error("AtomicController::validateLiteral: missing required capability '" + requirement + "' for literal '" + info.id + "'");
-        }
     }
 }
 
 void AtomicController::validateOperation(const OperationInfo &info) const {
-    if (info.id.empty()) {
+    if(info.id.empty())
         throw std::runtime_error("AtomicController::validateOperation: operation id cannot be empty");
-    }
 
-    if (info.pattern.token.empty() && info.pattern.tokenKey.empty()) {
+    if(info.pattern.token.empty() && info.pattern.tokenKey.empty())
         throw std::runtime_error("AtomicController::validateOperation: operation pattern cannot be empty");
-    }
 
-    if (hasOperation(info.id)) {
+    if(hasOperation(info.id))
         throw std::runtime_error("AtomicController::validateOperation: duplicate operation '" + info.id + "'");
-    }
 
-    for (const std::string &capability : info.capabilities) {
-        if (capability.empty()) {
+    for(const std::string &capability : info.capabilities)
+        if(capability.empty())
             throw std::runtime_error("AtomicController::validateOperation: provided capability cannot be empty");
-        }
-    }
 
-    for (const std::string &requirement : info.requiredCapabilities) {
-        if (requirement.empty()) {
+    for(const std::string &requirement : info.requiredCapabilities) {
+        if(requirement.empty())
             throw std::runtime_error("AtomicController::validateOperation: required capability cannot be empty");
-        }
-        if (!hasCapability(requirement)) {
+        if(!hasCapability(requirement))
             throw std::runtime_error("AtomicController::validateOperation: missing required capability '" + requirement + "' for operation '" + info.id + "'");
-        }
     }
 }
 
 void AtomicController::rememberLiteral(LiteralInfo info) {
     literalIds_.insert(info.id);
-    for (const std::string &capability : info.capabilities) {
+    for(const std::string &capability : info.capabilities)
         engine_.registerCapability(capability);
-    }
     literals_.push_back(std::move(info));
 }
 
 void AtomicController::rememberOperation(OperationInfo info) {
     operationIds_.insert(info.id);
-    for (const std::string &capability : info.capabilities) {
+    for(const std::string &capability : info.capabilities)
         engine_.registerCapability(capability);
-    }
     operations_.push_back(std::move(info));
 }
 
@@ -548,9 +505,7 @@ LiteralPack integer(std::string nodeKind) {
 
 LiteralPack integer(std::string nodeKind, std::vector<std::string> suffixes) {
     LiteralPack pack;
-    pack.add<IntegerLiteralAtomic>(
-        std::move(nodeKind),
-        detail::SuffixPatternBuilder::regex("$int", suffixes));
+    pack.add<IntegerLiteralAtomic>(std::move(nodeKind), detail::SuffixPatternBuilder::regex("$int", suffixes));
     return pack;
 }
 
@@ -562,9 +517,7 @@ LiteralPack floating(std::string nodeKind) {
 
 LiteralPack floating(std::string nodeKind, std::vector<std::string> suffixes) {
     LiteralPack pack;
-    pack.add<FloatLiteralAtomic>(
-        std::move(nodeKind),
-        detail::SuffixPatternBuilder::regex("$float", suffixes));
+    pack.add<FloatLiteralAtomic>(std::move(nodeKind), detail::SuffixPatternBuilder::regex("$float", suffixes));
     return pack;
 }
 
@@ -576,17 +529,13 @@ LiteralPack stringLiteral(std::string nodeKind) {
 
 LiteralPack stringLiteral(std::string nodeKind, std::vector<std::string> suffixes) {
     LiteralPack pack;
-    pack.add<StringLiteralAtomic>(
-        std::move(nodeKind),
-        detail::SuffixPatternBuilder::regex("$string", suffixes));
+    pack.add<StringLiteralAtomic>(std::move(nodeKind), detail::SuffixPatternBuilder::regex("$string", suffixes));
     return pack;
 }
 
 LiteralPack boolean(std::string nodeKind, std::string trueToken, std::string falseToken) {
     LiteralPack pack;
-    pack.add<BooleanLiteralAtomic>(
-        std::move(nodeKind),
-        BooleanLiteralTokens{std::move(trueToken), std::move(falseToken)});
+    pack.add<BooleanLiteralAtomic>(std::move(nodeKind), BooleanLiteralTokens{std::move(trueToken), std::move(falseToken)});
     return pack;
 }
 
