@@ -16,6 +16,9 @@ BooleanLiteralAtomic::BooleanLiteralAtomic(std::string nodeKind, BooleanLiteralT
 
     if (tokens_.trueToken.empty() || tokens_.falseToken.empty())
         throw std::runtime_error("BooleanLiteralAtomic::BooleanLiteralAtomic: boolean tokens cannot be empty");
+
+    if (tokens_.trueToken == tokens_.falseToken)
+        throw std::runtime_error("BooleanLiteralAtomic::BooleanLiteralAtomic: true and false tokens must be different");
 }
 
 LiteralInfo BooleanLiteralAtomic::info() const {
