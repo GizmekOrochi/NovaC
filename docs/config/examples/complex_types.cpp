@@ -46,9 +46,7 @@ int main() {
     }
 
     std::cout << example.id.name << std::endl;
-    std::cout << "bits=" << layout.bitSize
-              << " size=" << layout.sizeBytes()
-              << " align=" << layout.alignmentBytes() << std::endl;
+    std::cout << "bits=" << layout.bitSize << " size=" << layout.sizeBytes() << " align=" << layout.alignmentBytes() << std::endl;
 
     for (const auto &component : layout.components)
         std::cout << component.componentIndex << ':' << component.byteOffset() << std::endl;

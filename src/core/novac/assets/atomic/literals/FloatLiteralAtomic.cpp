@@ -1,7 +1,9 @@
 #include "novac/assets/atomic/literals/FloatLiteralAtomic.hpp"
+#include "novac/assets/atomic/AtomicIds.hpp"
+#include "novac/assets/AssetTraits.hpp"
 
 #include "novac/assets/atomic/AtomicController.hpp"
-#include "LiteralParsing.hpp"
+#include "novac/assets/atomic/literals/LiteralParsing.hpp"
 
 #include <stdexcept>
 #include <utility>
@@ -10,16 +12,10 @@
 namespace novac::assets::atomic::literals {
 
 
-FloatLiteralAtomic::FloatLiteralAtomic(
-    std::string nodeKind,
-    TokenPattern pattern)
-    : nodeKind_{std::move(nodeKind)},
-      pattern_{std::move(pattern)}
-{
-    if (nodeKind_.empty()) {
-        throw std::runtime_error(
-            "FloatLiteralAtomic::FloatLiteralAtomic: node kind cannot be empty");
-    }
+FloatLiteralAtomic::FloatLiteralAtomic(std::string nodeKind, TokenPattern pattern)
+    : nodeKind_{std::move(nodeKind)}, pattern_{std::move(pattern)} {
+    if (nodeKind_.empty())
+        throw std::runtime_error("FloatLiteralAtomic::FloatLiteralAtomic: node kind cannot be empty");
 }
 
 LiteralInfo FloatLiteralAtomic::info() const {
@@ -33,12 +29,12 @@ void FloatLiteralAtomic::install(AtomicController& controller) const {
         .kind = nodeKind_,
         .fields = {
             {
-                .name = "value",
+                .name = fields::Value.value,
                 .kind = ast::FieldKind::Float,
                 .required = true
             }
         },
-        .traits = {"expr", "literal"},
+        .traits = {novac::assets::traits::Expression, novac::assets::traits::Literal},
         .doc = "Floating-point literal expression"
     });
 
@@ -53,15 +49,13 @@ void FloatLiteralAtomic::install(AtomicController& controller) const {
         const token::Token item{context.consumeKind(token::Kind::Float)};
         detail::validateSuffix(preparedPattern, item, "FloatLiteralAtomic::install");
         ast::NodePtr node{engine->makeNode(kind)};
-        node->set("value", detail::parseFloat(item.text, "FloatLiteralAtomic::install"));
+        node->set(fields::Value, detail::parseFloat(item.text, "FloatLiteralAtomic::install"));
 
         return node;
     });
 
     controller.engine().expression(kind, [](const ast::Node& node, runtime::RuntimeContext&) {
-        const ast::Field& field{
-            node.field("value")
-        };
+        const ast::Field& field{node.field(fields::Value)};
 
         return runtime::Value::floating(
             std::get<double>(field));

@@ -7,6 +7,19 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+Target version: **1.3.0**.
+
+### Added
+
+- Added a bit-precise `MemoryController` with address spaces, ranges, regions, raw allocations, optional lifetimes, typed references, and provenance validation.
+- Added pluggable `BitAccess` backends with a standard `BitStorageAccess` implementation for exact raw bit load/store.
+- Added extensible `AllocationStrategy` placement with a default first-fit `LinearAllocationStrategy`.
+- Added typed memory load/store that reuses `LayoutController` and `StorageController`, preserving custom type storage semantics without hard-coding heap/stack/pointer policy.
+- Added Memory documentation, Doxygen API coverage, executable examples, and unit tests including exact two-bit packing.
+- Added open-ended memory behavior dispatch through `MemoryCapabilitySet`, typed `MemoryOperationHandler<Operation>`, and `MemoryController::invoke<Operation>()`, allowing language-defined operations unknown to NovaC core.
+- Added scoped behavior resolution from allocation to region to address space to controller-global capabilities, with built-in raw load/store using the same operation mechanism.
+- Moved non-template Memory model, bit-access, allocation-strategy, capability-set, context, and standard-operation implementations into `.cpp` translation units.
+
 ## [1.2.0] - 2026-09-24
 
 ### Added

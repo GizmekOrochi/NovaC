@@ -79,6 +79,7 @@ Where should I start?
    guide/atomic
    guide/essentials
    guide/types
+   guide/memory
    guide/native_functions
    guide/customization
    guide/ir
@@ -97,6 +98,7 @@ Where should I start?
    examples/type_system
    examples/complex_types
    examples/cardinal_direction
+   examples/memory_model
    examples/typed_minilang
 
 .. toctree::

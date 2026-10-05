@@ -100,6 +100,11 @@ Controllers are convenience layers
    features. It owns its own validation/finalization lifecycle and is not stored
    inside ``EngineController``.
 
+``MemoryController``
+   Independent optional bit-precise memory asset layered over Types/Layout/Storage.
+   It tracks address spaces, regions, allocations, lifetimes, and typed references
+   while raw address-space behavior remains pluggable through ``BitAccess``.
+
 The upper layers do not replace the Engine. Atomic and Essentials configure it;
 Types can coexist with it without becoming part of the engine core.
 

@@ -43,9 +43,9 @@ void NumericComparisonOperationAtomic::install(AtomicController &controller) con
 
     const auto builder{[binaryKind, opId, engine](parser::ParserContext &, ast::NodePtr left, const token::Token &, ast::NodePtr right) {
         ast::NodePtr node{engine->makeNode(binaryKind)};
-        node->set("op", opId);
-        node->set("left", left);
-        node->set("right", right);
+        node->set(fields::Operation, opId);
+        node->set(fields::Left, left);
+        node->set(fields::Right, right);
         return node;
     }};
 
@@ -54,8 +54,8 @@ void NumericComparisonOperationAtomic::install(AtomicController &controller) con
     const Comparator comparator{makeComparator()};
 
     controller.engine().binaryOperator(operation.id, [comparator](const ast::Node &node, runtime::RuntimeContext &context) {
-        const double left{context.eval(*node.child("left")).asFloat()};
-        const double right{context.eval(*node.child("right")).asFloat()};
+        const double left{context.eval(*node.child(fields::Left)).asFloat()};
+        const double right{context.eval(*node.child(fields::Right)).asFloat()};
         return runtime::Value::boolean(comparator(left, right));
     });
 }

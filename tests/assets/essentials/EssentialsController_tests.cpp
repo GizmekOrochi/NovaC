@@ -1,6 +1,8 @@
 #include "../../tester.hpp"
+#include "novac/assets/AssetTraits.hpp"
 
 #include "novac/assets/essentials/EssentialsController.hpp"
+#include "novac/assets/essentials/EssentialTraits.hpp"
 #include "novac/assets/essentials/controlflow/ForLoops.hpp"
 #include "novac/assets/essentials/functions/Functions.hpp"
 #include "novac/assets/essentials/scopes/ScopedBlocks.hpp"
@@ -265,6 +267,12 @@ TEST(EssentialsController, StandardSubpacksContainExpectedFeatures) {
     CHECK(variables.features.size() == 2);
     CHECK(controlFlow.features.size() == 3);
     CHECK(functions.features.size() == 3);
+}
+
+
+TEST(EssentialsController, ExpressionTraitRemainsCompatible) {
+    CHECK(std::string{novac::assets::essentials::traits::Expression} == "expr");
+    CHECK(novac::assets::essentials::traits::Expression == novac::assets::traits::Expression);
 }
 
 } // namespace

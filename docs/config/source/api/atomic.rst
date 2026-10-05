@@ -1,6 +1,20 @@
 Atomic API
 ==========
 
+
+Atomic identifiers
+------------------
+
+Atomic keeps its AST field names and parser-domain identifiers in the asset
+layer. The engine only provides the generic ``FieldName`` and ``ParseDomain``
+types.
+
+.. doxygennamespace:: novac::assets::atomic::fields
+   :members:
+
+.. doxygennamespace:: novac::assets::atomic::domains
+   :members:
+
 Controller and feature interfaces
 ---------------------------------
 
