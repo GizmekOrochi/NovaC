@@ -27,6 +27,7 @@ EXAMPLES = {
     "typed_minilang.cpp": "10\n30\n25\n",
     "complex_types.cpp": "Example\nbits=96 size=12 align=4\n0:0\n1:4\n2:8\nb:int\n",
     "cardinal_direction.cpp": "CardinalDirection uses 2 bits\nlayout=2 bits align=1 bit\n← -> CardinalDirection (0)\n↑ -> CardinalDirection (1)\n→ -> CardinalDirection (2)\n↓ -> CardinalDirection (3)\npacked bytes=1\npacked value=228\n",
+    "memory_model.cpp": "offsets=0,2,4,6\npacked=228\nmanaged-after-end=dead\n",
 }
 
 

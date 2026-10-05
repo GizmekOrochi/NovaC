@@ -44,6 +44,10 @@ TEST(BooleanLiteralAtomic, EmptyFalseTokenThrows) {
     CHECK(throwsRuntimeError([]() { BooleanLiteralAtomic feature("BooleanLiteral", BooleanLiteralTokens{"true", ""}); }));
 }
 
+TEST(BooleanLiteralAtomic, IdenticalTrueAndFalseTokensThrow) {
+    CHECK(throwsRuntimeError([]() { BooleanLiteralAtomic feature("BooleanLiteral", BooleanLiteralTokens{"same", "same"}); }));
+}
+
 TEST(BooleanLiteralAtomic, InfoReturnsCorrectDefaultMetadata) {
     BooleanLiteralAtomic feature;
     LiteralInfo info = feature.info();

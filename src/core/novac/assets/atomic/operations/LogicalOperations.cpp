@@ -42,9 +42,9 @@ void installBinaryLogical(
 
     const auto builder{[binaryKind, opId, engine](parser::ParserContext &, ast::NodePtr left, const token::Token &, ast::NodePtr right) {
         ast::NodePtr node{engine->makeNode(binaryKind)};
-        node->set("op", opId);
-        node->set("left", left);
-        node->set("right", right);
+        node->set(fields::Operation, opId);
+        node->set(fields::Left, left);
+        node->set(fields::Right, right);
         return node;
     }};
 
@@ -63,13 +63,13 @@ OperationInfo LogicalAndOperationAtomic::info() const {
 
 void LogicalAndOperationAtomic::install(AtomicController &controller) const {
     installBinaryLogical(controller, info(), [](const ast::Node &node, runtime::RuntimeContext &context) {
-        const bool left{context.eval(*node.child("left")).truthy()};
+        const bool left{context.eval(*node.child(fields::Left)).truthy()};
 
         if (!left) {
             return runtime::Value::boolean(false);
         }
 
-        return runtime::Value::boolean(context.eval(*node.child("right")).truthy());
+        return runtime::Value::boolean(context.eval(*node.child(fields::Right)).truthy());
     });
 }
 
@@ -82,13 +82,13 @@ OperationInfo LogicalOrOperationAtomic::info() const {
 
 void LogicalOrOperationAtomic::install(AtomicController &controller) const {
     installBinaryLogical(controller, info(), [](const ast::Node &node, runtime::RuntimeContext &context) {
-        const bool left{context.eval(*node.child("left")).truthy()};
+        const bool left{context.eval(*node.child(fields::Left)).truthy()};
 
         if (left) {
             return runtime::Value::boolean(true);
         }
 
-        return runtime::Value::boolean(context.eval(*node.child("right")).truthy());
+        return runtime::Value::boolean(context.eval(*node.child(fields::Right)).truthy());
     });
 }
 
@@ -114,13 +114,13 @@ void LogicalNotOperationAtomic::install(AtomicController &controller) const {
         context.advance();
         ast::NodePtr operand{context.parse(domain, 30)};
         ast::NodePtr node{engine->makeNode(unaryKind)};
-        node->set("op", opId);
-        node->set("expr", operand);
+        node->set(fields::Operation, opId);
+        node->set(fields::Expression, operand);
         return node;
     });
 
     controller.registerUnaryOperation(operation.id, [](const ast::Node &node, runtime::RuntimeContext &context) {
-        return runtime::Value::boolean(!context.eval(*node.child("expr")).truthy());
+        return runtime::Value::boolean(!context.eval(*node.child(fields::Expression)).truthy());
     });
 }
 
@@ -147,13 +147,13 @@ void NumericNegateOperationAtomic::install(AtomicController &controller) const {
         context.advance();
         ast::NodePtr operand{context.parse(domain, 30)};
         ast::NodePtr node{engine->makeNode(unaryKind)};
-        node->set("op", opId);
-        node->set("expr", operand);
+        node->set(fields::Operation, opId);
+        node->set(fields::Expression, operand);
         return node;
     });
 
     controller.registerUnaryOperation(operation.id, [](const ast::Node &node, runtime::RuntimeContext &context) {
-        const runtime::Value value{context.eval(*node.child("expr"))};
+        const runtime::Value value{context.eval(*node.child(fields::Expression))};
 
         if (isInteger(value)) {
             return runtime::Value::integer(detail::checkedNegate(value.asInt()));

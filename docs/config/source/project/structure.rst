@@ -15,7 +15,7 @@ Repository structure
    |   |   `-- source/             # hand-written Sphinx pages
    |   `-- documentation/          # generated HTML
    |-- src/
-   |   |-- NovaC.hpp               # umbrella header
+   |   |-- include/NovaC.hpp       # umbrella header
    |   |-- include/novac/          # public API
    |   `-- core/novac/             # implementation
    `-- tests/
@@ -23,6 +23,7 @@ Repository structure
        `-- assets/
            |-- atomic/
            |-- essentials/
+           |-- memory/
            `-- types/
 
 Public API
@@ -33,9 +34,11 @@ asset keeps its controller at the asset root and only groups supporting concepts
 small ``model/``, ``semantics/`` and ``aggregate/`` subdirectories. Generic complex-type
 behavior lives in ``model/Capabilities.hpp``; physical layout is orchestrated by
 ``LayoutController``; ``StructType`` is a reference implementation rather than a
-``TypeController`` special case. Alias/canonicalization, conversion relations, validation
-and operation diagnostics remain inside the compact asset. Doxygen scans the tree recursively
-so Breathe can expose the documented symbols in the API section.
+``TypeController`` special case. The Memory asset follows the same compact pattern:
+``MemoryController.hpp`` at the root, a small core model, one raw-access interface, and
+one allocation-policy interface. Alias/canonicalization, conversion relations, validation
+and operation diagnostics remain inside the compact Types asset. Doxygen scans the tree
+recursively so Breathe can expose the documented symbols in the API section.
 
 Implementation
 --------------

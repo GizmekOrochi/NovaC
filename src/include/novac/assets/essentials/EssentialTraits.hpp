@@ -1,5 +1,7 @@
 #pragma once
 
+#include "novac/assets/AssetTraits.hpp"
+
 /**
  * @brief Standard semantic traits used by Essentials AST schemas.
  *
@@ -16,7 +18,7 @@ namespace novac::assets::essentials::traits {
 /**
  * @brief Marks nodes that can be evaluated as expressions.
  */
-inline constexpr const char *Expression{"expr"};
+using novac::assets::traits::Expression;
 
 /**
  * @brief Marks nodes that can execute as statements.
