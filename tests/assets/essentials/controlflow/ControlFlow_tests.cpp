@@ -394,3 +394,59 @@ func main() {
 }
 
 } // namespace
+
+TEST(ControlFlow, WhilePropagatesLanguageDefinedControlSignal) {
+    EngineController engine{};
+    novac::assets::essentials::EssentialsControllerOptions options{};
+    options.controlFlow.maxLoopIterations = 3;
+    novac::assets::essentials::EssentialsController essentials{engine, options};
+    essentials.use(novac::assets::essentials::controlflow::whileLoops());
+
+    int stops{};
+    const novac::ids::ControlSignalKind stopSignal{"test.stop"};
+    engine.expression("Always", [](const novac::ast::Node &, novac::runtime::RuntimeContext &) {
+        return novac::runtime::Value::boolean(true);
+    });
+    engine.statement("Stop", [&stops, stopSignal](const novac::ast::Node &, novac::runtime::RuntimeContext &context) {
+        ++stops;
+        context.signal({stopSignal, novac::runtime::Value::voidValue()});
+    });
+
+    auto loop{novac::ast::Node::make("WhileStatement")};
+    loop->set("condition", novac::ast::Node::make("Always"));
+    loop->set("body", novac::ast::Node::make("Stop"));
+
+    novac::runtime::RuntimeContext context{engine.runtime()};
+    context.exec(*loop);
+
+    CHECK_EQ(stops, 1);
+    CHECK(context.hasSignal(stopSignal));
+}
+
+TEST(ControlFlow, ForPropagatesLanguageDefinedControlSignal) {
+    EngineController engine{};
+    novac::assets::essentials::EssentialsControllerOptions options{};
+    options.controlFlow.maxLoopIterations = 3;
+    novac::assets::essentials::EssentialsController essentials{engine, options};
+    essentials.use(novac::assets::essentials::controlflow::forLoops());
+
+    int stops{};
+    const novac::ids::ControlSignalKind stopSignal{"test.stop"};
+    engine.expression("Always", [](const novac::ast::Node &, novac::runtime::RuntimeContext &) {
+        return novac::runtime::Value::boolean(true);
+    });
+    engine.statement("Stop", [&stops, stopSignal](const novac::ast::Node &, novac::runtime::RuntimeContext &context) {
+        ++stops;
+        context.signal({stopSignal, novac::runtime::Value::voidValue()});
+    });
+
+    auto loop{novac::ast::Node::make("ForStatement")};
+    loop->set("condition", novac::ast::Node::make("Always"));
+    loop->set("body", novac::ast::Node::make("Stop"));
+
+    novac::runtime::RuntimeContext context{engine.runtime()};
+    context.exec(*loop);
+
+    CHECK_EQ(stops, 1);
+    CHECK(context.hasSignal(stopSignal));
+}

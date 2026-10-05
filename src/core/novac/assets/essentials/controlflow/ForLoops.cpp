@@ -93,22 +93,31 @@ void ForLoopsFeature::install(EssentialsController &controller) const {
         context.pushScope();
 
         try {
-            if (node.has(options.initializerField))
+            if (node.has(options.initializerField)) {
                 context.exec(*node.child(options.initializerField));
+            }
 
             int iterations{};
 
-            while (!node.has(options.conditionField) || context.eval(*node.child(options.conditionField)).truthy()) {
+            while (!context.hasSignal()) {
+                if (node.has(options.conditionField)) {
+                    const runtime::Value condition{context.eval(*node.child(options.conditionField))};
+                    if (context.hasSignal() || !condition.truthy()) {
+                        break;
+                    }
+                }
+
                 if (options.maxLoopIterations > 0 && iterations++ >= options.maxLoopIterations)
                     throw std::runtime_error("ForLoopsFeature: maximum loop iteration count exceeded");
 
                 context.exec(*node.child(options.bodyField));
 
-                if (context.hasReturn())
+                if (context.hasSignal())
                     break;
 
-                if (node.has(options.stepField))
+                if (node.has(options.stepField)) {
                     context.exec(*node.child(options.stepField));
+                }
             }
 
             context.popScope();

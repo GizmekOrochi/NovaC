@@ -14,12 +14,13 @@ The Engine is built around a simple principle:
 
 The framework provides infrastructure. The language provides behavior. Most components inside the Engine are registries, dispatchers, validators, and execution pipelines. The Engine itself contains almost no language-specific logic.
 
-Instead, users register:
+Instead, users register or provide:
 
+* source resolvers and preprocessing directives
 * lexical rules
 * parser rules
 * AST schemas
-* runtime handlers
+* runtime handlers and language-defined control signals
 * lowering handlers
 
 to define the behavior of their language.
@@ -33,32 +34,52 @@ This makes the Engine highly modular and suitable for a wide range of language d
 The Engine is composed of several independent subsystems.
 
 ```text
-Source
-   │
-   ▼
- Lexer
-   │
-   ▼
- Tokens
-   │
-   ▼
- Parser
-   │
-   ▼
-  AST
-   │
-   ├──────────────► Runtime
-   │
-   ▼
-  HIR
-   │
-   ▼
-  MIR
+logical Source ──► Preprocessor ──► source fragments ──┐
+                                                       │
+direct text ──────────────────────────────────────────┤
+                                                       ▼
+                                                     Lexer
+                                                       │
+                                                       ▼
+                                                     Tokens
+                                                       │
+                                                       ▼
+                                                     Parser
+                                                       │
+                                                       ▼
+                                                      AST
+                                                       │
+                               ┌───────────────────────┴──────► Runtime
+                               ▼
+                              HIR
+                               │
+                               ▼
+                              MIR
 ```
 
-Every stage is optional.
+The preprocessing path is opt-in through `preprocess`, `tokenizeSource`, and
+`parseSource`. Direct `parse(string)` still begins at the lexer. HIR/MIR and
+runtime execution are optional consumers of the AST.
 
 Users may use only the parts required by their project.
+
+---
+
+
+# Source and preprocessing
+
+`SourceController` resolves logical source requests through ordered callbacks.
+The Engine has no built-in filesystem dependency: applications can resolve
+packages, IDE buffers, archives, memory, or files.
+
+`PreprocessorController` runs before normal language lexing and emits fragments
+that keep their original source location. `standardPreprocessing()` installs
+`#define`, `#undef`, `#include`, `#import`, `#if`, `#ifdef`, `#ifndef`, `#else`,
+and `#endif`. Standard conditions test symbol presence only; there is no macro
+text substitution or C-style `#if` expression evaluator.
+
+`#pragma NAME ...` is dispatched through named pragma handlers registered with
+`EngineController::pragma`.
 
 ---
 
@@ -151,7 +172,12 @@ The runtime also provides:
 - lexical scopes
 - value representation
 - node bindings
-- return propagation
+- generic non-local control signals
+
+Return remains available as a compatibility API and is represented internally
+by the standard `ReturnSignalKind`. Language-defined constructs can use their
+own `ControlSignalKind`; an unhandled signal reaching the runtime root is an
+error.
 
 while remaining independent from any particular language.
 
@@ -211,8 +237,10 @@ Registries are the foundation of the entire architecture.
 
 Almost every configurable system inside the Engine is registry-based.
 
-The engine include:
+The engine includes:
 
+* an ordered source-resolver chain
+* a preprocessing directive/pragma registry
 * lexer registries
 * parser registries
 * AST registries
@@ -240,10 +268,10 @@ Architecture schematic:
 ```text
                     EngineController
                            │
-      ┌────────────┬───────┼────────────┬────────────┐
-      ▼            ▼       ▼            ▼            ▼
-   Lexer       Parser     AST       Runtime         IR
- Registry     Registry  Registry   Registry     Registry
+     ┌──────────┬──────────┼─────────┬─────────┬─────────┐
+     ▼          ▼          ▼         ▼         ▼         ▼
+   Source     Lexer      Parser     AST      Runtime      IR
+ /Preproc   Registry   Registry  Registry   Registry  Registry
 ```
 
 This allows language functionality to be packaged as reusable modules.
@@ -258,13 +286,14 @@ EngineController is the main entry point of the Engine. It acts as a façade ove
 
 Through the controller, users can:
 
+* register source resolvers, directives, and pragma hooks
 * register lexer rules
 * register parser rules
 * register AST schemas
 * register runtime handlers
 * register lowering handlers
-* tokenize source code
-* parse source code
+* preprocess/tokenize/parse logical sources
+* tokenize and parse direct source strings
 * validate ASTs
 * execute ASTs
 * lower ASTs to HIR
@@ -280,6 +309,10 @@ The controller provides a unified interface while keeping subsystems independent
 One of the primary design goals of the Engine is pipeline flexibility. No processing pipeline is enforced.
 
 Valid usage patterns include:
+
+```text
+Source → Preprocessor → Lexer
+```
 
 ```text
 Lexer
@@ -314,10 +347,11 @@ or any custom combination. The Engine supplies the infrastructure. The language 
 The Engine is a language-construction kernel, neither a compiler nor an interpreter.
 Its responsibility is to provide reusable infrastructure for:
 
+* logical source resolution and preprocessing
 * lexical analysis
 * parsing
 * syntax trees
-* runtime execution
+* runtime execution and generic control signals
 * intermediate representations
 * diagnostics
 * modular extensions
@@ -345,6 +379,7 @@ int main() {
         The EngineController is the main entry point of the engine.
         It owns and coordinates:
 
+        - Source resolvers and preprocessing hooks
         - Lexer registries
         - Parser registries
         - AST schemas
@@ -365,6 +400,7 @@ int main() {
 
         A feature may register:
 
+        - Source/preprocessor hooks
         - Lexer rules
         - Parser rules
         - AST schemas

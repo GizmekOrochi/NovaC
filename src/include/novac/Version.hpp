@@ -3,9 +3,9 @@
 #include <string_view>
 
 #define NOVAC_VERSION_MAJOR 1
-#define NOVAC_VERSION_MINOR 3
+#define NOVAC_VERSION_MINOR 4
 #define NOVAC_VERSION_PATCH 0
-#define NOVAC_VERSION_STRING "1.3.0"
+#define NOVAC_VERSION_STRING "1.4.0"
 
 namespace novac {
 

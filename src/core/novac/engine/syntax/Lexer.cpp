@@ -139,17 +139,25 @@ Lexer::Lexer(const LexerRegistry &registry)
     : registry_{registry} {}
 
 std::vector<token::Token> Lexer::tokenize(const std::string &source) {
-    return tokenize(source, {});
+    return tokenize(source, std::string{});
 }
 
 std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string fileName) {
+    return tokenize(source, diagnostics::SourceLocation{std::move(fileName), 0, 1, 1});
+}
+
+std::vector<token::Token> Lexer::tokenize(
+    const std::string &source,
+    diagnostics::SourceLocation origin) {
     std::vector<token::Token> tokens{};
 
     std::size_t index{};
-    int line{1};
-    int column{1};
+    int line{origin.line};
+    int column{origin.column};
 
-    const auto location{[&]() {return diagnostics::SourceLocation{fileName, index, line, column};}};
+    const auto location{[&]() {
+        return diagnostics::SourceLocation{origin.file, origin.offset + index, line, column};
+    }};
     const auto spanFrom{[](diagnostics::SourceLocation begin, diagnostics::SourceLocation end) {return diagnostics::SourceSpan{std::move(begin), std::move(end)};}};
 
     const auto advance{[&]() {

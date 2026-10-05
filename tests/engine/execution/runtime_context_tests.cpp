@@ -157,3 +157,49 @@ TEST(RuntimeContext, ExecDelegatesToRegistry) {
 
     CHECK(called);
 }
+
+TEST(RuntimeContext, SupportsLanguageDefinedControlSignals) {
+    RuntimeRegistry registry{};
+    RuntimeContext context{registry};
+
+    const novac::ids::ControlSignalKind retry{"test.retry"};
+    context.signal({retry, Value::integer(7)});
+
+    CHECK(context.hasSignal());
+    CHECK(context.hasSignal(retry));
+    CHECK(!context.hasReturn());
+    CHECK(context.takeReturn().toString() == "void");
+    CHECK(context.hasSignal(retry));
+
+    const novac::runtime::ControlSignal signal{context.takeSignal()};
+    CHECK(signal.kind.value == "test.retry");
+    CHECK_EQ(signal.payload.asInt(), 7);
+    CHECK(!context.hasSignal());
+}
+
+TEST(Runtime, RejectsUnhandledControlSignalsAtRootBoundary) {
+    RuntimeRegistry registry{};
+    registry.statement("Signal", [](const Node &, RuntimeContext &context) {
+        context.signal({novac::ids::ControlSignalKind{"test.stop"}, Value::voidValue()});
+    });
+
+    novac::runtime::Runtime runtime{registry};
+    Node root{"Signal"};
+
+    CHECK(throwsRuntimeError([&]() { runtime.exec(root); }));
+}
+
+TEST(RuntimeContext, RejectsOverwritingPendingControlSignal) {
+    RuntimeRegistry registry{};
+    RuntimeContext context{registry};
+
+    const novac::ids::ControlSignalKind first{"test.first"};
+    const novac::ids::ControlSignalKind second{"test.second"};
+    context.signal({first, Value::integer(1)});
+
+    CHECK(throwsRuntimeError([&]() {
+        context.signal({second, Value::integer(2)});
+    }));
+    CHECK(context.hasSignal(first));
+    CHECK_EQ(context.controlSignal().payload.asInt(), 1);
+}

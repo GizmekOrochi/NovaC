@@ -5,9 +5,16 @@ All notable changes to NovaC are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] - 2026-10-05
 
-Target version: **1.3.0**.
+- Added a core custom control-flow extension API that composes lexer, AST, parser, runtime, and HIR hooks through regular `EngineFeature` installers without depending on `EssentialsController`.
+- Added generic runtime `ControlSignal` propagation primitives, reusable `LoopGuard`, and HIR builder block-state introspection for language-defined flow constructs.
+- Added `SourceController` with ordered application-defined resolvers for filesystem-independent source loading.
+- Added `PreprocessorController` with extensible directives, pragma hooks, include/import handling, symbol-based conditional compilation, cycle/depth guards, and source-origin-preserving fragments.
+- Added `EngineController::preprocess()`, `tokenizeSource()`, and `parseSource()` while preserving the existing direct `parse(string)` pipeline.
+- Added dedicated control-flow and preprocessing guides plus installed-package examples covering custom statement parsing/runtime/HIR lowering, resolver-based includes/imports, conditional compilation, pragma hooks, canonical import de-duplication, and preserved source locations.
+
+## [1.3.0] - 2026-10-05
 
 ### Added
 

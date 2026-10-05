@@ -187,7 +187,7 @@ const Value *Environment::resolve(const std::string &name) const {
 }
 
 RuntimeContext::RuntimeContext(const RuntimeRegistry &registry)
-    : registry_{registry}, scopes_{}, nodeBindings_{}, hasReturn_{false}, returnValue_{} {
+    : registry_{registry}, scopes_{}, nodeBindings_{}, signal_{} {
     scopes_.push_back(std::make_unique<Environment>(nullptr));
 }
 
@@ -257,21 +257,59 @@ bool RuntimeContext::hasBoundNode(const std::string &name) const {
     return nodeBindings_.find(name) != nodeBindings_.end();
 }
 
+void RuntimeContext::signal(ControlSignal value) {
+    if (value.kind.value.empty()) {
+        throw std::runtime_error("RuntimeContext::signal: signal kind cannot be empty");
+    }
+    if (signal_) {
+        throw std::runtime_error(
+            "RuntimeContext::signal: cannot raise '" + value.kind.value
+            + "' while control signal '" + signal_->kind.value + "' is pending");
+    }
+
+    signal_ = std::move(value);
+}
+
+bool RuntimeContext::hasSignal() const {
+    return signal_.has_value();
+}
+
+bool RuntimeContext::hasSignal(const ids::ControlSignalKind &kind) const {
+    return signal_.has_value() && signal_->kind.value == kind.value;
+}
+
+const ControlSignal &RuntimeContext::controlSignal() const {
+    if (!signal_) {
+        throw std::runtime_error("RuntimeContext::controlSignal: no control-flow signal is pending");
+    }
+
+    return *signal_;
+}
+
+ControlSignal RuntimeContext::takeSignal() {
+    if (!signal_) {
+        throw std::runtime_error("RuntimeContext::takeSignal: no control-flow signal is pending");
+    }
+
+    ControlSignal value{std::move(*signal_)};
+    signal_.reset();
+    return value;
+}
+
 void RuntimeContext::returnValue(Value value) {
-    hasReturn_ = true;
-    returnValue_ = std::move(value);
+    signal(ControlSignal{ReturnSignalKind, std::move(value)});
 }
 
 bool RuntimeContext::hasReturn() const {
-    return hasReturn_;
+    return hasSignal(ReturnSignalKind);
 }
 
 Value RuntimeContext::takeReturn() {
-    hasReturn_ = false;
-    Value value{std::move(returnValue_)};
-    returnValue_ = Value::voidValue();
+    if (!hasReturn()) {
+        return Value::voidValue();
+    }
 
-    return value;
+    return std::move(takeSignal().payload);
 }
 
 RuntimeRegistry::RuntimeRegistry(registry::DuplicatePolicy duplicatePolicy)
@@ -442,14 +480,26 @@ Runtime::Runtime(const RuntimeRegistry &registry)
 
 Value Runtime::eval(const ast::Node &root) const {
     RuntimeContext context{registry_};
+    Value result{context.eval(root)};
 
-    return context.eval(root);
+    if (context.hasSignal()) {
+        throw std::runtime_error(
+            "Runtime::eval: unhandled control signal '"
+            + context.controlSignal().kind.value + "'");
+    }
+
+    return result;
 }
 
 void Runtime::exec(const ast::Node &root) const {
     RuntimeContext context{registry_};
-
     context.exec(root);
+
+    if (context.hasSignal()) {
+        throw std::runtime_error(
+            "Runtime::exec: unhandled control signal '"
+            + context.controlSignal().kind.value + "'");
+    }
 }
 
 } // namespace novac::runtime

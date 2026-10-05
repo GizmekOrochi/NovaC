@@ -22,6 +22,8 @@ EXAMPLES = {
     "minimal.cpp": "42\n",
     "calculator.cpp": "1 + 2 * 3 -> 7\n10 >= 5 -> true\ntrue && !false -> true\n",
     "custom_language.cpp": "factorial(5) =\n120\nsum =\n10\nreturned: 130\n",
+    "custom_control_flow.cpp": "runtime hits=1\nhir blocks=3\nentry -> branch.false\nunless.body -> jump\nunless.exit -> open\n",
+    "preprocessing.cpp": "dialect=strict\nfrom_shared @ shared.nova:1\nfrom_module @ module.nova:1\nroot @ main.nova:8\n",
     "ir_builder.cpp": "entry\n  const\n  const\n  add\n  return\n",
     "type_system.cpp": "u16\n1\n",
     "typed_minilang.cpp": "10\n30\n25\n",

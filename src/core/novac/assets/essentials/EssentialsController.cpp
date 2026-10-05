@@ -140,6 +140,8 @@ EssentialsController &EssentialsController::installProgram(){
                 context.exec(*item);
                 if(context.hasReturn())
                     return context.takeReturn();
+                if(context.hasSignal())
+                    break;
             }
 
             return runtime::Value::voidValue();

@@ -51,14 +51,19 @@ void WhileLoopsFeature::install(EssentialsController &controller) const {
     controller.engine().statement(options.whileNodeKind, [options](const ast::Node &node, runtime::RuntimeContext &context) {
         int iterations{};
 
-        while (context.eval(*node.child(options.conditionField)).truthy()) {
+        while (true) {
+            const runtime::Value condition{context.eval(*node.child(options.conditionField))};
+            if (context.hasSignal() || !condition.truthy()) {
+                break;
+            }
+
             if (options.maxLoopIterations > 0 && iterations++ >= options.maxLoopIterations) {
                 throw std::runtime_error("WhileLoopsFeature: maximum loop iteration count exceeded");
             }
 
             context.exec(*node.child(options.bodyField));
 
-            if (context.hasReturn()) {
+            if (context.hasSignal()) {
                 break;
             }
         }

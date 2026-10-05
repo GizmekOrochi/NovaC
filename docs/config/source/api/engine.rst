@@ -124,3 +124,54 @@ Intermediate representations
 
 .. doxygenclass:: novac::ir::HIRLoweringPass
    :members:
+
+Control-flow extension facilities
+---------------------------------
+
+.. doxygenenum:: novac::controlflow::TriggerRegistration
+
+.. doxygenstruct:: novac::controlflow::StatementSpec
+   :members:
+
+.. doxygenclass:: novac::controlflow::LoopGuard
+   :members:
+
+.. doxygenstruct:: novac::ids::ControlSignalKind
+   :members:
+
+.. doxygenstruct:: novac::runtime::ControlSignal
+   :members:
+
+Source and preprocessing
+------------------------
+
+.. doxygenstruct:: novac::source::Source
+   :members:
+
+.. doxygenstruct:: novac::source::SourceRequest
+   :members:
+
+.. doxygenstruct:: novac::source::SourceFragment
+   :members:
+
+.. doxygenstruct:: novac::source::PreprocessedSource
+   :members:
+
+.. doxygenstruct:: novac::source::PreprocessOptions
+   :members:
+
+.. doxygenstruct:: novac::source::Directive
+   :members:
+
+.. doxygenenum:: novac::source::DirectiveMode
+
+.. doxygenclass:: novac::source::SourceController
+   :members:
+
+.. doxygenclass:: novac::source::PreprocessorContext
+   :members:
+
+.. doxygenclass:: novac::source::PreprocessorController
+   :members:
+
+.. doxygenfunction:: novac::source::standardPreprocessing

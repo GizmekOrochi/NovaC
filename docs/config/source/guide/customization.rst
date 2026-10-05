@@ -73,3 +73,28 @@ Customize deliberately
 Changing syntax is easy; changing semantics should still be intentional. Keep
 your language's options in one configuration function or object so keywords,
 node names, and runtime expectations remain consistent across the project.
+
+Custom control flow
+-------------------
+
+Language-defined statements no longer need changes to ``EssentialsController``.
+Use the Engine's regular feature/registry model together with
+``novac::controlflow::statement`` and, when needed, generic runtime control
+signals and ``LoopGuard``.
+
+The dedicated guide explains ownership, signal propagation, and real HIR CFG
+lowering: :doc:`control_flow_extensions`. The complete compile-tested example
+is :doc:`../examples/custom_control_flow`.
+
+Source and preprocessing extensions
+-----------------------------------
+
+Logical source loading and preprocessing are also extensible. ``SourceController``
+uses application-owned resolvers, while ``PreprocessorController`` dispatches
+directives and pragma-like hooks before the language lexer. The standard feature
+adds symbol defines, include/import, and simple symbol-presence conditionals.
+
+Read :doc:`preprocessing` for exact ``#include``/``#import`` semantics, source
+identity, conditional limitations, source-location preservation, and custom
+directive APIs. The compile-tested end-to-end example is
+:doc:`../examples/preprocessing`.

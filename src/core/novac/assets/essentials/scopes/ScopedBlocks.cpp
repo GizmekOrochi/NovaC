@@ -55,7 +55,7 @@ void ScopedBlocksFeature::install(EssentialsController &controller) const {
 
                 context.exec(*statement);
 
-                if (context.hasReturn())
+                if (context.hasSignal())
                     break;
             }
 

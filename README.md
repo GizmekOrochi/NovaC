@@ -1,6 +1,6 @@
 # NovaC
 
-NovaC is a modular C++20 framework for building programming languages. Its engine provides tokenization, Pratt parsing, AST/runtime execution, diagnostics, HIR/MIR infrastructure, and an extensible typed semantic system, while language behavior is composed through installable features instead of being hard-coded into the core.
+NovaC is a modular C++20 framework for building programming languages. Its engine provides extensible logical-source preprocessing, tokenization, Pratt parsing, AST/runtime execution, generic control-flow signals, diagnostics, and HIR/MIR infrastructure, while optional assets add typed semantics, memory, and reusable language behavior through installable features instead of hard-coding one language into the core.
 
 ## Quick start
 
@@ -50,7 +50,7 @@ make install DESTDIR="$PWD/stage" PREFIX=/usr
 Installed CMake consumers can use:
 
 ```cmake
-find_package(NovaC 1.3 CONFIG REQUIRED)
+find_package(NovaC 1.4 CONFIG REQUIRED)
 target_link_libraries(my_target PRIVATE NovaC::NovaC)
 ```
 
@@ -60,7 +60,7 @@ The public umbrella header and version API are available after installation:
 #include <NovaC.hpp>
 
 static_assert(NOVAC_VERSION_MAJOR == 1);
-static_assert(novac::Version == "1.3.0");
+static_assert(novac::Version == "1.4.0");
 ```
 
 Remove an installation made with the same prefix using:
@@ -106,7 +106,7 @@ For release validation, warnings in the documentation are errors and examples ar
 make doc-strict
 ```
 
-The generated HTML is written to `docs/documentation/index.html`. Documentation setup details are in [`docs/README.md`](docs/README.md) and [`docs/config/README.md`](docs/config/README.md).
+The generated HTML is written to `docs/documentation/index.html`. The documentation includes dedicated guides for custom control-flow extensions and source/preprocessor integration, with compile-tested examples under `docs/config/examples/`. Documentation setup details are in [`docs/README.md`](docs/README.md) and [`docs/config/README.md`](docs/config/README.md).
 
 A complete local release gate is available as:
 
@@ -120,7 +120,7 @@ Continuous integration runs normal tests with GCC and Clang, sanitizer jobs, the
 
 ## Release
 
-NovaC 1.3.0 is the current development version. NovaC 1.2.0 remains the latest stable public release until 1.3.0 is published. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
+NovaC 1.4.0 is the current development version. NovaC 1.3.0 is the latest stable public release. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
 
 After committing all release changes and obtaining a green release gate, create a clean source archive from the committed `HEAD` with:
 
@@ -128,7 +128,7 @@ After committing all release changes and obtaining a green release gate, create 
 make dist
 ```
 
-`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.3.0.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded.
+`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.4.0.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded.
 
 ## License
 

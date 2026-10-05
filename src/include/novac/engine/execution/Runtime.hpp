@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -161,6 +162,24 @@ private:
 };
 
 /**
+ * @brief Represents a non-local control-flow signal raised during execution.
+ *
+ * Signals let language features propagate control decisions such as return,
+ * break, continue, retry or language-specific flow without extending
+ * RuntimeContext for every new statement kind.
+ */
+struct ControlSignal {
+    /** Language-defined signal identifier. */
+    ids::ControlSignalKind kind{ids::ControlSignalKind{""}};
+
+    /** Optional payload carried by the signal. */
+    Value payload{};
+};
+
+/** @brief Standard signal kind used by the return compatibility API. */
+inline const ids::ControlSignalKind ReturnSignalKind{"return"};
+
+/**
  * @brief Lexically scoped variable environment.
  *
  * An environment owns variables declared in one scope and can reference a
@@ -253,7 +272,8 @@ using DeclHandler = std::function<void(const ast::NodePtr &, RuntimeContext &)>;
  * @brief Execution context shared by runtime handlers.
  *
  * RuntimeContext keeps the state required while executing one AST: lexical
- * scopes, declaration bindings, return state and access to the RuntimeRegistry.
+ * scopes, declaration bindings, generic control-flow signal state and access
+ * to the RuntimeRegistry.
  *
  * Expression and statement evaluation are forwarded to the associated registry,
  * allowing language features to provide their own runtime behavior.
@@ -361,28 +381,56 @@ public:
     bool hasBoundNode(const std::string &name) const;
 
     /**
+     * @brief Raises a language-defined control-flow signal.
+     *
+     * Only one signal may be pending at a time. A construct must explicitly
+     * consume the signal it owns before raising another one; this prevents an
+     * unrelated return/break/continue decision from being overwritten.
+     *
+     * @param value Signal to store.
+     * @throws std::runtime_error If the signal kind is empty or another signal
+     * is already pending.
+     */
+    void signal(ControlSignal value);
+
+    /** @brief Returns true when any control-flow signal is pending. */
+    bool hasSignal() const;
+
+    /**
+     * @brief Checks whether the pending signal has a specific kind.
+     * @param kind Signal identifier to test.
+     */
+    bool hasSignal(const ids::ControlSignalKind &kind) const;
+
+    /**
+     * @brief Returns the pending signal without consuming it.
+     * @throws std::runtime_error If no signal is pending.
+     */
+    const ControlSignal &controlSignal() const;
+
+    /**
+     * @brief Consumes and returns the pending signal.
+     * @throws std::runtime_error If no signal is pending.
+     */
+    ControlSignal takeSignal();
+
+    /**
      * @brief Sets the current return value.
      *
-     * Calling this marks a return as pending until takeReturn() consumes it.
+     * This compatibility API raises the standard "return" signal.
      *
      * @param value Return value.
      */
     void returnValue(Value value);
 
-    /**
-     * @brief Indicates whether a return value has been produced.
-     *
-     * @return True if a return is pending.
-     */
+    /** @brief Indicates whether the pending signal is a return. */
     bool hasReturn() const;
 
     /**
-     * @brief Retrieves and clears the pending return value.
+     * @brief Retrieves and clears a pending return value.
      *
-     * The stored value is moved out, the return flag is reset and the internal
-     * value returns to the void state.
-     *
-     * @return Stored return value.
+     * If another signal kind is pending it is preserved and a void value is
+     * returned, maintaining the historical no-return behavior.
      */
     Value takeReturn();
 
@@ -390,8 +438,7 @@ private:
     const RuntimeRegistry &registry_;
     std::vector<std::unique_ptr<Environment>> scopes_;
     BindingMap nodeBindings_;
-    bool hasReturn_;
-    Value returnValue_;
+    std::optional<ControlSignal> signal_;
 };
 
 /**

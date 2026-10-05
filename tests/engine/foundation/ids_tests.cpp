@@ -3,6 +3,7 @@
 
 #include <string>
 
+using novac::ids::ControlSignalKind;
 using novac::ids::FieldName;
 using novac::ids::NodeKind;
 using novac::ids::Operation;
@@ -62,4 +63,16 @@ TEST(Operation, AllowsEmptyValue) {
     Operation operation{""};
 
     CHECK(operation.value.empty());
+}
+
+TEST(ControlSignalKind, StoresValue) {
+    ControlSignalKind signal{"language.break"};
+
+    CHECK(signal.value == "language.break");
+}
+
+TEST(ControlSignalKind, AllowsEmptyValue) {
+    ControlSignalKind signal{""};
+
+    CHECK(signal.value.empty());
 }

@@ -8,6 +8,8 @@
 #include "syntax/Node.hpp"
 #include "syntax/Parser.hpp"
 #include "syntax/Token.hpp"
+#include "source/SourceController.hpp"
+#include "source/PreprocessorController.hpp"
 #include "transformation/IR.hpp"
 
 #include <functional>
@@ -257,6 +259,33 @@ public:
      * @throws std::runtime_error If symbol is empty or duplicate registration is rejected.
      */
     registry::RegisterStatus symbol(std::string symbol);
+
+    /**
+     * @brief Registers an extensible preprocessor directive.
+     *
+     * This is a convenience wrapper around PreprocessorController::directive()
+     * and is intended for use from EngineFeature installers.
+     *
+     * @param name Directive name without the configured prefix.
+     * @param handler Directive callback.
+     * @param mode Whether the callback also runs in inactive conditional branches.
+     * @return Registration result.
+     */
+    registry::RegisterStatus directive(
+        std::string name,
+        source::PreprocessorController::DirectiveHandler handler,
+        source::DirectiveMode mode = source::DirectiveMode::ActiveOnly);
+
+    /**
+     * @brief Registers one named handler dispatched by #pragma.
+     *
+     * @param name Pragma name following ``#pragma``.
+     * @param handler Callback receiving the remaining pragma arguments.
+     * @return Registration result.
+     */
+    registry::RegisterStatus pragma(
+        std::string name,
+        source::PreprocessorController::PragmaHandler handler);
 
     /**
      * @brief Registers an AST node schema.
@@ -637,6 +666,54 @@ public:
     std::vector<token::Token> tokenize(const std::string &source) const;
 
     /**
+     * @brief Preprocesses one logical source while preserving source origins.
+     * @param sourceValue Root logical source. Its canonical id must be non-empty.
+     * @param options Per-run preprocessing options.
+     * @return Ordered source-origin fragments plus the root end location.
+     */
+    source::PreprocessedSource preprocess(
+        const source::Source &sourceValue,
+        source::PreprocessOptions options = {}) const;
+
+    /**
+     * @brief Preprocesses and tokenizes one logical source.
+     *
+     * Each fragment is tokenized from its original source location and one final
+     * End token is appended at the end location of the root source.
+     *
+     * @param sourceValue Root logical source.
+     * @param options Per-run preprocessing options.
+     * @return Combined token stream terminated by one End token.
+     */
+    std::vector<token::Token> tokenizeSource(
+        const source::Source &sourceValue,
+        source::PreprocessOptions options = {}) const;
+
+    /**
+     * @brief Preprocesses and parses one logical source using the configured start domain.
+     * @param sourceValue Root logical source.
+     * @param options Per-run preprocessing options.
+     * @return Parsed AST root.
+     * @throws std::runtime_error If no start domain is configured or preprocessing/parsing fails.
+     */
+    ast::NodePtr parseSource(
+        const source::Source &sourceValue,
+        source::PreprocessOptions options = {}) const;
+
+    /**
+     * @brief Resolves, preprocesses and parses a root source specifier.
+     *
+     * The root request is sent to SourceController with an empty importer id.
+     *
+     * @param specifier Logical root source specifier.
+     * @param options Per-run preprocessing options.
+     * @return Parsed AST root.
+     */
+    ast::NodePtr parseSource(
+        const std::string &specifier,
+        source::PreprocessOptions options = {}) const;
+
+    /**
      * @brief Parses source text using the configured start domain.
      *
      * The source is first tokenized, then parsed using startDomain().
@@ -920,6 +997,18 @@ public:
      */
     const runtime::RuntimeRegistry &runtime() const;
 
+    /** @brief Returns the mutable source resolver controller. */
+    source::SourceController &sources();
+
+    /** @brief Returns the source resolver controller. */
+    const source::SourceController &sources() const;
+
+    /** @brief Returns the mutable source preprocessor controller. */
+    source::PreprocessorController &preprocessor();
+
+    /** @brief Returns the source preprocessor controller. */
+    const source::PreprocessorController &preprocessor() const;
+
     /**
      * @brief Returns the lowering registry.
      *
@@ -973,6 +1062,8 @@ private:
     ast::NodeRegistry nodes_;
     parser::ParserRegistry parser_;
     runtime::RuntimeRegistry runtime_;
+    source::SourceController sources_;
+    source::PreprocessorController preprocessor_;
     ir::LoweringRegistry lowering_;
     mutable diagnostics::DiagnosticEngine diagnostics_;
     std::string startDomain_;
