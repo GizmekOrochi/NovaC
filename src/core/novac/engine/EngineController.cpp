@@ -1,6 +1,7 @@
 #include "novac/engine/EngineController.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <stdexcept>
 #include <utility>
 
@@ -114,6 +115,8 @@ EngineController::EngineController(EngineControllerOptions options)
       nodes_{options.duplicatePolicy},
       parser_{options.duplicatePolicy},
       runtime_{options.duplicatePolicy},
+      sources_{options.duplicatePolicy},
+      preprocessor_{options.duplicatePolicy},
       lowering_{options.duplicatePolicy},
       diagnostics_{},
       startDomain_{std::move(options.startDomain)},
@@ -127,6 +130,19 @@ registry::RegisterStatus EngineController::keyword(std::string keyword) {
 
 registry::RegisterStatus EngineController::symbol(std::string symbol) {
     return lexer_.symbol(std::move(symbol));
+}
+
+registry::RegisterStatus EngineController::directive(
+    std::string name,
+    source::PreprocessorController::DirectiveHandler handler,
+    source::DirectiveMode mode) {
+    return preprocessor_.directive(std::move(name), std::move(handler), mode);
+}
+
+registry::RegisterStatus EngineController::pragma(
+    std::string name,
+    source::PreprocessorController::PragmaHandler handler) {
+    return preprocessor_.pragma(std::move(name), std::move(handler));
 }
 
 registry::RegisterStatus EngineController::node(ast::NodeSchema schema) {
@@ -258,6 +274,65 @@ std::vector<token::Token> EngineController::tokenize(const std::string &source) 
         diagnostics_.error(error.what());
         throw;
     }
+}
+
+source::PreprocessedSource EngineController::preprocess(
+    const source::Source &sourceValue,
+    source::PreprocessOptions options) const {
+    try {
+        return preprocessor_.process(sourceValue, sources_, lexer_, diagnostics_, std::move(options));
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
+}
+
+std::vector<token::Token> EngineController::tokenizeSource(
+    const source::Source &sourceValue,
+    source::PreprocessOptions options) const {
+    const source::PreprocessedSource processed{preprocess(sourceValue, std::move(options))};
+    lexer::Lexer lexer{lexer_};
+    std::vector<token::Token> tokens{};
+
+    try {
+        for (const source::SourceFragment &fragment : processed.fragments) {
+            std::vector<token::Token> fragmentTokens{lexer.tokenize(fragment.text, fragment.origin)};
+            if (!fragmentTokens.empty()) {
+                fragmentTokens.pop_back();
+            }
+            tokens.insert(
+                tokens.end(),
+                std::make_move_iterator(fragmentTokens.begin()),
+                std::make_move_iterator(fragmentTokens.end()));
+        }
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
+
+    const diagnostics::SourceLocation &endLocation{processed.terminalLocation};
+    tokens.push_back({token::Kind::End, "", "", {endLocation, endLocation}, endLocation.line, endLocation.column});
+    return tokens;
+}
+
+ast::NodePtr EngineController::parseSource(
+    const source::Source &sourceValue,
+    source::PreprocessOptions options) const {
+    requireStartDomain("EngineController::parseSource");
+    return parseTokens(tokenizeSource(sourceValue, std::move(options)), startDomain_);
+}
+
+ast::NodePtr EngineController::parseSource(
+    const std::string &specifier,
+    source::PreprocessOptions options) const {
+    source::Source resolved{};
+    try {
+        resolved = sources_.resolve({specifier, {}});
+    } catch (const std::runtime_error &error) {
+        diagnostics_.error(error.what());
+        throw;
+    }
+    return parseSource(resolved, std::move(options));
 }
 
 ast::NodePtr EngineController::parse(const std::string &source) const {
@@ -441,6 +516,22 @@ runtime::RuntimeRegistry &EngineController::runtime() {
 
 const runtime::RuntimeRegistry &EngineController::runtime() const {
     return runtime_;
+}
+
+source::SourceController &EngineController::sources() {
+    return sources_;
+}
+
+const source::SourceController &EngineController::sources() const {
+    return sources_;
+}
+
+source::PreprocessorController &EngineController::preprocessor() {
+    return preprocessor_;
+}
+
+const source::PreprocessorController &EngineController::preprocessor() const {
+    return preprocessor_;
 }
 
 ir::LoweringRegistry &EngineController::lowering() {

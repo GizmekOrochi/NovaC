@@ -77,4 +77,22 @@ struct Operation {
     explicit Operation(std::string name) : value{std::move(name)} {}
 };
 
+/**
+ * @brief Strong wrapper for a runtime control-signal identifier.
+ *
+ * ControlSignalKind keeps language-defined non-local control-flow names
+ * distinct from unrelated string identifiers used by the engine.
+ */
+struct ControlSignalKind {
+    /** Stored identifier value. */
+    std::string value{};
+
+    /**
+     * @brief Creates a control-signal identifier.
+     *
+     * @param name Identifier value.
+     */
+    explicit ControlSignalKind(std::string name) : value{std::move(name)} {}
+};
+
 } // namespace novac::ids

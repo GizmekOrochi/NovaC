@@ -153,3 +153,37 @@ TEST(ScopedBlocksFeature, CustomBlockSyntaxExecutes) {
 }
 
 } // namespace
+
+TEST(ScopedBlocksFeature, CustomControlSignalStopsRemainingStatements) {
+    EngineController engine{};
+    novac::assets::essentials::EssentialsController essentials{engine};
+    essentials.installProgram();
+    essentials.installScopedBlocks();
+
+    int hits{};
+    const novac::ids::ControlSignalKind stopSignal{"test.stop"};
+
+    engine.keyword("stop");
+    engine.node({"StopStmt", {}, {"stmt"}, {}});
+    engine.parseRule("stmt", "stop", [](novac::parser::ParserContext &context) {
+        context.consume("stop");
+        return novac::ast::Node::make("StopStmt");
+    });
+    engine.statement("StopStmt", [stopSignal](const novac::ast::Node &, novac::runtime::RuntimeContext &context) {
+        context.signal({stopSignal, novac::runtime::Value::voidValue()});
+    });
+
+    engine.keyword("hit");
+    engine.node({"HitStmt", {}, {"stmt"}, {}});
+    engine.parseRule("stmt", "hit", [](novac::parser::ParserContext &context) {
+        context.consume("hit");
+        return novac::ast::Node::make("HitStmt");
+    });
+    engine.statement("HitStmt", [&hits](const novac::ast::Node &, novac::runtime::RuntimeContext &) {
+        ++hits;
+    });
+
+    const auto program{engine.parse("{ stop hit }")};
+    CHECK(throwsRuntimeError([&]() { (void)engine.eval(*program); }));
+    CHECK_EQ(hits, 0);
+}

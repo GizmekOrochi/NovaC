@@ -9,6 +9,24 @@ Basic block
    Straight-line sequence of IR instructions ending in a terminator such as a
    branch or return.
 
+Control signal
+   Runtime marker used to propagate a non-local language-defined control
+   decision through nested statements until the construct that owns it consumes
+   it. NovaC return handling is implemented as a standard control signal.
+
+Directive
+   Pre-lexer source command introduced by the configured directive prefix
+   (``#`` by default) and dispatched by ``PreprocessorController``.
+
+Source resolver
+   Application-defined callback that maps a logical source specifier and its
+   importer to a canonical ``Source``. Resolvers are tried in registration
+   order.
+
+Source fragment
+   Piece of preprocessed text paired with its original source location so later
+   lexing can preserve file/line/column provenance.
+
 DSL — Domain-Specific Language
    A language designed for a focused problem domain rather than general-purpose
    programming.

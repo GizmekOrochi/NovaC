@@ -136,6 +136,14 @@ void HIRBuilder::setCurrentBlock(BlockId block) {
     currentBlock_ = block;
 }
 
+BlockId HIRBuilder::currentBlockId() const noexcept {
+    return currentBlock_;
+}
+
+bool HIRBuilder::currentBlockTerminated() const {
+    return currentBlock().terminator.has_value();
+}
+
 ValueId HIRBuilder::emitValue(std::string op, std::vector<Operand> operands, ValueType type) {
     if (currentBlock().terminator.has_value()) {
         throw std::runtime_error("HIRBuilder::emitValue: cannot emit instruction after terminator");

@@ -168,3 +168,17 @@ TEST(HIRBuilder, RejectsEmitAfterTerminator) {
     CHECK(throwsRuntimeError([&]() { builder.emit("after"); }));
     CHECK(throwsRuntimeError([&]() { static_cast<void>(builder.emitValue("after")); }));
 }
+
+TEST(HIRBuilder, ExposesCurrentBlockStateForComposableControlFlow) {
+    novac::ir::HIRBuilder builder{};
+    CHECK_EQ(builder.currentBlockId().value, std::uint32_t{0});
+    CHECK(!builder.currentBlockTerminated());
+
+    const novac::ir::BlockId exit{builder.createBlock("exit")};
+    builder.terminate("jump", {}, {exit});
+    CHECK(builder.currentBlockTerminated());
+
+    builder.setCurrentBlock(exit);
+    CHECK_EQ(builder.currentBlockId().value, exit.value);
+    CHECK(!builder.currentBlockTerminated());
+}

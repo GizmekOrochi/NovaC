@@ -367,6 +367,12 @@ public:
      */
     void setCurrentBlock(BlockId block);
 
+    /** @brief Returns the identifier of the current HIR block. */
+    BlockId currentBlockId() const noexcept;
+
+    /** @brief Returns true when the current HIR block already has a terminator. */
+    bool currentBlockTerminated() const;
+
     /**
      * @brief Emits an instruction that produces a value.
      *

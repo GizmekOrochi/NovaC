@@ -55,8 +55,10 @@ What just happened?
 -------------------
 
 ``EngineController``
-   Owns the language infrastructure: lexer registry, parser registry, AST
-   schemas, runtime dispatch, diagnostics, and optional lowering infrastructure.
+   Owns the language infrastructure: source/preprocessor controllers, lexer
+   registry, parser registry, AST schemas, runtime dispatch, diagnostics, and
+   optional lowering infrastructure. This quick start uses the direct-text path,
+   so preprocessing stays idle.
 
 ``AtomicController``
    Installs expression-level behavior. The standard core provides integer,

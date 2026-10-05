@@ -236,6 +236,16 @@ public:
      */
     std::vector<token::Token> tokenize(const std::string &source, std::string fileName);
 
+    /**
+     * @brief Tokenizes a source fragment beginning at an existing source location.
+     *
+     * This is used by preprocessing so tokens from included or conditionally
+     * filtered source retain their original file, offset, line and column.
+     */
+    std::vector<token::Token> tokenize(
+        const std::string &source,
+        diagnostics::SourceLocation origin);
+
 private:
     const LexerRegistry &registry_;
 };

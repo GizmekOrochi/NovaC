@@ -46,7 +46,18 @@ Parser/AST tests
    incomplete expressions, and fallback behavior.
 
 Runtime tests
-   Verify values, scopes, functions, control flow, diagnostics, and errors.
+   Verify values, scopes, functions, control flow, control-signal propagation,
+   diagnostics, and errors.
+
+Source/preprocessor tests
+   Use in-memory resolvers to verify include/import identity, conditional
+   branches, pragma hooks, source locations, cycles, and depth limits without
+   relying on the host filesystem. Include at least one inactive branch that
+   contains text invalid for the normal language lexer.
+
+Lowering tests
+   For custom control flow, assert the produced basic blocks, terminators, and
+   targets rather than only checking that a lowerer callback ran.
 
 End-to-end tests
    Feed complete source programs through parse -> validate -> eval and check the
