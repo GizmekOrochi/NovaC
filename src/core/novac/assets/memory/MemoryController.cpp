@@ -400,7 +400,7 @@ void MemoryController::store(const MemoryReference &referenceValue, const types:
     const AddressRange range{dereference(referenceValue)};
 
     // Encode through the existing type storage semantics, then commit the exact
-    // physical bits to the address-space backend. This preserves the 1.2 storage
+    // physical bits to the address-space backend. This preserves the existing storage
     // API and keeps custom Memory backends independent from type behavior.
     types::BitStorage temporary{range.bitSize};
     storage_->store(referenceValue.type, temporary, types::BitAddress{0}, value);

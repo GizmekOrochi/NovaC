@@ -50,7 +50,7 @@ make install DESTDIR="$PWD/stage" PREFIX=/usr
 Installed CMake consumers can use:
 
 ```cmake
-find_package(NovaC 1.2 CONFIG REQUIRED)
+find_package(NovaC 1.3 CONFIG REQUIRED)
 target_link_libraries(my_target PRIVATE NovaC::NovaC)
 ```
 
@@ -60,7 +60,7 @@ The public umbrella header and version API are available after installation:
 #include <NovaC.hpp>
 
 static_assert(NOVAC_VERSION_MAJOR == 1);
-static_assert(novac::Version == "1.2.0");
+static_assert(novac::Version == "1.3.0");
 ```
 
 Remove an installation made with the same prefix using:
@@ -120,7 +120,7 @@ Continuous integration runs normal tests with GCC and Clang, sanitizer jobs, the
 
 ## Release
 
-NovaC 1.2.0 is the current stable public release. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
+NovaC 1.3.0 is the current development version. NovaC 1.2.0 remains the latest stable public release until 1.3.0 is published. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
 
 After committing all release changes and obtaining a green release gate, create a clean source archive from the committed `HEAD` with:
 
@@ -128,7 +128,7 @@ After committing all release changes and obtaining a green release gate, create 
 make dist
 ```
 
-`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.2.0.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded.
+`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.3.0.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded.
 
 ## License
 

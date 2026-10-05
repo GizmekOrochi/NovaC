@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+Target version: **1.3.0**.
+
 ### Added
 
 - Added a bit-precise `MemoryController` with address spaces, ranges, regions, raw allocations, optional lifetimes, typed references, and provenance validation.
