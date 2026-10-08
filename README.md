@@ -120,7 +120,7 @@ Continuous integration runs normal tests with GCC and Clang, sanitizer jobs, the
 
 ## Release
 
-NovaC 1.4.1-alpha.$(shell git rev-list --count HEAD)+$(shell git rev-parse --short HEAD) is the latest stable public release. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
+NovaC 1.4.1 is the latest stable public release. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
 
 After committing all release changes and obtaining a green release gate, create a clean source archive from the committed `HEAD` with:
 
