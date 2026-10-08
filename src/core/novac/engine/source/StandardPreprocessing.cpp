@@ -8,6 +8,12 @@ namespace novac::source {
 
 namespace {
 
+/**
+ * @brief Implements the `trim` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 std::string trim(const std::string &value) {
     std::size_t begin{};
     while (begin < value.size() && std::isspace(static_cast<unsigned char>(value[begin])) != 0) {
@@ -21,6 +27,11 @@ std::string trim(const std::string &value) {
 }
 
 
+/**
+ * @brief Returns the value required by `requireNoArguments`.
+ *
+ * @param directive Value supplied for `directive`.
+ */
 void requireNoArguments(const Directive &directive) {
     if (!trim(directive.arguments).empty()) {
         throw std::runtime_error(
@@ -28,6 +39,12 @@ void requireNoArguments(const Directive &directive) {
     }
 }
 
+/**
+ * @brief Returns the value required by `requireSymbol`.
+ *
+ * @param directive Value supplied for `directive`.
+ * @return Value produced by the operation.
+ */
 std::string requireSymbol(const Directive &directive) {
     const std::string symbol{trim(directive.arguments)};
     if (symbol.empty()) {
@@ -42,6 +59,12 @@ std::string requireSymbol(const Directive &directive) {
     return symbol;
 }
 
+/**
+ * @brief Returns the value required by `requireSpecifier`.
+ *
+ * @param directive Value supplied for `directive`.
+ * @return Value produced by the operation.
+ */
 std::string requireSpecifier(const Directive &directive) {
     const std::string value{trim(directive.arguments)};
     if (value.empty()) {
@@ -70,6 +93,11 @@ std::string requireSpecifier(const Directive &directive) {
 
 } // namespace
 
+/**
+ * @brief Configures the standard behavior provided by `standardPreprocessing`.
+ *
+ * @return Value produced by the operation.
+ */
 controllers::EngineFeature standardPreprocessing() {
     controllers::EngineFeature feature{"source.standard-preprocessing"};
     feature

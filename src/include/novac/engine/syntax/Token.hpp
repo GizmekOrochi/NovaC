@@ -67,6 +67,12 @@ struct Token {
 
     /** One-based source column where the token starts. */
     int column{1};
+
+    /**
+     * Optional extension-defined token class used by parser registries.
+     * When non-empty, parsers may dispatch on this tag before the coarse Kind.
+     */
+    std::string tag{};
 };
 
 } // namespace novac::token

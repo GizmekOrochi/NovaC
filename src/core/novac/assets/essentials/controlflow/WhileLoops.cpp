@@ -8,6 +8,11 @@
 
 namespace novac::assets::essentials::controlflow {
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialInfo WhileLoopsFeature::info() const {
     return {
         "essentials.controlflow.while",
@@ -20,6 +25,11 @@ EssentialInfo WhileLoopsFeature::info() const {
     };
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void WhileLoopsFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions core{controller.core()};
     const ControlFlowSyntaxOptions options{controller.controlFlow()};
@@ -70,6 +80,11 @@ void WhileLoopsFeature::install(EssentialsController &controller) const {
     });
 }
 
+/**
+ * @brief Implements the `whileLoops` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack whileLoops() {
     EssentialPack pack{};
     pack.add<WhileLoopsFeature>();

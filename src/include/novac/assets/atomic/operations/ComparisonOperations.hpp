@@ -95,6 +95,11 @@ public:
      */
     explicit EqualOperationAtomic(TokenPattern pattern = TokenPattern::text("=="));
 private:
+    /**
+     * @brief Creates a value through `makeComparator`.
+     *
+     * @return Value produced by the operation.
+     */
     Comparator makeComparator() const override;
 };
 
@@ -113,6 +118,11 @@ public:
      */
     explicit NotEqualOperationAtomic(TokenPattern pattern = TokenPattern::text("!="));
 private:
+    /**
+     * @brief Creates a value through `makeComparator`.
+     *
+     * @return Value produced by the operation.
+     */
     Comparator makeComparator() const override;
 };
 
@@ -130,6 +140,11 @@ public:
      */
     explicit LessOperationAtomic(TokenPattern pattern = TokenPattern::text("<"));
 private:
+    /**
+     * @brief Creates a value through `makeComparator`.
+     *
+     * @return Value produced by the operation.
+     */
     Comparator makeComparator() const override;
 };
 
@@ -148,6 +163,11 @@ public:
      */
     explicit LessEqualOperationAtomic(TokenPattern pattern = TokenPattern::text("<="));
 private:
+    /**
+     * @brief Creates a value through `makeComparator`.
+     *
+     * @return Value produced by the operation.
+     */
     Comparator makeComparator() const override;
 };
 
@@ -165,6 +185,11 @@ public:
      */
     explicit GreaterOperationAtomic(TokenPattern pattern = TokenPattern::text(">"));
 private:
+    /**
+     * @brief Creates a value through `makeComparator`.
+     *
+     * @return Value produced by the operation.
+     */
     Comparator makeComparator() const override;
 };
 
@@ -183,6 +208,11 @@ public:
      */
     explicit GreaterEqualOperationAtomic(TokenPattern pattern = TokenPattern::text(">="));
 private:
+    /**
+     * @brief Creates a value through `makeComparator`.
+     *
+     * @return Value produced by the operation.
+     */
     Comparator makeComparator() const override;
 };
 

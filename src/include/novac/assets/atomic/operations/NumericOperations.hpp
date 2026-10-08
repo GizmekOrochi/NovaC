@@ -109,6 +109,11 @@ public:
         TokenPattern pattern = TokenPattern::text("+"));
 
 private:
+    /**
+     * @brief Creates a value through `makeEvaluator`.
+     *
+     * @return Value produced by the operation.
+     */
     Evaluator makeEvaluator() const override;
 };
 
@@ -134,6 +139,11 @@ public:
         TokenPattern pattern = TokenPattern::text("-"));
 
 private:
+    /**
+     * @brief Creates a value through `makeEvaluator`.
+     *
+     * @return Value produced by the operation.
+     */
     Evaluator makeEvaluator() const override;
 };
 
@@ -159,6 +169,11 @@ public:
         TokenPattern pattern = TokenPattern::text("*"));
 
 private:
+    /**
+     * @brief Creates a value through `makeEvaluator`.
+     *
+     * @return Value produced by the operation.
+     */
     Evaluator makeEvaluator() const override;
 };
 

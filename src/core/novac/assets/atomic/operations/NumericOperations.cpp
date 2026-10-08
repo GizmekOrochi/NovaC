@@ -11,6 +11,12 @@ namespace novac::assets::atomic::operations {
 
 namespace {
 
+/**
+ * @brief Checks the condition represented by `isInteger`.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 bool isInteger(const runtime::Value &value) {
     try {
         static_cast<void>(value.asInt());
@@ -20,6 +26,12 @@ bool isInteger(const runtime::Value &value) {
     }
 }
 
+/**
+ * @brief Implements the `operatorKey` operation.
+ *
+ * @param info Value supplied for `info`.
+ * @return Value produced by the operation.
+ */
 std::string operatorKey(const OperationInfo &info) {
     if (!info.pattern.token.empty()) {
         return info.pattern.token;
@@ -30,6 +42,14 @@ std::string operatorKey(const OperationInfo &info) {
 
 } // namespace
 
+/**
+ * @brief Constructs a `NumericBinaryOperationAtomic` instance.
+ *
+ * @param id Value supplied for `id`.
+ * @param description Value supplied for `description`.
+ * @param pattern Value supplied for `pattern`.
+ * @param precedence Value supplied for `precedence`.
+ */
 NumericBinaryOperationAtomic::NumericBinaryOperationAtomic(std::string id, std::string description, TokenPattern pattern, int precedence)
     : id_{std::move(id)}, description_{std::move(description)}, pattern_{std::move(pattern)}, precedence_{precedence} {
     if (id_.empty()) {
@@ -37,11 +57,21 @@ NumericBinaryOperationAtomic::NumericBinaryOperationAtomic(std::string id, std::
     }
 }
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 OperationInfo NumericBinaryOperationAtomic::info() const {
     return {id_, "0.1.0", description_, OperationArity::Binary, pattern_, precedence_, parser::Associativity::Left, {"operation.numeric", "operation.binary"}, {"expression.atom"}
     };
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void NumericBinaryOperationAtomic::install(AtomicController &controller) const {
     const OperationInfo operation{info()};
     const std::string domain{controller.expressionDomain()};
@@ -72,9 +102,19 @@ void NumericBinaryOperationAtomic::install(AtomicController &controller) const {
     });
 }
 
+/**
+ * @brief Constructs a `AddOperationAtomic` instance.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 AddOperationAtomic::AddOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.add", "Numeric addition operation", std::move(pattern), 10} {}
 
+/**
+ * @brief Creates a value through `makeEvaluator`.
+ *
+ * @return Value produced by the operation.
+ */
 auto AddOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {
@@ -85,9 +125,19 @@ auto AddOperationAtomic::makeEvaluator() const -> Evaluator {
     };
 }
 
+/**
+ * @brief Constructs a `SubtractOperationAtomic` instance.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 SubtractOperationAtomic::SubtractOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.sub", "Numeric subtraction operation", std::move(pattern), 10} {}
 
+/**
+ * @brief Creates a value through `makeEvaluator`.
+ *
+ * @return Value produced by the operation.
+ */
 auto SubtractOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {
@@ -98,9 +148,19 @@ auto SubtractOperationAtomic::makeEvaluator() const -> Evaluator {
     };
 }
 
+/**
+ * @brief Constructs a `MultiplyOperationAtomic` instance.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 MultiplyOperationAtomic::MultiplyOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.mul", "Numeric multiplication operation", std::move(pattern), 20} {}
 
+/**
+ * @brief Creates a value through `makeEvaluator`.
+ *
+ * @return Value produced by the operation.
+ */
 auto MultiplyOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {
@@ -111,9 +171,19 @@ auto MultiplyOperationAtomic::makeEvaluator() const -> Evaluator {
     };
 }
 
+/**
+ * @brief Constructs a `DivideOperationAtomic` instance.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 DivideOperationAtomic::DivideOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.div", "Numeric division operation", std::move(pattern), 20} {}
 
+/**
+ * @brief Creates a value through `makeEvaluator`.
+ *
+ * @return Value produced by the operation.
+ */
 auto DivideOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {
@@ -131,9 +201,19 @@ auto DivideOperationAtomic::makeEvaluator() const -> Evaluator {
     };
 }
 
+/**
+ * @brief Constructs a `ModuloOperationAtomic` instance.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 ModuloOperationAtomic::ModuloOperationAtomic(TokenPattern pattern)
     : NumericBinaryOperationAtomic{"core.op.mod", "Numeric modulo operation", std::move(pattern), 20} {}
 
+/**
+ * @brief Creates a value through `makeEvaluator`.
+ *
+ * @return Value produced by the operation.
+ */
 auto ModuloOperationAtomic::makeEvaluator() const -> Evaluator {
     return [](const runtime::Value &left, const runtime::Value &right) {
         if (isInteger(left) && isInteger(right)) {

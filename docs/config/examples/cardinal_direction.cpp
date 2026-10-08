@@ -1,5 +1,5 @@
 #include <NovaC.hpp>
-#include "novac/assets/atomic/LiteralFeature.hpp"
+#include <sstream>
 
 #include <array>
 #include <iostream>
@@ -115,13 +115,23 @@ int main() {
     StorageController storageController{types, layouts};
     BitStorage packedDirections{8};
 
+    // This example language accepts four independent direction literals.
+    const std::string source{R"(
+←
+↑
+→
+↓
+)"};
+    std::istringstream lines{source};
+    std::string literal;
     std::size_t bitOffset{0};
-    for (const std::string source : {"←", "↑", "→", "↓"}) {
-        const ast::NodePtr node{engine.parse(source)};
+    while (std::getline(lines, literal)) {
+        if (literal.empty()) continue;
+        const ast::NodePtr node{engine.parse(literal)};
         const std::optional<TypeId> type{types.resolveLiteral(arrows, *node)};
 
         if (!type) {
-            std::cerr << "cannot type literal " << source << '\n';
+            std::cerr << "cannot type literal " << literal << '\n';
             return 1;
         }
 
@@ -132,7 +142,7 @@ int main() {
             BitAddress{bitOffset},
             BitValue::fromUnsigned(static_cast<std::uint64_t>(value), 2));
 
-        std::cout << source << " -> " << type->name << " (" << value << ")\n";
+        std::cout << literal << " -> " << type->name << " (" << value << ")\n";
         bitOffset += 2;
     }
 

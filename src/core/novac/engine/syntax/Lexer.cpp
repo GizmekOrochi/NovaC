@@ -9,18 +9,44 @@ namespace novac::lexer {
 
 namespace {
 
+/**
+ * @brief Implements the `defaultIdentifierStart` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 bool defaultIdentifierStart(unsigned char value) {
     return std::isalpha(value) != 0 || value == '_';
 }
 
+/**
+ * @brief Implements the `defaultIdentifierContinue` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 bool defaultIdentifierContinue(unsigned char value) {
     return std::isalnum(value) != 0 || value == '_';
 }
 
+/**
+ * @brief Starts the operation represented by `startsWith`.
+ *
+ * @param source Value supplied for `source`.
+ * @param index Value supplied for `index`.
+ * @param text Value supplied for `text`.
+ * @return Value produced by the operation.
+ */
 bool startsWith(const std::string &source, std::size_t index, const std::string &text) {
     return !text.empty() && source.compare(index, text.size(), text) == 0;
 }
 
+/**
+ * @brief Implements the `escapeMessage` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 std::string escapeMessage(char value) {
     switch (value) {
         case '\n': return "\\n";
@@ -33,11 +59,22 @@ std::string escapeMessage(char value) {
 
 } // namespace
 
+/**
+ * @brief Constructs a `LexerRegistry` instance.
+ *
+ * @param duplicatePolicy Value supplied for `duplicatePolicy`.
+ */
 LexerRegistry::LexerRegistry(registry::DuplicatePolicy duplicatePolicy)
-    : keywords_{}, symbols_{}, identifierStart_{defaultIdentifierStart},
+    : keywords_{}, symbols_{}, tokenRules_{}, nextTokenRuleOrder_{}, identifierStart_{defaultIdentifierStart},
       identifierContinue_{defaultIdentifierContinue}, lineCommentPrefix_{"//"}, blockCommentBegin_{"/*"}, blockCommentEnd_{"*/"},
       duplicatePolicy_{duplicatePolicy} {}
 
+/**
+ * @brief Implements the `keyword` operation.
+ *
+ * @param keyword Value supplied for `keyword`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus LexerRegistry::keyword(std::string keyword) {
     if (keyword.empty()) {
         throw std::runtime_error("LexerRegistry::keyword: keyword cannot be empty");
@@ -54,6 +91,12 @@ registry::RegisterStatus LexerRegistry::keyword(std::string keyword) {
     return registry::RegisterStatus::Inserted;
 }
 
+/**
+ * @brief Implements the `symbol` operation.
+ *
+ * @param symbol Value supplied for `symbol`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus LexerRegistry::symbol(std::string symbol) {
     if (symbol.empty()) {
         throw std::runtime_error("LexerRegistry::symbol: symbol cannot be empty");
@@ -83,6 +126,51 @@ registry::RegisterStatus LexerRegistry::symbol(std::string symbol) {
     return registry::RegisterStatus::Inserted;
 }
 
+/**
+ * @brief Implements the `tokenRule` operation.
+ *
+ * @param id Value supplied for `id`.
+ * @param priority Value supplied for `priority`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
+registry::RegisterStatus LexerRegistry::tokenRule(std::string id, int priority, TokenRuleFn fn) {
+    if (id.empty()) {
+        throw std::runtime_error("LexerRegistry::tokenRule: id cannot be empty");
+    }
+    if (!fn) {
+        throw std::runtime_error("LexerRegistry::tokenRule: callback cannot be empty");
+    }
+
+    const auto existing{std::find_if(tokenRules_.begin(), tokenRules_.end(), [&](const TokenRuleEntry &entry) { return entry.id == id; })};
+    if (existing != tokenRules_.end()) {
+        if (duplicatePolicy_ == registry::DuplicatePolicy::Ignore) {
+            return registry::RegisterStatus::Ignored;
+        }
+        if (duplicatePolicy_ == registry::DuplicatePolicy::Error) {
+            throw std::runtime_error("LexerRegistry::tokenRule: duplicate rule '" + id + "'");
+        }
+        existing->priority = priority;
+        existing->fn = std::move(fn);
+        std::stable_sort(tokenRules_.begin(), tokenRules_.end(), [](const TokenRuleEntry &left, const TokenRuleEntry &right) {
+            return left.priority == right.priority ? left.registrationOrder < right.registrationOrder : left.priority > right.priority;
+        });
+        return registry::RegisterStatus::Replaced;
+    }
+
+    tokenRules_.push_back(TokenRuleEntry{std::move(id), priority, nextTokenRuleOrder_++, std::move(fn)});
+    std::stable_sort(tokenRules_.begin(), tokenRules_.end(), [](const TokenRuleEntry &left, const TokenRuleEntry &right) {
+        return left.priority == right.priority ? left.registrationOrder < right.registrationOrder : left.priority > right.priority;
+    });
+    return registry::RegisterStatus::Inserted;
+}
+
+/**
+ * @brief Sets the value handled by `setIdentifierRules`.
+ *
+ * @param start Value supplied for `start`.
+ * @param continuation Value supplied for `continuation`.
+ */
 void LexerRegistry::setIdentifierRules(
     IdentifierStartPredicate start,
     IdentifierContinuePredicate continuation) {
@@ -94,10 +182,21 @@ void LexerRegistry::setIdentifierRules(
     identifierContinue_ = std::move(continuation);
 }
 
+/**
+ * @brief Sets the value handled by `setLineCommentPrefix`.
+ *
+ * @param prefix Value supplied for `prefix`.
+ */
 void LexerRegistry::setLineCommentPrefix(std::string prefix) {
     lineCommentPrefix_ = std::move(prefix);
 }
 
+/**
+ * @brief Sets the value handled by `setBlockCommentDelimiters`.
+ *
+ * @param begin Value supplied for `begin`.
+ * @param end Value supplied for `end`.
+ */
 void LexerRegistry::setBlockCommentDelimiters(std::string begin, std::string end) {
     if (begin.empty() != end.empty()) {
         throw std::runtime_error("LexerRegistry::setBlockCommentDelimiters: begin and end must both be empty or both be non-empty");
@@ -107,45 +206,117 @@ void LexerRegistry::setBlockCommentDelimiters(std::string begin, std::string end
     blockCommentEnd_ = std::move(end);
 }
 
+/**
+ * @brief Checks the condition represented by `isKeyword`.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 bool LexerRegistry::isKeyword(const std::string &value) const {
     return keywords_.find(value) != keywords_.end();
 }
 
+/**
+ * @brief Checks the condition represented by `isIdentifierStart`.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 bool LexerRegistry::isIdentifierStart(unsigned char value) const {
     return identifierStart_(value);
 }
 
+/**
+ * @brief Checks the condition represented by `isIdentifierContinue`.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 bool LexerRegistry::isIdentifierContinue(unsigned char value) const {
     return identifierContinue_(value);
 }
 
+/**
+ * @brief Implements the `symbols` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const std::vector<std::string> &LexerRegistry::symbols() const {
     return symbols_;
 }
 
+/**
+ * @brief Implements the `tokenRules` operation.
+ *
+ * @return Value produced by the operation.
+ */
+const std::vector<LexerRegistry::TokenRuleEntry> &LexerRegistry::tokenRules() const noexcept {
+    return tokenRules_;
+}
+
+/**
+ * @brief Implements the `lineCommentPrefix` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const std::string &LexerRegistry::lineCommentPrefix() const {
     return lineCommentPrefix_;
 }
 
+/**
+ * @brief Implements the `blockCommentBegin` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const std::string &LexerRegistry::blockCommentBegin() const {
     return blockCommentBegin_;
 }
 
+/**
+ * @brief Implements the `blockCommentEnd` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const std::string &LexerRegistry::blockCommentEnd() const {
     return blockCommentEnd_;
 }
 
+/**
+ * @brief Constructs a `Lexer` instance.
+ *
+ * @param registry Value supplied for `registry`.
+ */
 Lexer::Lexer(const LexerRegistry &registry)
     : registry_{registry} {}
 
+/**
+ * @brief Implements the `tokenize` operation.
+ *
+ * @param source Value supplied for `source`.
+ * @return Value produced by the operation.
+ */
 std::vector<token::Token> Lexer::tokenize(const std::string &source) {
     return tokenize(source, std::string{});
 }
 
+/**
+ * @brief Implements the `tokenize` operation.
+ *
+ * @param source Value supplied for `source`.
+ * @param fileName Value supplied for `fileName`.
+ * @return Value produced by the operation.
+ */
 std::vector<token::Token> Lexer::tokenize(const std::string &source, std::string fileName) {
     return tokenize(source, diagnostics::SourceLocation{std::move(fileName), 0, 1, 1});
 }
 
+/**
+ * @brief Implements the `tokenize` operation.
+ *
+ * @param source Value supplied for `source`.
+ * @param origin Value supplied for `origin`.
+ * @return Value produced by the operation.
+ */
 std::vector<token::Token> Lexer::tokenize(
     const std::string &source,
     diagnostics::SourceLocation origin) {
@@ -176,8 +347,8 @@ std::vector<token::Token> Lexer::tokenize(
     }};
 
     const auto pushToken{
-        [&](token::Kind kind, std::string text, std::string suffix, diagnostics::SourceLocation begin, int tokenLine, int tokenColumn) {
-            tokens.push_back({kind, std::move(text), std::move(suffix), spanFrom(std::move(begin), location()), tokenLine, tokenColumn});
+        [&](token::Kind kind, std::string text, std::string suffix, diagnostics::SourceLocation begin, int tokenLine, int tokenColumn, std::string tag = {}) {
+            tokens.push_back({kind, std::move(text), std::move(suffix), spanFrom(std::move(begin), location()), tokenLine, tokenColumn, std::move(tag)});
         }
     };
 
@@ -236,6 +407,35 @@ std::vector<token::Token> Lexer::tokenize(
                 advance();
             }
 
+            continue;
+        }
+
+        bool customMatched{false};
+        for (const LexerRegistry::TokenRuleEntry &entry : registry_.tokenRules()) {
+            const std::string_view remaining{source.data() + index, source.size() - index};
+            std::optional<TokenRuleMatch> match{entry.fn(remaining)};
+            if (!match.has_value()) {
+                continue;
+            }
+            if (match->length == 0 || match->length > remaining.size()) {
+                throw std::runtime_error("Lexer::tokenize: custom rule '" + entry.id + "' returned invalid length");
+            }
+            if (match->kind == token::Kind::End) {
+                throw std::runtime_error("Lexer::tokenize: custom rule '" + entry.id + "' cannot emit End token");
+            }
+
+            const diagnostics::SourceLocation begin{location()};
+            const int tokenLine{line};
+            const int tokenColumn{column};
+            std::string text{match->text.empty() ? std::string{remaining.substr(0, match->length)} : std::move(match->text)};
+            for (std::size_t count{}; count < match->length; ++count) {
+                advance();
+            }
+            pushToken(match->kind, std::move(text), std::move(match->suffix), begin, tokenLine, tokenColumn, std::move(match->tag));
+            customMatched = true;
+            break;
+        }
+        if (customMatched) {
             continue;
         }
 

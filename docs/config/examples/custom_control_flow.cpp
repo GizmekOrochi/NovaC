@@ -123,7 +123,8 @@ int main() {
     // The custom feature uses only Engine APIs; Essentials is not installed.
     engine.install(makeUnlessFeature());
 
-    const NodePtr program{engine.parse("unless false hit")};
+    const std::string source{R"(unless false hit)"};
+    const NodePtr program{engine.parse(source)};
     engine.validate(*program);
     engine.exec(*program);
 

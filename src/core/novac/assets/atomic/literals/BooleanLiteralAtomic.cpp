@@ -10,6 +10,12 @@
 
 namespace novac::assets::atomic::literals {
 
+/**
+ * @brief Constructs a `BooleanLiteralAtomic` instance.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param tokens Value supplied for `tokens`.
+ */
 BooleanLiteralAtomic::BooleanLiteralAtomic(std::string nodeKind, BooleanLiteralTokens tokens)
     : nodeKind_{std::move(nodeKind)}, tokens_{std::move(tokens)} {
     if (nodeKind_.empty())
@@ -22,10 +28,20 @@ BooleanLiteralAtomic::BooleanLiteralAtomic(std::string nodeKind, BooleanLiteralT
         throw std::runtime_error("BooleanLiteralAtomic::BooleanLiteralAtomic: true and false tokens must be distinct");
 }
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 LiteralInfo BooleanLiteralAtomic::info() const {
     return {"core.literal.boolean", "0.1.0", "Boolean literal atomic", nodeKind_, TokenPattern::keywordText(tokens_.trueToken), {"literal.boolean", "expression.atom"}, {}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void BooleanLiteralAtomic::install(AtomicController &controller) const {
     controller.registerPattern(TokenPattern::keywordText(tokens_.trueToken));
     controller.registerPattern(TokenPattern::keywordText(tokens_.falseToken));

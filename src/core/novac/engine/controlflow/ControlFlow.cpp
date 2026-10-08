@@ -5,6 +5,12 @@
 
 namespace novac::controlflow {
 
+/**
+ * @brief Implements the `statement` operation.
+ *
+ * @param spec Value supplied for `spec`.
+ * @return Value produced by the operation.
+ */
 controllers::EngineFeature::Installer statement(StatementSpec spec) {
     if (spec.domain.value.empty()) {
         throw std::runtime_error("controlflow::statement: parse domain cannot be empty");
@@ -43,9 +49,17 @@ controllers::EngineFeature::Installer statement(StatementSpec spec) {
     };
 }
 
+/**
+ * @brief Constructs a `LoopGuard` instance.
+ *
+ * @param maximumIterations Value supplied for `maximumIterations`.
+ */
 LoopGuard::LoopGuard(std::size_t maximumIterations)
     : maximumIterations_{maximumIterations}, iterations_{} {}
 
+/**
+ * @brief Implements the `step` operation.
+ */
 void LoopGuard::step() {
     if (maximumIterations_ != 0 && iterations_ >= maximumIterations_) {
         throw std::runtime_error("LoopGuard::step: maximum loop iteration count exceeded");
@@ -53,10 +67,20 @@ void LoopGuard::step() {
     ++iterations_;
 }
 
+/**
+ * @brief Implements the `iterations` operation.
+ *
+ * @return Value produced by the operation.
+ */
 std::size_t LoopGuard::iterations() const noexcept {
     return iterations_;
 }
 
+/**
+ * @brief Implements the `maximumIterations` operation.
+ *
+ * @return Value produced by the operation.
+ */
 std::size_t LoopGuard::maximumIterations() const noexcept {
     return maximumIterations_;
 }

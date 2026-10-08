@@ -6,10 +6,20 @@
 
 namespace novac::assets::essentials::variables {
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialInfo ExpressionStatementsFeature::info() const {
     return {"essentials.variables.expression-statements", "0.1.0", "Expression statements", {"ExpressionStatement"}, {traits::Statement}, {"statement.expression"}, {}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void ExpressionStatementsFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions options{controller.core()};
     const bool enforce{controller.options().enforceChildTraits};
@@ -41,6 +51,11 @@ void ExpressionStatementsFeature::install(EssentialsController &controller) cons
     });
 }
 
+/**
+ * @brief Implements the `expressionStatements` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack expressionStatements() {
     EssentialPack pack{};
     pack.add<ExpressionStatementsFeature>();

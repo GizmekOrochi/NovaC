@@ -21,6 +21,12 @@ namespace novac::assets::essentials {
 
 namespace {
 
+/**
+ * @brief Implements the `rejectEmpty` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @param name Value supplied for `name`.
+ */
 void rejectEmpty(const std::string &value, const char *name) {
     if (value.empty())
         throw std::runtime_error(std::string{"EssentialsControllerOptions: "} + name + " cannot be empty");
@@ -28,6 +34,12 @@ void rejectEmpty(const std::string &value, const char *name) {
 
 }
 
+/**
+ * @brief Constructs a `EssentialsController` instance.
+ *
+ * @param engine Value supplied for `engine`.
+ * @param options Value supplied for `options`.
+ */
 EssentialsController::EssentialsController(controllers::EngineController &engine, EssentialsControllerOptions options) :
     functionRegistry_{std::make_shared<functions::FunctionRegistry>()},
     engine_{engine},
@@ -39,6 +51,12 @@ EssentialsController::EssentialsController(controllers::EngineController &engine
     engine_.setStartDomain(options_.core.programDomain);
 }
 
+/**
+ * @brief Adds the supplied behavior through `use`.
+ *
+ * @param feature Value supplied for `feature`.
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::use(const EssentialFeature &feature) {
     EssentialInfo info{feature.info()};
     validateFeature(info);
@@ -64,6 +82,12 @@ EssentialsController &EssentialsController::use(const EssentialFeature &feature)
     return *this;
 }
 
+/**
+ * @brief Adds the supplied behavior through `use`.
+ *
+ * @param pack Value supplied for `pack`.
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::use(EssentialPack pack) {
     for(auto &feature : pack.features)
         own(std::move(feature));
@@ -73,6 +97,12 @@ EssentialsController &EssentialsController::use(EssentialPack pack) {
     return *this;
 }
 
+/**
+ * @brief Adds the supplied behavior through `own`.
+ *
+ * @param feature Value supplied for `feature`.
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::own(std::unique_ptr<EssentialFeature> feature) {
     if(!feature)
         throw std::runtime_error("EssentialsController::own: feature cannot be null");
@@ -83,6 +113,11 @@ EssentialsController &EssentialsController::own(std::unique_ptr<EssentialFeature
     return *this;
 }
 
+/**
+ * @brief Installs the behavior provided by `installProgram`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installProgram(){
     const std::string id{"essentials.program"};
 
@@ -156,57 +191,122 @@ EssentialsController &EssentialsController::installProgram(){
 
 
 
+/**
+ * @brief Installs the behavior provided by `installScopedBlocks`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installScopedBlocks() {
     return use(scopes::standard());
 }
 
+/**
+ * @brief Installs the behavior provided by `installVariables`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installVariables() {
     return use(variables::variables());
 }
 
+/**
+ * @brief Installs the behavior provided by `installExpressionStatements`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installExpressionStatements() {
     return use(variables::expressionStatements());
 }
 
+/**
+ * @brief Installs the behavior provided by `installIfStatements`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installIfStatements() {
     return use(controlflow::ifStatements());
 }
 
+/**
+ * @brief Installs the behavior provided by `installWhileLoops`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installWhileLoops() {
     return use(controlflow::whileLoops());
 }
 
+/**
+ * @brief Installs the behavior provided by `installForLoops`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installForLoops() {
     return use(controlflow::forLoops());
 }
 
+/**
+ * @brief Installs the behavior provided by `installReturnStatements`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installReturnStatements() {
     return use(functions::returnStatements());
 }
 
+/**
+ * @brief Installs the behavior provided by `installFunctions`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installFunctions() {
     return use(functions::functions());
 }
 
+/**
+ * @brief Installs the behavior provided by `installStandardScopes`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installStandardScopes() {
     return installScopedBlocks();
 }
 
+/**
+ * @brief Installs the behavior provided by `installStandardVariables`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installStandardVariables() {
     use(variables::standard());
     return *this;
 }
 
+/**
+ * @brief Installs the behavior provided by `installStandardControlFlow`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installStandardControlFlow() {
     use(controlflow::standard());
     return *this;
 }
 
+/**
+ * @brief Installs the behavior provided by `installStandardFunctions`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installStandardFunctions() {
     use(functions::standard());
     return *this;
 }
 
+/**
+ * @brief Installs the behavior provided by `installStandardCore`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialsController &EssentialsController::installStandardCore() {
     installProgram();
     installStandardScopes();
@@ -219,58 +319,128 @@ EssentialsController &EssentialsController::installStandardCore() {
     return *this;
 }
 
+/**
+ * @brief Returns the value exposed by `engine`.
+ *
+ * @return Value produced by the operation.
+ */
 controllers::EngineController &EssentialsController::engine() {
     return engine_;
 }
 
+/**
+ * @brief Returns the value exposed by `engine`.
+ *
+ * @return Value produced by the operation.
+ */
 const controllers::EngineController &EssentialsController::engine() const {
     return engine_;
 }
 
+/**
+ * @brief Implements the `functionRegistry` operation.
+ *
+ * @return Value produced by the operation.
+ */
 functions::FunctionRegistry &EssentialsController::functionRegistry() {
     return *functionRegistry_;
 }
 
+/**
+ * @brief Implements the `functionRegistry` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const functions::FunctionRegistry &EssentialsController::functionRegistry() const {
     return *functionRegistry_;
 }
 
+/**
+ * @brief Implements the `functionRegistryHandle` operation.
+ *
+ * @return Value produced by the operation.
+ */
 std::shared_ptr<functions::FunctionRegistry> EssentialsController::functionRegistryHandle() const {
     return functionRegistry_;
 }
 
+/**
+ * @brief Implements the `options` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const EssentialsControllerOptions &EssentialsController::options() const {
     return options_;
 }
 
+/**
+ * @brief Implements the `core` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const CoreSyntaxOptions &EssentialsController::core() const {
     return options_.core;
 }
 
+/**
+ * @brief Implements the `variables` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const VariableSyntaxOptions &EssentialsController::variables() const {
     return options_.variables;
 }
 
+/**
+ * @brief Implements the `controlFlow` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const ControlFlowSyntaxOptions &EssentialsController::controlFlow() const {
     return options_.controlFlow;
 }
 
+/**
+ * @brief Implements the `functions` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const FunctionSyntaxOptions &EssentialsController::functions() const{
     return options_.functions;
 }
 
+/**
+ * @brief Checks the condition represented by `hasFeature`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 bool EssentialsController::hasFeature(const std::string &id) const {
     return featureIds_.find(id) != featureIds_.end();
 }
 
+/**
+ * @brief Checks the condition represented by `hasCapability`.
+ *
+ * @param capability Value supplied for `capability`.
+ * @return Value produced by the operation.
+ */
 bool EssentialsController::hasCapability(const std::string &capability) const {
     return engine_.hasCapability(capability);
 }
 
+/**
+ * @brief Implements the `features` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const std::vector<EssentialInfo> &EssentialsController::features() const{
     return features_;
 }
 
+/**
+ * @brief Validates data through `validateOptions`.
+ */
 void EssentialsController::validateOptions() const {
 
     rejectEmpty(options_.core.programDomain, "programDomain");
@@ -327,6 +497,11 @@ void EssentialsController::validateOptions() const {
     rejectEmpty(options_.functions.valueField, "function valueField");
 
 }
+/**
+ * @brief Validates data through `validateFeature`.
+ *
+ * @param info Value supplied for `info`.
+ */
 void EssentialsController::validateFeature(const EssentialInfo &info) const{
     if(info.id.empty())
         throw std::runtime_error("EssentialsController::validateFeature: feature id cannot be empty");
@@ -349,6 +524,11 @@ void EssentialsController::validateFeature(const EssentialInfo &info) const{
 
 }
 
+/**
+ * @brief Implements the `rememberFeature` operation.
+ *
+ * @param info Value supplied for `info`.
+ */
 void EssentialsController::rememberFeature(EssentialInfo info){
     featureIds_.insert(info.id);
     for (const std::string &capability : info.capabilities) {
@@ -359,6 +539,11 @@ void EssentialsController::rememberFeature(EssentialInfo info){
 
 namespace essentials {
 
+/**
+ * @brief Configures the standard behavior provided by `standard`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack standard() {
     EssentialPack pack{};
 

@@ -1,6 +1,5 @@
 #include <NovaC.hpp>
-#include "novac/assets/atomic/literals/IntegerLiteralAtomic.hpp"
-#include "novac/assets/atomic/operations/NumericOperations.hpp"
+#include <string>
 
 #include <iostream>
 #include <vector>
@@ -10,6 +9,13 @@ using novac::assets::atomic::literals::IntegerLiteralAtomic;
 using novac::assets::atomic::operations::AddOperationAtomic;
 
 int main() {
+    // Illustrative source: the type rules below are registered through the API.
+    // This example tests type resolution, not source parsing.
+    const std::string source{R"(
+word result = 20 + 22;
+)"};
+    (void)source;
+
     TypeController types;
 
     types.declareType("u16");

@@ -22,10 +22,22 @@ namespace detail {
 struct RegexEscaper {
     static constexpr std::string_view specialCharacters{"\\^$.|?*+()[]{}"};
 
+    /**
+     * @brief Implements the `needsEscape` operation.
+     *
+     * @param value Value supplied for `value`.
+     * @return Value produced by the operation.
+     */
     static bool needsEscape(char value) {
         return specialCharacters.find(value) != std::string_view::npos;
     }
 
+    /**
+     * @brief Implements the `literal` operation.
+     *
+     * @param value Value supplied for `value`.
+     * @return Value produced by the operation.
+     */
     static std::string literal(std::string_view value) {
         std::string result{};
         result.reserve(value.size() * 2);
@@ -42,6 +54,12 @@ struct RegexEscaper {
 };
 
 struct SuffixNormalizer {
+    /**
+     * @brief Implements the `normalize` operation.
+     *
+     * @param suffix Value supplied for `suffix`.
+     * @return Value produced by the operation.
+     */
     static std::string normalize(std::string suffix) {
         if(suffix.empty())
             throw std::runtime_error("SuffixNormalizer::normalize: suffix cannot be empty");
@@ -57,6 +75,12 @@ struct SuffixNormalizer {
 };
 
 struct TokenPatternFactory {
+    /**
+     * @brief Implements the `token` operation.
+     *
+     * @param token Value supplied for `token`.
+     * @return Value produced by the operation.
+     */
     static TokenPattern token(std::string token) {
         if(token.empty())
             throw std::runtime_error("TokenPatternFactory::token: token cannot be empty");
@@ -69,10 +93,24 @@ struct TokenPatternFactory {
         return TokenPattern::text(std::move(token));
     }
 
+    /**
+     * @brief Implements the `suffix` operation.
+     *
+     * @param tokenKey Value supplied for `tokenKey`.
+     * @param suffix Value supplied for `suffix`.
+     * @return Value produced by the operation.
+     */
     static TokenPattern suffix(std::string tokenKey, std::string suffix) {
         return TokenPattern::suffixed(std::move(tokenKey), "_" + SuffixNormalizer::normalize(std::move(suffix)));
     }
 
+    /**
+     * @brief Implements the `suffixRegex` operation.
+     *
+     * @param tokenKey Value supplied for `tokenKey`.
+     * @param suffixRegex Value supplied for `suffixRegex`.
+     * @return Value produced by the operation.
+     */
     static TokenPattern suffixRegex(std::string tokenKey, std::string suffixRegex) {
         if(suffixRegex.empty())
             throw std::runtime_error("TokenPatternFactory::suffixRegex: suffix regex cannot be empty");
@@ -82,6 +120,12 @@ struct TokenPatternFactory {
 };
 
 struct SuffixPatternBuilder {
+    /**
+     * @brief Implements the `regexFromList` operation.
+     *
+     * @param suffixes Value supplied for `suffixes`.
+     * @return Value produced by the operation.
+     */
     static std::string regexFromList(const std::vector<std::string> &suffixes) {
         if(suffixes.empty())
             throw std::runtime_error("SuffixPatternBuilder::regexFromList: suffix list cannot be empty");
@@ -100,6 +144,13 @@ struct SuffixPatternBuilder {
         return result;
     }
 
+    /**
+     * @brief Implements the `regex` operation.
+     *
+     * @param tokenKey Value supplied for `tokenKey`.
+     * @param suffixes Value supplied for `suffixes`.
+     * @return Value produced by the operation.
+     */
     static TokenPattern regex(std::string tokenKey, const std::vector<std::string> &suffixes) {
         return TokenPatternFactory::suffixRegex(std::move(tokenKey), regexFromList(suffixes));
     }
@@ -107,6 +158,12 @@ struct SuffixPatternBuilder {
 
 } // namespace detail
 
+/**
+ * @brief Adds the supplied behavior through `merge`.
+ *
+ * @param pack Value supplied for `pack`.
+ * @return Value produced by the operation.
+ */
 LiteralPack &LiteralPack::merge(LiteralPack pack) {
     for(auto &feature : pack.features)
         features.push_back(std::move(feature));
@@ -114,6 +171,12 @@ LiteralPack &LiteralPack::merge(LiteralPack pack) {
     return *this;
 }
 
+/**
+ * @brief Adds the supplied behavior through `merge`.
+ *
+ * @param pack Value supplied for `pack`.
+ * @return Value produced by the operation.
+ */
 OperationPack &OperationPack::merge(OperationPack pack) {
     for(auto &feature : pack.features)
         features.push_back(std::move(feature));
@@ -121,6 +184,12 @@ OperationPack &OperationPack::merge(OperationPack pack) {
     return *this;
 }
 
+/**
+ * @brief Constructs a `AtomicController` instance.
+ *
+ * @param engine Value supplied for `engine`.
+ * @param options Value supplied for `options`.
+ */
 AtomicController::AtomicController(controllers::EngineController &engine, AtomicControllerOptions options)
     : engine_{engine}, options_{std::move(options)} {
     if(options_.expressionDomain.empty())
@@ -135,6 +204,12 @@ AtomicController::AtomicController(controllers::EngineController &engine, Atomic
     engine_.setStartDomain(options_.expressionDomain);
 }
 
+/**
+ * @brief Adds the supplied behavior through `use`.
+ *
+ * @param feature Value supplied for `feature`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::use(const LiteralFeature &feature) {
     LiteralInfo info{feature.info()};
     validateLiteral(info);
@@ -173,6 +248,12 @@ AtomicController &AtomicController::use(const LiteralFeature &feature) {
     return *this;
 }
 
+/**
+ * @brief Adds the supplied behavior through `use`.
+ *
+ * @param feature Value supplied for `feature`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::use(const OperationFeature &feature) {
     OperationInfo info{feature.info()};
     validateOperation(info);
@@ -211,6 +292,12 @@ AtomicController &AtomicController::use(const OperationFeature &feature) {
     return *this;
 }
 
+/**
+ * @brief Adds the supplied behavior through `use`.
+ *
+ * @param pack Value supplied for `pack`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::use(LiteralPack pack) {
     for(auto &feature : pack.features)
         own(std::move(feature));
@@ -218,6 +305,12 @@ AtomicController &AtomicController::use(LiteralPack pack) {
     return *this;
 }
 
+/**
+ * @brief Adds the supplied behavior through `use`.
+ *
+ * @param pack Value supplied for `pack`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::use(OperationPack pack) {
     for(auto &feature : pack.features)
         own(std::move(feature));
@@ -225,6 +318,12 @@ AtomicController &AtomicController::use(OperationPack pack) {
     return *this;
 }
 
+/**
+ * @brief Adds the supplied behavior through `own`.
+ *
+ * @param feature Value supplied for `feature`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::own(std::unique_ptr<LiteralFeature> feature) {
     if(!feature)
         throw std::runtime_error("AtomicController::own: literal feature cannot be null");
@@ -235,6 +334,12 @@ AtomicController &AtomicController::own(std::unique_ptr<LiteralFeature> feature)
     return *this;
 }
 
+/**
+ * @brief Adds the supplied behavior through `own`.
+ *
+ * @param feature Value supplied for `feature`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::own(std::unique_ptr<OperationFeature> feature) {
     if(!feature)
         throw std::runtime_error("AtomicController::own: operation feature cannot be null");
@@ -245,70 +350,161 @@ AtomicController &AtomicController::own(std::unique_ptr<OperationFeature> featur
     return *this;
 }
 
+/**
+ * @brief Implements the `integer` operation.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::integer() {
     return use(literals::integer());
 }
 
+/**
+ * @brief Implements the `integer` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param suffixes Value supplied for `suffixes`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::integer(std::string nodeKind, std::vector<std::string> suffixes) {
     return use(literals::integer(std::move(nodeKind), std::move(suffixes)));
 }
 
+/**
+ * @brief Implements the `floating` operation.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::floating() {
     return use(literals::floating());
 }
 
+/**
+ * @brief Implements the `floating` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param suffixes Value supplied for `suffixes`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::floating(std::string nodeKind, std::vector<std::string> suffixes) {
     return use(literals::floating(std::move(nodeKind), std::move(suffixes)));
 }
 
+/**
+ * @brief Implements the `stringLiteral` operation.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::stringLiteral() {
     return use(literals::stringLiteral());
 }
 
+/**
+ * @brief Implements the `stringLiteral` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param suffixes Value supplied for `suffixes`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::stringLiteral(std::string nodeKind, std::vector<std::string> suffixes) {
     return use(literals::stringLiteral(std::move(nodeKind), std::move(suffixes)));
 }
 
+/**
+ * @brief Implements the `boolean` operation.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::boolean() {
     return use(literals::boolean());
 }
 
+/**
+ * @brief Implements the `boolean` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param trueToken Value supplied for `trueToken`.
+ * @param falseToken Value supplied for `falseToken`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::boolean(std::string nodeKind, std::string trueToken, std::string falseToken) {
     return use(literals::boolean(std::move(nodeKind), std::move(trueToken), std::move(falseToken)));
 }
 
+/**
+ * @brief Adds data through `add`.
+ *
+ * @param token Value supplied for `token`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::add(std::string token) {
     OperationPack pack{};
     pack.add<operations::AddOperationAtomic>(detail::TokenPatternFactory::token(std::move(token)));
     return use(std::move(pack));
 }
 
+/**
+ * @brief Implements the `subtract` operation.
+ *
+ * @param token Value supplied for `token`.
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::subtract(std::string token) {
     OperationPack pack{};
     pack.add<operations::SubtractOperationAtomic>(detail::TokenPatternFactory::token(std::move(token)));
     return use(std::move(pack));
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standardLiterals`.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::standardLiterals() {
     return use(literals::standard());
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standardNumericOperations`.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::standardNumericOperations() {
     return use(operations::numeric());
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standardComparisonOperations`.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::standardComparisonOperations() {
     return use(operations::comparison());
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standardLogicalOperations`.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::standardLogicalOperations() {
     return use(operations::logical());
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standardOperations`.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::standardOperations() {
     return use(operations::standard());
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standardCore`.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::standardCore() {
     standardLiterals();
     standardOperations();
@@ -316,50 +512,113 @@ AtomicController &AtomicController::standardCore() {
     return *this;
 }
 
+/**
+ * @brief Installs the behavior provided by `installStandardCore`.
+ *
+ * @return Value produced by the operation.
+ */
 AtomicController &AtomicController::installStandardCore() {
     return standardCore();
 }
 
+/**
+ * @brief Returns the value exposed by `engine`.
+ *
+ * @return Value produced by the operation.
+ */
 controllers::EngineController &AtomicController::engine() {
     return engine_;
 }
 
+/**
+ * @brief Returns the value exposed by `engine`.
+ *
+ * @return Value produced by the operation.
+ */
 const controllers::EngineController &AtomicController::engine() const {
     return engine_;
 }
 
+/**
+ * @brief Implements the `expressionDomain` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const std::string &AtomicController::expressionDomain() const {
     return options_.expressionDomain;
 }
 
+/**
+ * @brief Implements the `binaryNodeKind` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const std::string &AtomicController::binaryNodeKind() const {
     return options_.binaryNodeKind;
 }
 
+/**
+ * @brief Implements the `unaryNodeKind` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const std::string &AtomicController::unaryNodeKind() const {
     return options_.unaryNodeKind;
 }
 
+/**
+ * @brief Checks the condition represented by `hasLiteral`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 bool AtomicController::hasLiteral(const std::string &id) const {
     return literalIds_.find(id) != literalIds_.end();
 }
 
+/**
+ * @brief Checks the condition represented by `hasOperation`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 bool AtomicController::hasOperation(const std::string &id) const {
     return operationIds_.find(id) != operationIds_.end();
 }
 
+/**
+ * @brief Checks the condition represented by `hasCapability`.
+ *
+ * @param capability Value supplied for `capability`.
+ * @return Value produced by the operation.
+ */
 bool AtomicController::hasCapability(const std::string &capability) const {
     return engine_.hasCapability(capability);
 }
 
+/**
+ * @brief Returns the value exposed by `literals`.
+ *
+ * @return Value produced by the operation.
+ */
 const std::vector<LiteralInfo> &AtomicController::literals() const {
     return literals_;
 }
 
+/**
+ * @brief Returns the value exposed by `operations`.
+ *
+ * @return Value produced by the operation.
+ */
 const std::vector<OperationInfo> &AtomicController::operations() const {
     return operations_;
 }
 
+/**
+ * @brief Registers data through `registerPattern`.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 void AtomicController::registerPattern(const TokenPattern &pattern) {
     if(pattern.token.empty())
         return;
@@ -377,6 +636,9 @@ void AtomicController::registerPattern(const TokenPattern &pattern) {
     registeredPatterns_.insert(key);
 }
 
+/**
+ * @brief Ensures the invariant required by `ensureBinaryExpressionNode`.
+ */
 void AtomicController::ensureBinaryExpressionNode() {
     if(binaryNodeInstalled_)
         return;
@@ -396,6 +658,9 @@ void AtomicController::ensureBinaryExpressionNode() {
     binaryNodeInstalled_ = true;
 }
 
+/**
+ * @brief Ensures the invariant required by `ensureUnaryExpressionNode`.
+ */
 void AtomicController::ensureUnaryExpressionNode() {
     if(unaryNodeInstalled_)
         return;
@@ -423,6 +688,12 @@ void AtomicController::ensureUnaryExpressionNode() {
     unaryNodeInstalled_ = true;
 }
 
+/**
+ * @brief Registers data through `registerUnaryOperation`.
+ *
+ * @param operationId Value supplied for `operationId`.
+ * @param handler Value supplied for `handler`.
+ */
 void AtomicController::registerUnaryOperation(std::string operationId, runtime::ExprHandler handler) {
     if(operationId.empty())
         throw std::runtime_error("AtomicController::registerUnaryOperation: operation id cannot be empty");
@@ -436,6 +707,11 @@ void AtomicController::registerUnaryOperation(std::string operationId, runtime::
         throw std::runtime_error("AtomicController::registerUnaryOperation: duplicate unary operation handler");
 }
 
+/**
+ * @brief Validates data through `validateLiteral`.
+ *
+ * @param info Value supplied for `info`.
+ */
 void AtomicController::validateLiteral(const LiteralInfo &info) const {
     if(info.id.empty())
         throw std::runtime_error("AtomicController::validateLiteral: literal id cannot be empty");
@@ -462,6 +738,11 @@ void AtomicController::validateLiteral(const LiteralInfo &info) const {
     }
 }
 
+/**
+ * @brief Validates data through `validateOperation`.
+ *
+ * @param info Value supplied for `info`.
+ */
 void AtomicController::validateOperation(const OperationInfo &info) const {
     if(info.id.empty())
         throw std::runtime_error("AtomicController::validateOperation: operation id cannot be empty");
@@ -484,6 +765,11 @@ void AtomicController::validateOperation(const OperationInfo &info) const {
     }
 }
 
+/**
+ * @brief Implements the `rememberLiteral` operation.
+ *
+ * @param info Value supplied for `info`.
+ */
 void AtomicController::rememberLiteral(LiteralInfo info) {
     literalIds_.insert(info.id);
     for(const std::string &capability : info.capabilities)
@@ -491,6 +777,11 @@ void AtomicController::rememberLiteral(LiteralInfo info) {
     literals_.push_back(std::move(info));
 }
 
+/**
+ * @brief Implements the `rememberOperation` operation.
+ *
+ * @param info Value supplied for `info`.
+ */
 void AtomicController::rememberOperation(OperationInfo info) {
     operationIds_.insert(info.id);
     for(const std::string &capability : info.capabilities)
@@ -500,48 +791,100 @@ void AtomicController::rememberOperation(OperationInfo info) {
 
 namespace literals {
 
+/**
+ * @brief Implements the `integer` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @return Value produced by the operation.
+ */
 LiteralPack integer(std::string nodeKind) {
     LiteralPack pack;
     pack.add<IntegerLiteralAtomic>(std::move(nodeKind), TokenPattern::key("$int"));
     return pack;
 }
 
+/**
+ * @brief Implements the `integer` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param suffixes Value supplied for `suffixes`.
+ * @return Value produced by the operation.
+ */
 LiteralPack integer(std::string nodeKind, std::vector<std::string> suffixes) {
     LiteralPack pack;
     pack.add<IntegerLiteralAtomic>(std::move(nodeKind), detail::SuffixPatternBuilder::regex("$int", suffixes));
     return pack;
 }
 
+/**
+ * @brief Implements the `floating` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @return Value produced by the operation.
+ */
 LiteralPack floating(std::string nodeKind) {
     LiteralPack pack;
     pack.add<FloatLiteralAtomic>(std::move(nodeKind), TokenPattern::key("$float"));
     return pack;
 }
 
+/**
+ * @brief Implements the `floating` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param suffixes Value supplied for `suffixes`.
+ * @return Value produced by the operation.
+ */
 LiteralPack floating(std::string nodeKind, std::vector<std::string> suffixes) {
     LiteralPack pack;
     pack.add<FloatLiteralAtomic>(std::move(nodeKind), detail::SuffixPatternBuilder::regex("$float", suffixes));
     return pack;
 }
 
+/**
+ * @brief Implements the `stringLiteral` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @return Value produced by the operation.
+ */
 LiteralPack stringLiteral(std::string nodeKind) {
     LiteralPack pack;
     pack.add<StringLiteralAtomic>(std::move(nodeKind), TokenPattern::key("$string"));
     return pack;
 }
 
+/**
+ * @brief Implements the `stringLiteral` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param suffixes Value supplied for `suffixes`.
+ * @return Value produced by the operation.
+ */
 LiteralPack stringLiteral(std::string nodeKind, std::vector<std::string> suffixes) {
     LiteralPack pack;
     pack.add<StringLiteralAtomic>(std::move(nodeKind), detail::SuffixPatternBuilder::regex("$string", suffixes));
     return pack;
 }
 
+/**
+ * @brief Implements the `boolean` operation.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param trueToken Value supplied for `trueToken`.
+ * @param falseToken Value supplied for `falseToken`.
+ * @return Value produced by the operation.
+ */
 LiteralPack boolean(std::string nodeKind, std::string trueToken, std::string falseToken) {
     LiteralPack pack;
     pack.add<BooleanLiteralAtomic>(std::move(nodeKind), BooleanLiteralTokens{std::move(trueToken), std::move(falseToken)});
     return pack;
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standard`.
+ *
+ * @return Value produced by the operation.
+ */
 LiteralPack standard() {
     LiteralPack pack;
 
@@ -557,6 +900,12 @@ LiteralPack standard() {
 
 namespace operations {
 
+/**
+ * @brief Implements the `numeric` operation.
+ *
+ * @param options Value supplied for `options`.
+ * @return Value produced by the operation.
+ */
 OperationPack numeric(NumericOperationOptions options) {
     OperationPack pack;
 
@@ -570,6 +919,12 @@ OperationPack numeric(NumericOperationOptions options) {
     return pack;
 }
 
+/**
+ * @brief Implements the `comparison` operation.
+ *
+ * @param options Value supplied for `options`.
+ * @return Value produced by the operation.
+ */
 OperationPack comparison(ComparisonOperationOptions options) {
     OperationPack pack;
 
@@ -583,6 +938,12 @@ OperationPack comparison(ComparisonOperationOptions options) {
     return pack;
 }
 
+/**
+ * @brief Implements the `logical` operation.
+ *
+ * @param options Value supplied for `options`.
+ * @return Value produced by the operation.
+ */
 OperationPack logical(LogicalOperationOptions options) {
     OperationPack pack;
 
@@ -593,6 +954,11 @@ OperationPack logical(LogicalOperationOptions options) {
     return pack;
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standard`.
+ *
+ * @return Value produced by the operation.
+ */
 OperationPack standard() {
     OperationPack pack;
 

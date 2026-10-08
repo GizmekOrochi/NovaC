@@ -1,4 +1,5 @@
 #include <NovaC.hpp>
+#include <string>
 
 #include <iostream>
 #include <memory>
@@ -7,6 +8,16 @@ using namespace novac::assets::memory;
 using namespace novac::assets::types;
 
 int main() {
+    // Illustrative syntax for the values represented by the memory allocations.
+    // Allocation and lifetime are demonstrated through the API, not a parser.
+    const std::string source{R"(
+CardinalDirection a = 0;
+CardinalDirection b = 1;
+CardinalDirection c = 2;
+CardinalDirection d = 3;
+)"};
+    (void)source;
+
     TypeController types;
     types.definePrimitive("CardinalDirection")
         .bits(2)

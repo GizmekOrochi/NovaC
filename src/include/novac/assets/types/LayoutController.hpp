@@ -17,6 +17,11 @@ namespace novac::assets::types {
  */
 class LayoutResolutionSession final : public LayoutContext {
 public:
+    /**
+     * @brief Constructs a `LayoutResolutionSession` instance.
+     *
+     * @param types Value supplied for `types`.
+     */
     explicit LayoutResolutionSession(const TypeController &types) : types_{&types} {}
 
     /** @brief Returns the type registry used by this session. */
@@ -38,12 +43,29 @@ private:
 /** Resolves type layouts without embedding ABI policy in TypeController. */
 class LayoutController final {
 public:
+    /**
+     * @brief Constructs a `LayoutController` instance.
+     *
+     * @param types Value supplied for `types`.
+     */
     explicit LayoutController(const TypeController &types) : types_{&types} {}
 
     /** @brief Creates a reusable resolution session for one higher-level operation. */
     LayoutResolutionSession session() const;
 
+    /**
+     * @brief Computes the result of `compute`.
+     *
+     * @param type Value supplied for `type`.
+     * @return Value produced by the operation.
+     */
     TypeLayout compute(const TypeId &type) const;
+    /**
+     * @brief Checks the condition represented by `hasLayout`.
+     *
+     * @param type Value supplied for `type`.
+     * @return Value produced by the operation.
+     */
     bool hasLayout(const TypeId &type) const;
 
 private:

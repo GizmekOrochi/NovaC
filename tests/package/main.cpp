@@ -13,7 +13,8 @@ int main() {
     novac::assets::types::LayoutController layouts{types};
     novac::assets::types::StorageController storage{types, layouts};
     novac::assets::memory::MemoryController memory{types, layouts, storage};
-    (void)engine;
+    novac::controllers::CompilationController compiler{engine};
+    (void)compiler;
     (void)memory;
     return 0;
 }

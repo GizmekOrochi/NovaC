@@ -17,11 +17,21 @@
 namespace novac::assets::essentials::functions {
 
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialInfo FunctionsFeature::info() const {
     return {"essentials.functions", "0.1.0", "Function declarations and calls", {"FunctionDeclaration", "FunctionCall", "FunctionParameter"}, {traits::Declaration, traits::Expression, traits::Callable}, {"functions"}, {}};
 }
 
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void FunctionsFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions core{controller.core()};
     const FunctionSyntaxOptions options{controller.functions()};
@@ -158,6 +168,11 @@ void FunctionsFeature::install(EssentialsController &controller) const {
     );
 }
 
+/**
+ * @brief Implements the `functions` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack functions() {
     EssentialPack pack{};
     pack.add<FunctionsFeature>();
@@ -165,6 +180,11 @@ EssentialPack functions() {
     return pack;
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standard`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack standard() {
     EssentialPack pack{};
 

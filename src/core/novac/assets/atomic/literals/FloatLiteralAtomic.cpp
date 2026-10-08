@@ -12,16 +12,32 @@
 namespace novac::assets::atomic::literals {
 
 
+/**
+ * @brief Constructs a `FloatLiteralAtomic` instance.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param pattern Value supplied for `pattern`.
+ */
 FloatLiteralAtomic::FloatLiteralAtomic(std::string nodeKind, TokenPattern pattern)
     : nodeKind_{std::move(nodeKind)}, pattern_{std::move(pattern)} {
     if (nodeKind_.empty())
         throw std::runtime_error("FloatLiteralAtomic::FloatLiteralAtomic: node kind cannot be empty");
 }
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 LiteralInfo FloatLiteralAtomic::info() const {
     return {"core.literal.float", "0.1.0", "Floating-point literal atomic", nodeKind_, pattern_, {"literal.float", "expression.atom"}, {}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void FloatLiteralAtomic::install(AtomicController& controller) const {
     controller.registerPattern(pattern_);
 

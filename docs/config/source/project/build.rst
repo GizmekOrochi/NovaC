@@ -94,7 +94,8 @@ For the default prefix, ``make install`` produces the equivalent of:
 
 .. code-block:: text
 
-   /usr/local/include/novac/...
+   /usr/local/include/NovaC.hpp
+   /usr/local/include/novac/...   # support headers included by NovaC.hpp
    /usr/local/lib/libNovaC.a
    /usr/local/lib/cmake/NovaC/NovaCConfig.cmake
    /usr/local/lib/cmake/NovaC/NovaCConfigVersion.cmake

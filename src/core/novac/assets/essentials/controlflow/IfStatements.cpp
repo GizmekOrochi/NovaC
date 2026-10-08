@@ -6,6 +6,11 @@
 
 namespace novac::assets::essentials::controlflow {
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialInfo IfStatementsFeature::info() const {
     return {
         "essentials.controlflow.if",
@@ -18,6 +23,11 @@ EssentialInfo IfStatementsFeature::info() const {
     };
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void IfStatementsFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions core{controller.core()};
     const ControlFlowSyntaxOptions options{controller.controlFlow()};
@@ -68,6 +78,11 @@ void IfStatementsFeature::install(EssentialsController &controller) const {
     });
 }
 
+/**
+ * @brief Implements the `ifStatements` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack ifStatements() {
     EssentialPack pack{};
     pack.add<IfStatementsFeature>();

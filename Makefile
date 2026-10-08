@@ -76,7 +76,21 @@ build/obj/%.o: src/%.cpp
 
 -include $(LIB_OBJ:.o=.d)
 
-tests: $(TEST_BIN)
+check-public-api:
+	@if [ -e src/include/NovaCCompiler.hpp ]; then \
+		echo "Error: obsolete src/include/NovaCCompiler.hpp detected."; \
+		echo "NovaC exposes a single public umbrella header: <NovaC.hpp>."; \
+		echo "Remove the obsolete header or extract NovaC into a clean directory."; \
+		exit 1; \
+	fi
+	@if grep -R --include='*.cpp' --include='*.hpp' -n 'NovaCCompiler.hpp' tests 2>/dev/null | grep -q .; then \
+		echo "Error: tests still reference obsolete <NovaCCompiler.hpp>."; \
+		grep -R --include='*.cpp' --include='*.hpp' -n 'NovaCCompiler.hpp' tests 2>/dev/null || true; \
+		echo "Use <NovaC.hpp> only. Your source tree contains stale files from an older NovaC revision."; \
+		exit 1; \
+	fi
+
+tests: check-public-api $(TEST_BIN)
 
 $(TEST_BIN): $(LIB) $(TEST_OBJ)
 	@mkdir -p $(dir $@)
@@ -88,7 +102,7 @@ build/test-obj/%.o: tests/%.cpp
 
 -include $(TEST_OBJ:.o=.d)
 
-test: $(TEST_BIN)
+test: check-public-api $(TEST_BIN)
 	./$(TEST_BIN)
 
 build/asan/lib/%.o: src/%.cpp
@@ -229,4 +243,4 @@ clean:
 	rm -rf bin lib build
 	rm -rf $(DOC_OUTPUT) $(DOC_BUILD)
 
-.PHONY: all tests test test-asan test-ubsan package-config install uninstall package-smoke doc-check doc doc-examples doc-strict release-check dist doc-clean doc-clean-all clean
+.PHONY: all check-public-api tests test test-asan test-ubsan package-config install uninstall package-smoke doc-check doc doc-examples doc-strict release-check dist doc-clean doc-clean-all clean

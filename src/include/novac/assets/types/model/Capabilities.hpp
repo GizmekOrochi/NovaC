@@ -25,7 +25,16 @@ struct TypeComponent {
 /** Behavior for types that expose logical child components. */
 class CompositionCapability : public TypeCapability {
 public:
+    /**
+     * @brief Destroys the `CompositionCapability` instance.
+     */
     virtual ~CompositionCapability() = default;
+    /**
+     * @brief Returns the value exposed by `components`.
+     *
+     * @param type Value supplied for `type`.
+     * @return Value produced by the operation.
+     */
     virtual std::span<const TypeComponent> components(const TypeDefinition &type) const = 0;
 };
 
@@ -64,15 +73,39 @@ struct TypeLayout {
 /** Recursive layout context passed to custom layout behaviors. */
 class LayoutContext {
 public:
+    /**
+     * @brief Destroys the `LayoutContext` instance.
+     */
     virtual ~LayoutContext() = default;
+    /**
+     * @brief Returns the value exposed by `types`.
+     *
+     * @return Value produced by the operation.
+     */
     virtual const TypeController &types() const noexcept = 0;
+    /**
+     * @brief Performs the `layoutOf` operation.
+     *
+     * @param type Value supplied for `type`.
+     * @return Value produced by the operation.
+     */
     virtual TypeLayout layoutOf(const TypeId &type) const = 0;
 };
 
 /** Behavior for a type that can produce a bit layout. */
 class LayoutCapability : public TypeCapability {
 public:
+    /**
+     * @brief Destroys the `LayoutCapability` instance.
+     */
     virtual ~LayoutCapability() = default;
+    /**
+     * @brief Computes the result of `compute`.
+     *
+     * @param context Value supplied for `context`.
+     * @param type Value supplied for `type`.
+     * @return Value produced by the operation.
+     */
     virtual TypeLayout compute(const LayoutContext &context, const TypeDefinition &type) const = 0;
 };
 
@@ -88,10 +121,39 @@ public:
  */
 class StorageContext {
 public:
+    /**
+     * @brief Destroys the `StorageContext` instance.
+     */
     virtual ~StorageContext() = default;
+    /**
+     * @brief Returns the value exposed by `types`.
+     *
+     * @return Value produced by the operation.
+     */
     virtual const TypeController &types() const noexcept = 0;
+    /**
+     * @brief Performs the `layoutOf` operation.
+     *
+     * @param type Value supplied for `type`.
+     * @return Value produced by the operation.
+     */
     virtual TypeLayout layoutOf(const TypeId &type) const = 0;
+    /**
+     * @brief Loads data through `loadBits`.
+     *
+     * @param storage Value supplied for `storage`.
+     * @param address Value supplied for `address`.
+     * @param bitSize Value supplied for `bitSize`.
+     * @return Value produced by the operation.
+     */
     virtual BitValue loadBits(const BitStorage &storage, BitAddress address, std::size_t bitSize) const = 0;
+    /**
+     * @brief Stores data through `storeBits`.
+     *
+     * @param storage Value supplied for `storage`.
+     * @param address Value supplied for `address`.
+     * @param value Value supplied for `value`.
+     */
     virtual void storeBits(BitStorage &storage, BitAddress address, const BitValue &value) const = 0;
 };
 
@@ -106,13 +168,34 @@ public:
  */
 class StorageCapability : public TypeCapability {
 public:
+    /**
+     * @brief Destroys the `StorageCapability` instance.
+     */
     virtual ~StorageCapability() = default;
+    /**
+     * @brief Loads data through `load`.
+     *
+     * @param context Value supplied for `context`.
+     * @param type Value supplied for `type`.
+     * @param storage Value supplied for `storage`.
+     * @param address Value supplied for `address`.
+     * @return Value produced by the operation.
+     */
     virtual BitValue load(
         const StorageContext &context,
         const TypeDefinition &type,
         const BitStorage &storage,
         BitAddress address
     ) const = 0;
+    /**
+     * @brief Stores data through `store`.
+     *
+     * @param context Value supplied for `context`.
+     * @param type Value supplied for `type`.
+     * @param storage Value supplied for `storage`.
+     * @param address Value supplied for `address`.
+     * @param value Value supplied for `value`.
+     */
     virtual void store(
         const StorageContext &context,
         const TypeDefinition &type,
@@ -153,7 +236,17 @@ struct TypeMember {
 /** Behavior for named member lookup. */
 class MemberCapability : public TypeCapability {
 public:
+    /**
+     * @brief Destroys the `MemberCapability` instance.
+     */
     virtual ~MemberCapability() = default;
+    /**
+     * @brief Finds the value requested by `findMember`.
+     *
+     * @param type Value supplied for `type`.
+     * @param name Value supplied for `name`.
+     * @return Value produced by the operation.
+     */
     virtual std::optional<TypeMember> findMember(const TypeDefinition &type, std::string_view name) const = 0;
 };
 

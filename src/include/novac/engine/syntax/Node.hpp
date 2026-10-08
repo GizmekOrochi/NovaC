@@ -3,7 +3,10 @@
 #include "../foundation/Ids.hpp"
 #include "../foundation/registry/Registry.hpp"
 #include "../foundation/registry/RegistryHelpers.hpp"
+#include "../foundation/Diagnostic.hpp"
+#include "../foundation/Metadata.hpp"
 
+#include <any>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -33,7 +36,7 @@ using NodeList = std::vector<NodePtr>;
  * Fields can contain primitive values, a single child node, a list of child
  * nodes, or an empty value represented by std::monostate.
  */
-using Field = std::variant<std::monostate, int, double, bool, std::string, NodePtr, NodeList>;
+using Field = std::variant<std::monostate, int, double, bool, std::string, NodePtr, NodeList, std::any>;
 
 /**
  * @brief Supported schema field types.
@@ -48,7 +51,9 @@ enum class FieldKind {
     Bool,
     String,
     Node,
-    NodeListField
+    NodeListField,
+    /** Arbitrary extension-owned C++ value stored through std::any. */
+    Opaque
 };
 
 /**
@@ -303,9 +308,43 @@ public:
      */
     const NodeList &list(const ids::FieldName &name) const;
 
+    /** Attach a source span to this node without making span a schema field. */
+    Node &setSpan(diagnostics::SourceSpan span);
+    /**
+     * @brief Returns the value exposed by `span`.
+     *
+     * @return Value produced by the operation.
+     */
+    const diagnostics::SourceSpan &span() const noexcept;
+
+    /** Language-defined metadata that is not part of structural AST validation. */
+    metadata::MetadataStore &metadata() noexcept;
+    /**
+     * @brief Returns the value exposed by `metadata`.
+     *
+     * @return Value produced by the operation.
+     */
+    const metadata::MetadataStore &metadata() const noexcept;
+
+    /** Store an arbitrary extension-owned value as a structural field. */
+    template <typename T>
+    Node &setOpaque(std::string name, T value) {
+        return set(std::move(name), std::any{std::move(value)});
+    }
+
+    /** Retrieve an opaque structural field by its concrete C++ type. */
+    template <typename T>
+    const T *opaque(const std::string &name) const {
+        const Field &value{field(name)};
+        const auto *payload{std::get_if<std::any>(&value)};
+        return payload ? std::any_cast<T>(payload) : nullptr;
+    }
+
 private:
     std::string kind_;
     std::unordered_map<std::string, Field> fields_;
+    diagnostics::SourceSpan span_{};
+    metadata::MetadataStore metadata_{};
 };
 
 /**

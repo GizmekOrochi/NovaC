@@ -62,7 +62,8 @@ The install includes:
 
 .. code-block:: text
 
-   <prefix>/include/novac/...
+   <prefix>/include/NovaC.hpp
+   <prefix>/include/novac/...   # support headers included by NovaC.hpp
    <prefix>/lib/libNovaC.a
    <prefix>/lib/cmake/NovaC/NovaCConfig.cmake
    <prefix>/lib/cmake/NovaC/NovaCConfigVersion.cmake

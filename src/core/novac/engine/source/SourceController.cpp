@@ -5,9 +5,21 @@
 
 namespace novac::source {
 
+/**
+ * @brief Constructs a `SourceController` instance.
+ *
+ * @param duplicatePolicy Value supplied for `duplicatePolicy`.
+ */
 SourceController::SourceController(registry::DuplicatePolicy duplicatePolicy)
     : resolvers_{}, resolverIndices_{}, duplicatePolicy_{duplicatePolicy} {}
 
+/**
+ * @brief Resolves data through `resolver`.
+ *
+ * @param id Value supplied for `id`.
+ * @param resolverValue Value supplied for `resolverValue`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus SourceController::resolver(std::string id, SourceResolver resolverValue) {
     if (id.empty()) {
         throw std::runtime_error("SourceController::resolver: id cannot be empty");
@@ -34,6 +46,12 @@ registry::RegisterStatus SourceController::resolver(std::string id, SourceResolv
     return registry::RegisterStatus::Inserted;
 }
 
+/**
+ * @brief Resolves data through `resolve`.
+ *
+ * @param request Value supplied for `request`.
+ * @return Value produced by the operation.
+ */
 Source SourceController::resolve(const SourceRequest &request) const {
     if (request.specifier.empty()) {
         throw std::runtime_error("SourceController::resolve: source specifier cannot be empty");

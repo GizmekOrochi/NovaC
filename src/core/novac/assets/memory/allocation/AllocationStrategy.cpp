@@ -6,6 +6,13 @@
 
 namespace novac::assets::memory {
 
+/**
+ * @brief Implements the `place` operation.
+ *
+ * @param request Value supplied for `request`.
+ * @param existing Value supplied for `existing`.
+ * @return Value produced by the operation.
+ */
 std::optional<AllocationPlacement> LinearAllocationStrategy::place(const AllocationRequest &request, std::span<const Allocation> existing) {
     if (request.bitSize == 0 || request.alignmentBits == 0)
         return std::nullopt;
@@ -48,6 +55,13 @@ std::optional<AllocationPlacement> LinearAllocationStrategy::place(const Allocat
     return AllocationPlacement{candidate - request.region.begin.bitOffset};
 }
 
+/**
+ * @brief Implements the `alignUp` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @param alignment Value supplied for `alignment`.
+ * @return Value produced by the operation.
+ */
 std::size_t LinearAllocationStrategy::alignUp(std::size_t value, std::size_t alignment) {
     if (alignment == 0)
         return value;
@@ -60,6 +74,14 @@ std::size_t LinearAllocationStrategy::alignUp(std::size_t value, std::size_t ali
     return value + padding;
 }
 
+/**
+ * @brief Implements the `fits` operation.
+ *
+ * @param begin Value supplied for `begin`.
+ * @param size Value supplied for `size`.
+ * @param end Value supplied for `end`.
+ * @return Value produced by the operation.
+ */
 bool LinearAllocationStrategy::fits(std::size_t begin, std::size_t size, std::size_t end) noexcept {
     return begin <= end && size <= end - begin;
 }

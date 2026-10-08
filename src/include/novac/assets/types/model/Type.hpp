@@ -150,6 +150,9 @@ public:
     bool empty() const noexcept { return values_.empty(); }
 
 private:
+    /**
+     * @brief Ensures the invariant required by `ensureMutable`.
+     */
     void ensureMutable() const {
         if (frozen_) {
             throw std::runtime_error("ExtensionSet: committed metadata is immutable");
@@ -169,6 +172,9 @@ private:
  */
 class TypeCapability {
 public:
+    /**
+     * @brief Destroys the `TypeCapability` instance.
+     */
     virtual ~TypeCapability() = default;
 };
 
@@ -183,6 +189,12 @@ public:
  */
 class TypeCapabilities final {
 public:
+    /**
+     * @brief Performs the `emplace` operation.
+     *
+     * @param args Value supplied for `args`.
+     * @return Value produced by the operation.
+     */
     template <typename Capability, typename Implementation = Capability, typename... Args>
     const Implementation &emplace(Args &&...args) {
         static_assert(std::is_base_of_v<TypeCapability, Capability>, "Capability must derive from TypeCapability");
@@ -194,12 +206,22 @@ public:
         return reference;
     }
 
+    /**
+     * @brief Checks the condition represented by `has`.
+     *
+     * @return Value produced by the operation.
+     */
     template <typename Capability>
     bool has() const noexcept {
         static_assert(std::is_base_of_v<TypeCapability, Capability>, "Capability must derive from TypeCapability");
         return values_.find(std::type_index(typeid(Capability))) != values_.end();
     }
 
+    /**
+     * @brief Returns the value exposed by `get`.
+     *
+     * @return Value produced by the operation.
+     */
     template <typename Capability>
     const Capability *get() const noexcept {
         static_assert(std::is_base_of_v<TypeCapability, Capability>, "Capability must derive from TypeCapability");
@@ -207,6 +229,9 @@ public:
         return it == values_.end() ? nullptr : static_cast<const Capability *>(it->second.get());
     }
 
+    /**
+     * @brief Performs the `erase` operation.
+     */
     template <typename Capability>
     void erase() {
         static_assert(std::is_base_of_v<TypeCapability, Capability>, "Capability must derive from TypeCapability");
@@ -214,17 +239,41 @@ public:
         values_.erase(std::type_index(typeid(Capability)));
     }
 
+    /**
+     * @brief Resets state through `clear`.
+     */
     void clear() {
         ensureMutable();
         values_.clear();
     }
 
+    /**
+     * @brief Performs the `freeze` operation.
+     */
     void freeze() noexcept { frozen_ = true; }
+    /**
+     * @brief Performs the `frozen` operation.
+     *
+     * @return Value produced by the operation.
+     */
     bool frozen() const noexcept { return frozen_; }
+    /**
+     * @brief Performs the `size` operation.
+     *
+     * @return Value produced by the operation.
+     */
     std::size_t size() const noexcept { return values_.size(); }
+    /**
+     * @brief Checks the condition represented by `empty`.
+     *
+     * @return Value produced by the operation.
+     */
     bool empty() const noexcept { return values_.empty(); }
 
 private:
+    /**
+     * @brief Ensures the invariant required by `ensureMutable`.
+     */
     void ensureMutable() const {
         if (frozen_)
             throw std::runtime_error("TypeCapabilities: committed behavior is immutable");

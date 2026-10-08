@@ -16,11 +16,10 @@ A useful mental model is:
        +-- syntax choices
        +-- semantic choices
        +-- native functions
-       +-- optional source directives
        |
        v
    +-----------------------+
-   |       Essentials      |  variables, functions, scopes, standard control flow
+   |       Essentials      |  variables, functions, scopes, control flow
    +-----------+-----------+
                |
    +-----------v-----------+
@@ -28,14 +27,13 @@ A useful mental model is:
    +-----------+-----------+
                |
    +-----------v-----------+
-   |         Engine        |  source/preprocessor, lexer, parser, AST, runtime, IR
+   |         Engine        |  lexer, parser, AST, runtime, optional IR
    +-----------------------+
 
 If you only need expressions, you can stop at Engine + Atomic. If you are
-building a complete imperative language, add Essentials. Logical-source
-preprocessing and custom control-flow facilities are available directly from
-the Engine layer and remain opt-in. If you want to build custom compiler passes,
-the Engine also exposes optional HIR and MIR infrastructure.
+building a complete imperative language, add Essentials. If you want to build
+custom compiler passes, the Engine also exposes optional HIR and MIR
+infrastructure.
 
 Where should I start?
 ---------------------
@@ -49,12 +47,6 @@ Where should I start?
 
 **I want to understand how NovaC works**
    Read :doc:`guide/architecture`, then :doc:`guide/engine`.
-
-**I want custom statements without modifying Essentials**
-   Read :doc:`guide/control_flow_extensions`.
-
-**I need include/import or conditional compilation**
-   Read :doc:`guide/preprocessing`.
 
 **I do not understand HIR/MIR**
    Read :doc:`guide/ir`. It starts from the definition of an intermediate
@@ -83,6 +75,7 @@ Where should I start?
    :caption: Concepts and guides
 
    guide/architecture
+   guide/treelang
    guide/engine
    guide/atomic
    guide/essentials
@@ -90,8 +83,6 @@ Where should I start?
    guide/memory
    guide/native_functions
    guide/customization
-   guide/control_flow_extensions
-   guide/preprocessing
    guide/ir
    guide/ownership
    guide/testing
@@ -104,8 +95,6 @@ Where should I start?
    examples/minimal
    examples/calculator
    examples/complete_language
-   examples/custom_control_flow
-   examples/preprocessing
    examples/ir_builder
    examples/type_system
    examples/complex_types

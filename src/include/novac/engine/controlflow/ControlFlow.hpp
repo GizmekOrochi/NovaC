@@ -73,6 +73,11 @@ controllers::EngineFeature::Installer statement(StatementSpec spec);
  */
 class LoopGuard final {
 public:
+    /**
+     * @brief Constructs a `LoopGuard` instance.
+     *
+     * @param maximumIterations Value supplied for `maximumIterations`.
+     */
     explicit LoopGuard(std::size_t maximumIterations = 0);
 
     /**

@@ -29,12 +29,25 @@ struct StoreBitsOperation {
 /** Default raw-load implementation delegating to the address-space BitAccess. */
 class DirectLoadBitsHandler final : public MemoryOperationHandler<LoadBitsOperation> {
 public:
+    /**
+     * @brief Executes the behavior handled by `execute`.
+     *
+     * @param context Value supplied for `context`.
+     * @param request Value supplied for `request`.
+     * @return Value produced by the operation.
+     */
     types::BitValue execute(MemoryContext &context, const Request &request) const override;
 };
 
 /** Default raw-store implementation delegating to the address-space BitAccess. */
 class DirectStoreBitsHandler final : public MemoryOperationHandler<StoreBitsOperation> {
 public:
+    /**
+     * @brief Executes the behavior handled by `execute`.
+     *
+     * @param context Value supplied for `context`.
+     * @param request Value supplied for `request`.
+     */
     void execute(MemoryContext &context, const Request &request) const override;
 };
 

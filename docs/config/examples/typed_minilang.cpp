@@ -1,7 +1,4 @@
-#include "NovaC.hpp"
-
-#include "novac/assets/atomic/literals/IntegerLiteralAtomic.hpp"
-#include "novac/assets/atomic/operations/NumericOperations.hpp"
+#include <NovaC.hpp>
 
 #include <array>
 #include <fstream>
@@ -285,7 +282,7 @@ int main(int argc, char **argv) {
         std::cout << context.eval(*node.child("value")).toString() << '\n';
     });
 
-    const std::string source{argc > 1 ? readFile(argv[1]) : R"(
+    const std::string source{R"(
 short a = 10;
 int b = a + 20;
 long c = b - 5;
@@ -293,8 +290,9 @@ print a;
 print b;
 print c;
 )"};
+    const std::string programText{argc > 1 ? readFile(argv[1]) : source};
 
-    const ast::NodePtr program{engine.parse(source)};
+    const ast::NodePtr program{engine.parse(programText)};
     engine.validate(*program);
 
     TypeChecker checker{types, add, sub, integer};

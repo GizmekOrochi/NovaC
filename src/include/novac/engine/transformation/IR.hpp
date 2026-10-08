@@ -4,6 +4,7 @@
 #include "../foundation/Ids.hpp"
 #include "../foundation/registry/Registry.hpp"
 #include "../foundation/registry/RegistryHelpers.hpp"
+#include "../foundation/Metadata.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -269,6 +270,9 @@ struct Instruction {
 
     /** Type of the produced value. */
     ValueType type{ValueType::Unknown};
+
+    /** Extension-defined information attached to this instruction. */
+    metadata::MetadataStore metadata{};
 };
 
 /**
@@ -286,6 +290,9 @@ struct Terminator {
 
     /** Basic blocks that can be reached from this terminator. */
     std::vector<BlockId> targets{};
+
+    /** Extension-defined information attached to this terminator. */
+    metadata::MetadataStore metadata{};
 };
 
 /**
@@ -306,6 +313,9 @@ struct BasicBlock {
 
     /** Optional instruction describing how control leaves the block. */
     std::optional<Terminator> terminator{};
+
+    /** Extension-defined information attached to this block. */
+    metadata::MetadataStore metadata{};
 };
 
 /**
@@ -317,6 +327,9 @@ struct BasicBlock {
 struct HIRModule {
     /** Basic blocks belonging to this HIR module. */
     std::vector<BasicBlock> blocks{};
+
+    /** Extension-defined module-level information. */
+    metadata::MetadataStore metadata{};
 };
 
 /**
@@ -328,6 +341,9 @@ struct HIRModule {
 struct MIRModule {
     /** Basic blocks belonging to this MIR module. */
     std::vector<BasicBlock> blocks{};
+
+    /** Extension-defined module-level information. */
+    metadata::MetadataStore metadata{};
 };
 
 /**
@@ -460,7 +476,17 @@ public:
     HIRModule finish();
 
 private:
+    /**
+     * @brief Performs the `currentBlock` operation.
+     *
+     * @return Value produced by the operation.
+     */
     BasicBlock &currentBlock();
+    /**
+     * @brief Performs the `currentBlock` operation.
+     *
+     * @return Value produced by the operation.
+     */
     const BasicBlock &currentBlock() const;
 
     HIRModule module_;
@@ -592,7 +618,17 @@ public:
     MIRModule finish();
 
 private:
+    /**
+     * @brief Performs the `currentBlock` operation.
+     *
+     * @return Value produced by the operation.
+     */
     BasicBlock &currentBlock();
+    /**
+     * @brief Performs the `currentBlock` operation.
+     *
+     * @return Value produced by the operation.
+     */
     const BasicBlock &currentBlock() const;
 
     MIRModule module_;

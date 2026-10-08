@@ -60,7 +60,7 @@ The public umbrella header and version API are available after installation:
 #include <NovaC.hpp>
 
 static_assert(NOVAC_VERSION_MAJOR == 1);
-static_assert(novac::Version == "1.4.0");
+static_assert(novac::Version == "1.4.1");
 ```
 
 Remove an installation made with the same prefix using:

@@ -487,24 +487,115 @@ private:
     std::unordered_map<std::string, std::vector<std::shared_ptr<const OperationSemanticRule>>> semanticRules_{};
     bool finalized_{false};
 
+    /**
+     * @brief Ensures the invariant required by `ensureMutable`.
+     *
+     * @param owner Value supplied for `owner`.
+     */
     void ensureMutable(const char *owner) const;
+    /**
+     * @brief Checks the condition represented by `hasConcreteType`.
+     *
+     * @param id Value supplied for `id`.
+     * @return Value produced by the operation.
+     */
     bool hasConcreteType(const TypeId &id) const noexcept;
+    /**
+     * @brief Performs the `wouldCreateAliasCycle` operation.
+     *
+     * @param alias Value supplied for `alias`.
+     * @param target Value supplied for `target`.
+     * @return Value produced by the operation.
+     */
     bool wouldCreateAliasCycle(const TypeId &alias, const TypeId &target) const;
+    /**
+     * @brief Validates data through `validateTypeDefinition`.
+     *
+     * @param type Value supplied for `type`.
+     */
     static void validateTypeDefinition(const TypeDefinition &type);
+    /**
+     * @brief Validates data through `validatePrimitive`.
+     *
+     * @param type Value supplied for `type`.
+     */
     void validatePrimitive(const PrimitiveType &type) const;
+    /**
+     * @brief Validates data through `validateConversion`.
+     *
+     * @param source Value supplied for `source`.
+     * @param conversion Value supplied for `conversion`.
+     */
     void validateConversion(const TypeId &source, const TypeConversion &conversion) const;
 
+    /**
+     * @brief Performs the `commitPrimitive` operation.
+     *
+     * @param type Value supplied for `type`.
+     * @param conversions Value supplied for `conversions`.
+     * @return Value produced by the operation.
+     */
     registry::RegisterStatus commitPrimitive(PrimitiveType type, std::unordered_map<TypeId, TypeConversion, TypeIdHash> conversions);
 
+    /**
+     * @brief Validates data through `validateLiteralInfo`.
+     *
+     * @param literal Value supplied for `literal`.
+     */
     static void validateLiteralInfo(const atomic::LiteralInfo &literal);
+    /**
+     * @brief Validates data through `validateOperationInfo`.
+     *
+     * @param operation Value supplied for `operation`.
+     */
     static void validateOperationInfo(const atomic::OperationInfo &operation);
+    /**
+     * @brief Validates data through `validateSignature`.
+     *
+     * @param operation Value supplied for `operation`.
+     * @param signature Value supplied for `signature`.
+     */
     void validateSignature(const atomic::OperationInfo &operation, const OperationSignature &signature) const;
 
+    /**
+     * @brief Performs the `materializeSemanticResolution` operation.
+     *
+     * @param operands Value supplied for `operands`.
+     * @param resolution Value supplied for `resolution`.
+     * @return Value produced by the operation.
+     */
     OperationResolution materializeSemanticResolution(std::span<const TypeId> operands, SemanticOperationResolution resolution) const;
 
+    /**
+     * @brief Performs the `expectedArity` operation.
+     *
+     * @param operation Value supplied for `operation`.
+     * @return Value produced by the operation.
+     */
     static std::size_t expectedArity(const atomic::OperationInfo &operation) noexcept;
+    /**
+     * @brief Resolves data through `resolveLiteralBinding`.
+     *
+     * @param binding Value supplied for `binding`.
+     * @param node Value supplied for `node`.
+     * @return Value produced by the operation.
+     */
     std::optional<TypeId> resolveLiteralBinding(const LiteralBinding &binding, const ast::Node &node) const;
+    /**
+     * @brief Resolves data through `resolveRegisteredOperations`.
+     *
+     * @param operationId Value supplied for `operationId`.
+     * @param operands Value supplied for `operands`.
+     * @return Value produced by the operation.
+     */
     OperationResolutionResult resolveRegisteredOperations(const std::string &operationId, std::span<const TypeId> operands) const;
+    /**
+     * @brief Resolves data through `resolveCustomRules`.
+     *
+     * @param operationId Value supplied for `operationId`.
+     * @param operands Value supplied for `operands`.
+     * @return Value produced by the operation.
+     */
     OperationResolutionResult resolveCustomRules(const std::string &operationId, std::span<const TypeId> operands) const;
 };
 

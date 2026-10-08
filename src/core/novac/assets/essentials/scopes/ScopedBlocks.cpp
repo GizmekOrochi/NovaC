@@ -8,10 +8,20 @@
 
 namespace novac::assets::essentials::scopes {
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialInfo ScopedBlocksFeature::info() const {
     return {"essentials.scopes.blocks", "0.1.0", "Lexical scoped blocks", {"BlockStmt"}, {traits::Statement, traits::Scope}, {"scope.block"}, {}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void ScopedBlocksFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions options{controller.core()};
     const bool enforce{controller.options().enforceChildTraits};
@@ -67,12 +77,22 @@ void ScopedBlocksFeature::install(EssentialsController &controller) const {
     });
 }
 
+/**
+ * @brief Implements the `scopedBlocks` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack scopedBlocks() {
     EssentialPack pack{};
     pack.add<ScopedBlocksFeature>();
     return pack;
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standard`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack standard() {
     return scopedBlocks();
 }

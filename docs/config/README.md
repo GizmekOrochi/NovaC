@@ -21,6 +21,10 @@ Compile and execute the documentation examples only:
 make doc-examples
 ```
 
+Documentation examples use the single public `#include <NovaC.hpp>` entry point.
+The example checker rejects direct `#include <novac/...>` usage so snippets do
+not drift back to internal headers.
+
 For release checks:
 
 ```bash

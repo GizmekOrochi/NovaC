@@ -86,7 +86,7 @@ Use the typed identifiers when reading or writing Atomic nodes:
 
 .. code-block:: cpp
 
-   #include "novac/assets/atomic/AtomicIds.hpp"
+   #include <NovaC.hpp>
 
    using namespace novac::assets::atomic;
 

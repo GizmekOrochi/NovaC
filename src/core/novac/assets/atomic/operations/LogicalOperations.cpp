@@ -10,6 +10,12 @@ namespace novac::assets::atomic::operations {
 
 namespace {
 
+/**
+ * @brief Checks the condition represented by `isInteger`.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 bool isInteger(const runtime::Value &value) {
     try {
         static_cast<void>(value.asInt());
@@ -19,6 +25,12 @@ bool isInteger(const runtime::Value &value) {
     }
 }
 
+/**
+ * @brief Implements the `operatorKey` operation.
+ *
+ * @param info Value supplied for `info`.
+ * @return Value produced by the operation.
+ */
 std::string operatorKey(const OperationInfo &info) {
     if (!info.pattern.token.empty()) {
         return info.pattern.token;
@@ -27,6 +39,13 @@ std::string operatorKey(const OperationInfo &info) {
     return info.pattern.tokenKey;
 }
 
+/**
+ * @brief Installs the behavior provided by `installBinaryLogical`.
+ *
+ * @param controller Value supplied for `controller`.
+ * @param operation Value supplied for `operation`.
+ * @param handler Value supplied for `handler`.
+ */
 void installBinaryLogical(
     AtomicController &controller,
     const OperationInfo &operation,
@@ -54,13 +73,28 @@ void installBinaryLogical(
 
 } // namespace
 
+/**
+ * @brief Constructs a `LogicalAndOperationAtomic` instance.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 LogicalAndOperationAtomic::LogicalAndOperationAtomic(TokenPattern pattern)
  : pattern_{std::move(pattern)} {}
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 OperationInfo LogicalAndOperationAtomic::info() const {
     return {"core.op.logical.and", "0.1.0", "Logical AND operation", OperationArity::Binary, pattern_, 4, parser::Associativity::Left, {"operation.logical", "operation.binary"}, {"expression.atom"}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void LogicalAndOperationAtomic::install(AtomicController &controller) const {
     installBinaryLogical(controller, info(), [](const ast::Node &node, runtime::RuntimeContext &context) {
         const bool left{context.eval(*node.child(fields::Left)).truthy()};
@@ -73,13 +107,28 @@ void LogicalAndOperationAtomic::install(AtomicController &controller) const {
     });
 }
 
+/**
+ * @brief Constructs a `LogicalOrOperationAtomic` instance.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 LogicalOrOperationAtomic::LogicalOrOperationAtomic(TokenPattern pattern)
     : pattern_{std::move(pattern)} {}
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 OperationInfo LogicalOrOperationAtomic::info() const {
     return {"core.op.logical.or", "0.1.0", "Logical OR operation", OperationArity::Binary, pattern_, 3, parser::Associativity::Left, {"operation.logical", "operation.binary"}, {"expression.atom"}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void LogicalOrOperationAtomic::install(AtomicController &controller) const {
     installBinaryLogical(controller, info(), [](const ast::Node &node, runtime::RuntimeContext &context) {
         const bool left{context.eval(*node.child(fields::Left)).truthy()};
@@ -92,13 +141,28 @@ void LogicalOrOperationAtomic::install(AtomicController &controller) const {
     });
 }
 
+/**
+ * @brief Constructs a `LogicalNotOperationAtomic` instance.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 LogicalNotOperationAtomic::LogicalNotOperationAtomic(TokenPattern pattern)
     : pattern_{std::move(pattern)} {}
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 OperationInfo LogicalNotOperationAtomic::info() const {
     return {"core.op.logical.not", "0.1.0", "Logical NOT operation", OperationArity::Unary, pattern_, 30, parser::Associativity::Right, {"operation.logical", "operation.unary"}, {"expression.atom"}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void LogicalNotOperationAtomic::install(AtomicController &controller) const {
     const OperationInfo operation{info()};
     const std::string domain{controller.expressionDomain()};
@@ -125,13 +189,28 @@ void LogicalNotOperationAtomic::install(AtomicController &controller) const {
 }
 
 
+/**
+ * @brief Constructs a `NumericNegateOperationAtomic` instance.
+ *
+ * @param pattern Value supplied for `pattern`.
+ */
 NumericNegateOperationAtomic::NumericNegateOperationAtomic(TokenPattern pattern)
     : pattern_{std::move(pattern)} {}
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 OperationInfo NumericNegateOperationAtomic::info() const {
     return {"core.op.neg", "0.1.0", "Numeric negation operation", OperationArity::Unary, pattern_, 30, parser::Associativity::Right, {"operation.numeric", "operation.unary"}, {"expression.atom"}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void NumericNegateOperationAtomic::install(AtomicController &controller) const {
     const OperationInfo operation{info()};
     const std::string domain{controller.expressionDomain()};

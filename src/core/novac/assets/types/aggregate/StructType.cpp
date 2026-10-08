@@ -7,6 +7,13 @@
 namespace novac::assets::types::aggregate {
 namespace {
 
+/**
+ * @brief Implements the `alignUp` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @param alignment Value supplied for `alignment`.
+ * @return Value produced by the operation.
+ */
 std::size_t alignUp(std::size_t value, std::size_t alignment) {
     if (alignment == 0)
         throw std::runtime_error("NaturalStructLayout: zero alignment");
@@ -19,6 +26,13 @@ std::size_t alignUp(std::size_t value, std::size_t alignment) {
     return value + padding;
 }
 
+/**
+ * @brief Returns the value required by `requireComposition`.
+ *
+ * @param type Value supplied for `type`.
+ * @param owner Value supplied for `owner`.
+ * @return Value produced by the operation.
+ */
 const CompositionCapability &requireComposition(const TypeDefinition &type, const char *owner) {
     const auto *composition{type.capabilities.get<CompositionCapability>()};
     if (!composition)
@@ -28,12 +42,23 @@ const CompositionCapability &requireComposition(const TypeDefinition &type, cons
 
 } // namespace
 
+/**
+ * @brief Constructs a `StructType` instance.
+ *
+ * @param id Value supplied for `id`.
+ */
 StructType::StructType(TypeId id) : TypeDefinition{std::move(id)} {
     capabilities.emplace<CompositionCapability, StructComposition>();
     capabilities.emplace<LayoutCapability, NaturalStructLayout>();
     capabilities.emplace<MemberCapability, NamedMemberAccess>();
 }
 
+/**
+ * @brief Returns the value exposed by `components`.
+ *
+ * @param type Value supplied for `type`.
+ * @return Value produced by the operation.
+ */
 std::span<const TypeComponent> StructComposition::components(const TypeDefinition &type) const {
     const auto *structure{dynamic_cast<const StructType *>(&type)};
     if (!structure)
@@ -41,6 +66,13 @@ std::span<const TypeComponent> StructComposition::components(const TypeDefinitio
     return structure->fields();
 }
 
+/**
+ * @brief Computes the result of `compute`.
+ *
+ * @param context Value supplied for `context`.
+ * @param type Value supplied for `type`.
+ * @return Value produced by the operation.
+ */
 TypeLayout NaturalStructLayout::compute(const LayoutContext &context, const TypeDefinition &type) const {
     const auto &composition{requireComposition(type, "NaturalStructLayout")};
     const auto components{composition.components(type)};
@@ -64,6 +96,13 @@ TypeLayout NaturalStructLayout::compute(const LayoutContext &context, const Type
     return result;
 }
 
+/**
+ * @brief Finds the value requested by `findMember`.
+ *
+ * @param type Value supplied for `type`.
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 std::optional<TypeMember> NamedMemberAccess::findMember(const TypeDefinition &type, std::string_view name) const {
     const auto &composition{requireComposition(type, "NamedMemberAccess")};
     const auto components{composition.components(type)};
@@ -74,8 +113,21 @@ std::optional<TypeMember> NamedMemberAccess::findMember(const TypeDefinition &ty
     return std::nullopt;
 }
 
+/**
+ * @brief Constructs a `StructBuilder` instance.
+ *
+ * @param types Value supplied for `types`.
+ * @param id Value supplied for `id`.
+ */
 StructBuilder::StructBuilder(TypeController &types, TypeId id) : types_{&types}, type_{std::move(id)} {}
 
+/**
+ * @brief Implements the `field` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @param type Value supplied for `type`.
+ * @return Value produced by the operation.
+ */
 StructBuilder &StructBuilder::field(std::string name, TypeId type) {
     if (name.empty())
         throw std::runtime_error("StructBuilder::field: field name cannot be empty");
@@ -87,6 +139,11 @@ StructBuilder &StructBuilder::field(std::string name, TypeId type) {
     return *this;
 }
 
+/**
+ * @brief Implements the `commit` operation.
+ *
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus StructBuilder::commit() {
     if (!types_)
         throw std::runtime_error("StructBuilder::commit: builder has no TypeController");

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "NovaC.hpp"
+#include <NovaC.hpp>
 
 int main() {
     novac::controllers::EngineController engine{};

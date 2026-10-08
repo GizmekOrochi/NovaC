@@ -12,15 +12,34 @@
 namespace novac::assets::types {
 namespace {
 
+/**
+ * @brief Returns the value required by `requireTypeId`.
+ *
+ * @param id Value supplied for `id`.
+ * @param message Value supplied for `message`.
+ */
 void requireTypeId(const TypeId &id, const char *message) {
     if (!id.valid())
         throw std::runtime_error(message);
 }
 
+/**
+ * @brief Implements the `sameOperands` operation.
+ *
+ * @param left Value supplied for `left`.
+ * @param right Value supplied for `right`.
+ * @return Value produced by the operation.
+ */
 bool sameOperands(const OperationSignature &left, const OperationSignature &right) {
     return left.operands == right.operands;
 }
 
+/**
+ * @brief Implements the `formatTypeList` operation.
+ *
+ * @param types Value supplied for `types`.
+ * @return Value produced by the operation.
+ */
 std::string formatTypeList(std::span<const TypeId> types) {
     std::ostringstream out;
     out << '(';
@@ -40,16 +59,34 @@ std::string formatTypeList(std::span<const TypeId> types) {
 TypeController::PrimitiveBuilder::PrimitiveBuilder(TypeController &controller, TypeId id)
     : controller_{&controller}, type_{std::move(id)} {}
 
+/**
+ * @brief Implements the `bits` operation.
+ *
+ * @param bits Value supplied for `bits`.
+ * @return Value produced by the operation.
+ */
 TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::bits(size_t bits) {
     type_.bits = bits;
     return *this;
 }
 
+/**
+ * @brief Implements the `alignmentBits` operation.
+ *
+ * @param alignmentBits Value supplied for `alignmentBits`.
+ * @return Value produced by the operation.
+ */
 TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::alignmentBits(size_t alignmentBits) {
     type_.alignmentBits = alignmentBits;
     return *this;
 }
 
+/**
+ * @brief Implements the `alignmentBytes` operation.
+ *
+ * @param alignmentBytes Value supplied for `alignmentBytes`.
+ * @return Value produced by the operation.
+ */
 TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::alignmentBytes(size_t alignmentBytes) {
     constexpr size_t bitsPerByte{8U};
     if (alignmentBytes > std::numeric_limits<size_t>::max() / bitsPerByte)
@@ -57,23 +94,52 @@ TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::alignmentByt
     return alignmentBits(alignmentBytes * bitsPerByte);
 }
 
+/**
+ * @brief Implements the `signedness` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::signedness(PrimitiveSignedness value) {
     type_.signedness = value;
     return *this;
 }
 
+/**
+ * @brief Implements the `signedType` operation.
+ *
+ * @return Value produced by the operation.
+ */
 TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::signedType() {
     return signedness(PrimitiveSignedness::Signed);
 }
 
+/**
+ * @brief Implements the `unsignedType` operation.
+ *
+ * @return Value produced by the operation.
+ */
 TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::unsignedType() {
     return signedness(PrimitiveSignedness::Unsigned);
 }
 
+/**
+ * @brief Implements the `signless` operation.
+ *
+ * @return Value produced by the operation.
+ */
 TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::signless() {
     return signedness(PrimitiveSignedness::NotApplicable);
 }
 
+/**
+ * @brief Implements the `conversionTo` operation.
+ *
+ * @param target Value supplied for `target`.
+ * @param kind Value supplied for `kind`.
+ * @param rank Value supplied for `rank`.
+ * @return Value produced by the operation.
+ */
 TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::conversionTo(TypeId target, ConversionKind kind, size_t rank) {
     requireTypeId(target, "TypeController::PrimitiveBuilder::conversionTo: target type cannot be empty");
     if (kind == ConversionKind::Implicit && rank == 0) {
@@ -85,6 +151,11 @@ TypeController::PrimitiveBuilder &TypeController::PrimitiveBuilder::conversionTo
     return *this;
 }
 
+/**
+ * @brief Implements the `commit` operation.
+ *
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus TypeController::PrimitiveBuilder::commit() {
     if (controller_ == nullptr)
         throw std::runtime_error("TypeController::PrimitiveBuilder::commit: builder has no controller");
@@ -95,15 +166,31 @@ registry::RegisterStatus TypeController::PrimitiveBuilder::commit() {
 
 TypeController::TypeController(TypeControllerOptions options) : options_{options} {}
 
+/**
+ * @brief Ensures the invariant required by `ensureMutable`.
+ *
+ * @param owner Value supplied for `owner`.
+ */
 void TypeController::ensureMutable(const char *owner) const {
     if (finalized_)
         throw std::runtime_error(std::string{owner} + ": type configuration is finalized");
 }
 
+/**
+ * @brief Checks the condition represented by `hasConcreteType`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 bool TypeController::hasConcreteType(const TypeId &id) const noexcept {
     return types_.find(id) != types_.end();
 }
 
+/**
+ * @brief Implements the `declareType` operation.
+ *
+ * @param id Value supplied for `id`.
+ */
 void TypeController::declareType(TypeId id) {
     ensureMutable("TypeController::declareType");
     requireTypeId(id, "TypeController::declareType: type id cannot be empty");
@@ -111,6 +198,12 @@ void TypeController::declareType(TypeId id) {
         declarations_.insert(std::move(id));
 }
 
+/**
+ * @brief Checks the condition represented by `isDeclared`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 bool TypeController::isDeclared(const TypeId &id) const {
     if (!id.valid())
         return false;
@@ -118,6 +211,12 @@ bool TypeController::isDeclared(const TypeId &id) const {
     return hasConcreteType(resolved) || declarations_.find(resolved) != declarations_.end();
 }
 
+/**
+ * @brief Registers data through `registerType`.
+ *
+ * @param type Value supplied for `type`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus TypeController::registerType(std::unique_ptr<TypeDefinition> type) {
     ensureMutable("TypeController::registerType");
     if (!type)
@@ -153,10 +252,22 @@ registry::RegisterStatus TypeController::registerType(std::unique_ptr<TypeDefini
     throw std::runtime_error("TypeController::registerType: unknown duplicate policy");
 }
 
+/**
+ * @brief Checks the condition represented by `hasType`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 bool TypeController::hasType(const TypeId &id) const {
     return findType(id) != nullptr;
 }
 
+/**
+ * @brief Finds the value requested by `findType`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 const TypeDefinition *TypeController::findType(const TypeId &id) const {
     if (!id.valid())
         return nullptr;
@@ -165,6 +276,12 @@ const TypeDefinition *TypeController::findType(const TypeId &id) const {
     return it == types_.end() ? nullptr : it->second.get();
 }
 
+/**
+ * @brief Returns the value required by `requireType`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 const TypeDefinition &TypeController::requireType(const TypeId &id) const {
     const TypeDefinition *type{findType(id)};
     if (!type)
@@ -172,10 +289,20 @@ const TypeDefinition &TypeController::requireType(const TypeId &id) const {
     return *type;
 }
 
+/**
+ * @brief Implements the `typeIds` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const std::vector<TypeId> &TypeController::typeIds() const noexcept {
     return typeIds_;
 }
 
+/**
+ * @brief Implements the `typeCount` operation.
+ *
+ * @return Value produced by the operation.
+ */
 size_t TypeController::typeCount() const noexcept {
     return types_.size();
 }
@@ -186,6 +313,12 @@ bool TypeController::hasAlias(const TypeId &id) const noexcept {
     return aliases_.find(id) != aliases_.end();
 }
 
+/**
+ * @brief Implements the `aliasTarget` operation.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 std::optional<TypeId> TypeController::aliasTarget(const TypeId &id) const {
     const auto found{aliases_.find(id)};
     if (found == aliases_.end())
@@ -193,6 +326,13 @@ std::optional<TypeId> TypeController::aliasTarget(const TypeId &id) const {
     return found->second;
 }
 
+/**
+ * @brief Implements the `wouldCreateAliasCycle` operation.
+ *
+ * @param alias Value supplied for `alias`.
+ * @param target Value supplied for `target`.
+ * @return Value produced by the operation.
+ */
 bool TypeController::wouldCreateAliasCycle(const TypeId &alias, const TypeId &target) const {
     TypeId current = target;
     std::unordered_set<TypeId, TypeIdHash> visited{};
@@ -210,6 +350,13 @@ bool TypeController::wouldCreateAliasCycle(const TypeId &alias, const TypeId &ta
     }
 }
 
+/**
+ * @brief Registers data through `registerAlias`.
+ *
+ * @param alias Value supplied for `alias`.
+ * @param target Value supplied for `target`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus TypeController::registerAlias(TypeId alias, TypeId target) {
     ensureMutable("TypeController::registerAlias");
     requireTypeId(alias, "TypeController::registerAlias: alias cannot be empty");
@@ -251,6 +398,12 @@ registry::RegisterStatus TypeController::registerAlias(TypeId alias, TypeId targ
     throw std::runtime_error("TypeController::registerAlias: unknown duplicate policy");
 }
 
+/**
+ * @brief Checks the condition represented by `canonical`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 TypeId TypeController::canonical(TypeId id) const {
     requireTypeId(id, "TypeController::canonical: type id cannot be empty");
     std::unordered_set<TypeId, TypeIdHash> visited{};
@@ -266,6 +419,13 @@ TypeId TypeController::canonical(TypeId id) const {
     }
 }
 
+/**
+ * @brief Implements the `equivalent` operation.
+ *
+ * @param left Value supplied for `left`.
+ * @param right Value supplied for `right`.
+ * @return Value produced by the operation.
+ */
 bool TypeController::equivalent(const TypeId &left, const TypeId &right) const {
     if (!isDeclared(left) || !isDeclared(right))
         return false;
@@ -279,10 +439,23 @@ TypeController::PrimitiveBuilder TypeController::definePrimitive(TypeId id) {
     return PrimitiveBuilder{*this, std::move(id)};
 }
 
+/**
+ * @brief Registers data through `registerPrimitive`.
+ *
+ * @param type Value supplied for `type`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus TypeController::registerPrimitive(PrimitiveType type) {
     return commitPrimitive(std::move(type), {});
 }
 
+/**
+ * @brief Implements the `commitPrimitive` operation.
+ *
+ * @param type Value supplied for `type`.
+ * @param conversions Value supplied for `conversions`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus TypeController::commitPrimitive(PrimitiveType type, std::unordered_map<TypeId, TypeConversion, TypeIdHash> conversions) {
     ensureMutable("TypeController::PrimitiveBuilder::commit");
     validatePrimitive(type);
@@ -336,14 +509,32 @@ registry::RegisterStatus TypeController::commitPrimitive(PrimitiveType type, std
     return status;
 }
 
+/**
+ * @brief Checks the condition represented by `hasPrimitive`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 bool TypeController::hasPrimitive(const TypeId &id) const {
     return findPrimitive(id) != nullptr;
 }
 
+/**
+ * @brief Finds the value requested by `findPrimitive`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 const PrimitiveType *TypeController::findPrimitive(const TypeId &id) const {
     return dynamic_cast<const PrimitiveType *>(findType(id));
 }
 
+/**
+ * @brief Returns the value required by `requirePrimitive`.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 const PrimitiveType &TypeController::requirePrimitive(const TypeId &id) const {
     const PrimitiveType *type{findPrimitive(id)};
     if (!type)
@@ -351,6 +542,11 @@ const PrimitiveType &TypeController::requirePrimitive(const TypeId &id) const {
     return *type;
 }
 
+/**
+ * @brief Implements the `primitiveIds` operation.
+ *
+ * @return Value produced by the operation.
+ */
 std::vector<TypeId> TypeController::primitiveIds() const {
     std::vector<TypeId> result;
     result.reserve(types_.size());
@@ -360,6 +556,11 @@ std::vector<TypeId> TypeController::primitiveIds() const {
     return result;
 }
 
+/**
+ * @brief Implements the `primitiveCount` operation.
+ *
+ * @return Value produced by the operation.
+ */
 size_t TypeController::primitiveCount() const noexcept {
     size_t count{};
     for (const auto &[_, type] : types_) {
@@ -402,6 +603,13 @@ registry::RegisterStatus TypeController::registerConversion(TypeId source, TypeI
     throw std::runtime_error("TypeController::registerConversion: unknown duplicate policy");
 }
 
+/**
+ * @brief Finds the value requested by `findConversion`.
+ *
+ * @param source Value supplied for `source`.
+ * @param target Value supplied for `target`.
+ * @return Value produced by the operation.
+ */
 const TypeConversion *TypeController::findConversion(const TypeId &source, const TypeId &target) const {
     if (!source.valid() || !target.valid())
         return nullptr;
@@ -415,6 +623,13 @@ const TypeConversion *TypeController::findConversion(const TypeId &source, const
     return targetIt == sourceIt->second.end() ? nullptr : &targetIt->second;
 }
 
+/**
+ * @brief Checks the condition represented by `canImplicitlyConvert`.
+ *
+ * @param source Value supplied for `source`.
+ * @param target Value supplied for `target`.
+ * @return Value produced by the operation.
+ */
 bool TypeController::canImplicitlyConvert(const TypeId &source, const TypeId &target) const {
     if (!source.valid() || !target.valid()) return false;
     if (equivalent(source, target)) return true;
@@ -423,6 +638,9 @@ bool TypeController::canImplicitlyConvert(const TypeId &source, const TypeId &ta
     return conversion && conversion->isImplicit();
 }
 
+/**
+ * @brief Validates data through `validate`.
+ */
 void TypeController::validate() const {
     if (!declarations_.empty()) {
         const auto &id{*declarations_.begin()};
@@ -445,6 +663,9 @@ void TypeController::validate() const {
     }
 }
 
+/**
+ * @brief Implements the `finalize` operation.
+ */
 void TypeController::finalize() {
     if (finalized_)
         return;
@@ -458,6 +679,13 @@ registry::RegisterStatus TypeController::bindLiteral(const atomic::LiteralFeatur
     return bindLiteral(literal.info(), std::move(type));
 }
 
+/**
+ * @brief Implements the `bindLiteral` operation.
+ *
+ * @param literal Value supplied for `literal`.
+ * @param type Value supplied for `type`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus TypeController::bindLiteral(const atomic::LiteralInfo &literal, TypeId type) {
     ensureMutable("TypeController::bindLiteral");
     type = canonical(std::move(type));
@@ -469,10 +697,24 @@ registry::RegisterStatus TypeController::bindLiteral(const atomic::LiteralInfo &
     });
 }
 
+/**
+ * @brief Implements the `bindLiteral` operation.
+ *
+ * @param literal Value supplied for `literal`.
+ * @param resolver Value supplied for `resolver`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus TypeController::bindLiteral(const atomic::LiteralFeature &literal, LiteralTypeResolver resolver) {
     return bindLiteral(literal.info(), std::move(resolver));
 }
 
+/**
+ * @brief Implements the `bindLiteral` operation.
+ *
+ * @param literal Value supplied for `literal`.
+ * @param resolver Value supplied for `resolver`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus TypeController::bindLiteral(const atomic::LiteralInfo &literal, LiteralTypeResolver resolver) {
     ensureMutable("TypeController::bindLiteral");
     validateLiteralInfo(literal);
@@ -509,6 +751,13 @@ registry::RegisterStatus TypeController::bindLiteral(const atomic::LiteralInfo &
     throw std::runtime_error("TypeController::bindLiteral: unknown duplicate policy");
 }
 
+/**
+ * @brief Resolves data through `resolveLiteralBinding`.
+ *
+ * @param binding Value supplied for `binding`.
+ * @param node Value supplied for `node`.
+ * @return Value produced by the operation.
+ */
 std::optional<TypeId> TypeController::resolveLiteralBinding(const LiteralBinding &binding, const ast::Node &node) const {
     std::optional<TypeId> result = binding.resolver(node);
     if (!result)
@@ -521,10 +770,24 @@ std::optional<TypeId> TypeController::resolveLiteralBinding(const LiteralBinding
     return result;
 }
 
+/**
+ * @brief Resolves data through `resolveLiteral`.
+ *
+ * @param literal Value supplied for `literal`.
+ * @param node Value supplied for `node`.
+ * @return Value produced by the operation.
+ */
 std::optional<TypeId> TypeController::resolveLiteral(const atomic::LiteralFeature &literal, const ast::Node &node) const {
     return resolveLiteral(literal.info(), node);
 }
 
+/**
+ * @brief Resolves data through `resolveLiteral`.
+ *
+ * @param literal Value supplied for `literal`.
+ * @param node Value supplied for `node`.
+ * @return Value produced by the operation.
+ */
 std::optional<TypeId> TypeController::resolveLiteral(const atomic::LiteralInfo &literal, const ast::Node &node) const {
     validateLiteralInfo(literal);
     const auto found{literalBindingsByFeature_.find(literal.id)};
@@ -534,6 +797,12 @@ std::optional<TypeId> TypeController::resolveLiteral(const atomic::LiteralInfo &
     return resolveLiteralBinding(found->second, node);
 }
 
+/**
+ * @brief Resolves data through `resolveLiteral`.
+ *
+ * @param node Value supplied for `node`.
+ * @return Value produced by the operation.
+ */
 std::optional<TypeId> TypeController::resolveLiteral(const ast::Node &node) const {
     const auto byKind{literalFeaturesByNodeKind_.find(node.kind())};
     if (byKind == literalFeaturesByNodeKind_.end())
@@ -564,6 +833,13 @@ registry::RegisterStatus TypeController::registerOperation(const atomic::Operati
     return registerOperation(operation.info(), OperationSignature{std::move(operands), std::move(result), std::move(extensions)});
 }
 
+/**
+ * @brief Registers data through `registerOperation`.
+ *
+ * @param operation Value supplied for `operation`.
+ * @param signature Value supplied for `signature`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus TypeController::registerOperation(const atomic::OperationInfo &operation, OperationSignature signature) {
     ensureMutable("TypeController::registerOperation");
     validateOperationInfo(operation);
@@ -599,19 +875,47 @@ registry::RegisterStatus TypeController::registerOperation(const atomic::Operati
     throw std::runtime_error("TypeController::registerOperation: unknown duplicate policy");
 }
 
+/**
+ * @brief Resolves data through `resolveOperation`.
+ *
+ * @param operation Value supplied for `operation`.
+ * @param operands Value supplied for `operands`.
+ * @return Value produced by the operation.
+ */
 std::optional<OperationResolution> TypeController::resolveOperation(const atomic::OperationFeature &operation, std::span<const TypeId> operands) const {
     return resolveOperation(operation.info(), operands);
 }
 
+/**
+ * @brief Resolves data through `resolveOperation`.
+ *
+ * @param operation Value supplied for `operation`.
+ * @param operands Value supplied for `operands`.
+ * @return Value produced by the operation.
+ */
 std::optional<OperationResolution> TypeController::resolveOperation(const atomic::OperationInfo &operation, std::span<const TypeId> operands) const {
     OperationResolutionResult result = resolveOperationDetailed(operation, operands);
     return result.ok() ? result.resolution : std::nullopt;
 }
 
+/**
+ * @brief Resolves data through `resolveOperationDetailed`.
+ *
+ * @param operation Value supplied for `operation`.
+ * @param operands Value supplied for `operands`.
+ * @return Value produced by the operation.
+ */
 OperationResolutionResult TypeController::resolveOperationDetailed(const atomic::OperationFeature &operation, std::span<const TypeId> operands) const {
     return resolveOperationDetailed(operation.info(), operands);
 }
 
+/**
+ * @brief Resolves data through `resolveOperationDetailed`.
+ *
+ * @param operation Value supplied for `operation`.
+ * @param operands Value supplied for `operands`.
+ * @return Value produced by the operation.
+ */
 OperationResolutionResult TypeController::resolveOperationDetailed(const atomic::OperationInfo &operation, std::span<const TypeId> operands) const {
     validateOperationInfo(operation);
     const size_t arity{expectedArity(operation)};
@@ -641,10 +945,22 @@ OperationResolutionResult TypeController::resolveOperationDetailed(const atomic:
     return resolveCustomRules(operation.id, canonicalOperands);
 }
 
+/**
+ * @brief Registers data through `registerSemanticRule`.
+ *
+ * @param operation Value supplied for `operation`.
+ * @param rule Value supplied for `rule`.
+ */
 void TypeController::registerSemanticRule(const atomic::OperationFeature &operation, std::unique_ptr<OperationSemanticRule> rule) {
     registerSemanticRule(operation.info(), std::move(rule));
 }
 
+/**
+ * @brief Registers data through `registerSemanticRule`.
+ *
+ * @param operation Value supplied for `operation`.
+ * @param rule Value supplied for `rule`.
+ */
 void TypeController::registerSemanticRule(const atomic::OperationInfo &operation, std::unique_ptr<OperationSemanticRule> rule) {
     ensureMutable("TypeController::registerSemanticRule");
     validateOperationInfo(operation);
@@ -655,6 +971,13 @@ void TypeController::registerSemanticRule(const atomic::OperationInfo &operation
     semanticRules_[operation.id].push_back(std::move(stored));
 }
 
+/**
+ * @brief Resolves data through `resolveRegisteredOperations`.
+ *
+ * @param operationId Value supplied for `operationId`.
+ * @param operands Value supplied for `operands`.
+ * @return Value produced by the operation.
+ */
 OperationResolutionResult TypeController::resolveRegisteredOperations(const std::string &operationId, std::span<const TypeId> operands) const {
     const auto bucket = operations_.find(operationId);
     if (bucket == operations_.end())
@@ -723,6 +1046,13 @@ OperationResolutionResult TypeController::resolveRegisteredOperations(const std:
     return OperationResolutionResult::resolved(std::move(result));
 }
 
+/**
+ * @brief Resolves data through `resolveCustomRules`.
+ *
+ * @param operationId Value supplied for `operationId`.
+ * @param operands Value supplied for `operands`.
+ * @return Value produced by the operation.
+ */
 OperationResolutionResult TypeController::resolveCustomRules(const std::string &operationId, std::span<const TypeId> operands) const {
     const auto bucket{semanticRules_.find(operationId)};
     if (bucket == semanticRules_.end())
@@ -763,6 +1093,11 @@ OperationResolutionResult TypeController::resolveCustomRules(const std::string &
     return OperationResolutionResult::resolved(std::move(*best));
 }
 
+/**
+ * @brief Implements the `duplicatePolicy` operation.
+ *
+ * @return Value produced by the operation.
+ */
 registry::DuplicatePolicy TypeController::duplicatePolicy() const noexcept {
     return options_.duplicatePolicy;
 }
@@ -773,6 +1108,11 @@ void TypeController::validateTypeDefinition(const TypeDefinition &type) {
     requireTypeId(type.id, "TypeController::registerType: type id cannot be empty");
 }
 
+/**
+ * @brief Validates data through `validatePrimitive`.
+ *
+ * @param type Value supplied for `type`.
+ */
 void TypeController::validatePrimitive(const PrimitiveType &type) const {
     validateTypeDefinition(type);
     if (hasAlias(type.id))
@@ -788,6 +1128,12 @@ void TypeController::validatePrimitive(const PrimitiveType &type) const {
         throw std::runtime_error("TypeController::registerPrimitive: primitive representation cannot be null");
 }
 
+/**
+ * @brief Validates data through `validateConversion`.
+ *
+ * @param source Value supplied for `source`.
+ * @param conversion Value supplied for `conversion`.
+ */
 void TypeController::validateConversion(const TypeId &source, const TypeConversion &conversion) const {
     requireTypeId(source, "TypeController::registerConversion: source type cannot be empty");
     requireTypeId(conversion.target, "TypeController::registerConversion: target type cannot be empty");
@@ -801,6 +1147,11 @@ void TypeController::validateConversion(const TypeId &source, const TypeConversi
         throw std::runtime_error("TypeController::registerConversion: implicit conversion rank must be greater than zero");
 }
 
+/**
+ * @brief Validates data through `validateLiteralInfo`.
+ *
+ * @param literal Value supplied for `literal`.
+ */
 void TypeController::validateLiteralInfo(const atomic::LiteralInfo &literal) {
     if (literal.id.empty())
         throw std::runtime_error("TypeController::bindLiteral: literal id cannot be empty");
@@ -809,11 +1160,22 @@ void TypeController::validateLiteralInfo(const atomic::LiteralInfo &literal) {
         throw std::runtime_error("TypeController::bindLiteral: literal node kind cannot be empty");
 }
 
+/**
+ * @brief Validates data through `validateOperationInfo`.
+ *
+ * @param operation Value supplied for `operation`.
+ */
 void TypeController::validateOperationInfo(const atomic::OperationInfo &operation) {
     if (operation.id.empty())
         throw std::runtime_error("TypeController: operation id cannot be empty");
 }
 
+/**
+ * @brief Implements the `expectedArity` operation.
+ *
+ * @param operation Value supplied for `operation`.
+ * @return Value produced by the operation.
+ */
 size_t TypeController::expectedArity(const atomic::OperationInfo &operation) noexcept {
     switch (operation.arity) {
         case atomic::OperationArity::Unary:
@@ -825,6 +1187,12 @@ size_t TypeController::expectedArity(const atomic::OperationInfo &operation) noe
     return 0;
 }
 
+/**
+ * @brief Validates data through `validateSignature`.
+ *
+ * @param operation Value supplied for `operation`.
+ * @param signature Value supplied for `signature`.
+ */
 void TypeController::validateSignature(const atomic::OperationInfo &operation, const OperationSignature &signature) const {
     const size_t arity{expectedArity(operation)};
     if (signature.operands.size() != arity) {
@@ -842,6 +1210,13 @@ void TypeController::validateSignature(const atomic::OperationInfo &operation, c
         throw std::runtime_error("TypeController::registerOperation: unknown result type '" + signature.result.name + "'");
 }
 
+/**
+ * @brief Implements the `materializeSemanticResolution` operation.
+ *
+ * @param operands Value supplied for `operands`.
+ * @param semantic Value supplied for `semantic`.
+ * @return Value produced by the operation.
+ */
 OperationResolution TypeController::materializeSemanticResolution(std::span<const TypeId> operands, SemanticOperationResolution semantic) const {
     requireTypeId(semantic.result, "TypeController::resolveOperation: semantic rule returned an empty result type");
     semantic.result = canonical(std::move(semantic.result));

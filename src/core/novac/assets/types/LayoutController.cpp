@@ -4,6 +4,12 @@
 
 namespace novac::assets::types {
 
+/**
+ * @brief Implements the `layoutOf` operation.
+ *
+ * @param id Value supplied for `id`.
+ * @return Value produced by the operation.
+ */
 TypeLayout LayoutResolutionSession::layoutOf(const TypeId &id) const {
     if (!types_)
         throw std::runtime_error("LayoutResolutionSession::layoutOf: session is not initialized");
@@ -21,6 +27,9 @@ TypeLayout LayoutResolutionSession::layoutOf(const TypeId &id) const {
     struct Guard {
         std::unordered_set<TypeId, TypeIdHash> &active;
         TypeId id;
+        /**
+         * @brief Destroys the `Guard` instance.
+         */
         ~Guard() { active.erase(id); }
     } guard{active_, canonical};
 
@@ -51,17 +60,34 @@ TypeLayout LayoutResolutionSession::layoutOf(const TypeId &id) const {
     return result;
 }
 
+/**
+ * @brief Implements the `session` operation.
+ *
+ * @return Value produced by the operation.
+ */
 LayoutResolutionSession LayoutController::session() const {
     if (!types_)
         throw std::runtime_error("LayoutController::session: controller is not initialized");
     return LayoutResolutionSession{*types_};
 }
 
+/**
+ * @brief Computes the result of `compute`.
+ *
+ * @param type Value supplied for `type`.
+ * @return Value produced by the operation.
+ */
 TypeLayout LayoutController::compute(const TypeId &type) const {
     auto resolution{session()};
     return resolution.layoutOf(type);
 }
 
+/**
+ * @brief Checks the condition represented by `hasLayout`.
+ *
+ * @param type Value supplied for `type`.
+ * @return Value produced by the operation.
+ */
 bool LayoutController::hasLayout(const TypeId &type) const {
     if (!types_ || !types_->hasType(type))
         return false;

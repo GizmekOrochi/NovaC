@@ -72,6 +72,17 @@ private:
 
     using IncludeCallback = std::function<void(const std::string &, bool)>;
 
+    /**
+     * @brief Constructs a `PreprocessorContext` instance.
+     *
+     * @param source Value supplied for `source`.
+     * @param diagnostics Value supplied for `diagnostics`.
+     * @param defines Value supplied for `defines`.
+     * @param conditionals Value supplied for `conditionals`.
+     * @param conditionalFloor Value supplied for `conditionalFloor`.
+     * @param output Value supplied for `output`.
+     * @param includeCallback Value supplied for `includeCallback`.
+     */
     PreprocessorContext(
         const Source &source,
         diagnostics::DiagnosticEngine &diagnostics,
@@ -101,6 +112,11 @@ public:
     using DirectiveHandler = std::function<void(const Directive &, PreprocessorContext &)>;
     using PragmaHandler = std::function<void(const Directive &, PreprocessorContext &)>;
 
+    /**
+     * @brief Constructs a `PreprocessorController` instance.
+     *
+     * @param duplicatePolicy Value supplied for `duplicatePolicy`.
+     */
     explicit PreprocessorController(
         registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
 

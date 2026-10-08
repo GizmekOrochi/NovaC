@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "NovaC.hpp"
+#include <NovaC.hpp>
 
 int main() {
     novac::controllers::EngineController engine{};
@@ -9,7 +9,8 @@ int main() {
     atomic.integer();
     atomic.add();
 
-    const auto expression{engine.parse("20 + 22")};
+    const std::string source{R"(20 + 22)"};
+    const auto expression{engine.parse(source)};
     engine.validate(*expression);
 
     const auto result{engine.eval(*expression)};

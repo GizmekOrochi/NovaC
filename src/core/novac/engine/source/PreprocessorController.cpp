@@ -13,6 +13,12 @@ namespace novac::source {
 
 namespace {
 
+/**
+ * @brief Implements the `trim` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 std::string trim(std::string value) {
     const auto isSpace = [](unsigned char ch) { return std::isspace(ch) != 0; };
     auto begin = std::find_if_not(value.begin(), value.end(), [&](char ch) { return isSpace(static_cast<unsigned char>(ch)); });
@@ -23,10 +29,25 @@ std::string trim(std::string value) {
     return std::string{begin, end};
 }
 
+/**
+ * @brief Starts the operation represented by `startsWithAt`.
+ *
+ * @param text Value supplied for `text`.
+ * @param pos Value supplied for `pos`.
+ * @param needle Value supplied for `needle`.
+ * @return Value produced by the operation.
+ */
 bool startsWithAt(const std::string &text, std::size_t pos, const std::string &needle) {
     return !needle.empty() && text.compare(pos, needle.size(), needle) == 0;
 }
 
+/**
+ * @brief Adds data through `appendFragment`.
+ *
+ * @param output Value supplied for `output`.
+ * @param text Value supplied for `text`.
+ * @param origin Value supplied for `origin`.
+ */
 void appendFragment(
     std::vector<SourceFragment> &output,
     std::string text,
@@ -59,6 +80,18 @@ struct LineScanResult {
     std::size_t visibleStart{};
 };
 
+/**
+ * @brief Implements the `scanLine` operation.
+ *
+ * @param source Value supplied for `source`.
+ * @param line Value supplied for `line`.
+ * @param lineOffset Value supplied for `lineOffset`.
+ * @param lineNumber Value supplied for `lineNumber`.
+ * @param blockComment Value supplied for `blockComment`.
+ * @param lexerRules Value supplied for `lexerRules`.
+ * @param options Value supplied for `options`.
+ * @return Value produced by the operation.
+ */
 LineScanResult scanLine(
     const Source &source,
     std::string_view line,
@@ -269,6 +302,12 @@ struct SplitWordResult {
     std::size_t restOffset{};
 };
 
+/**
+ * @brief Implements the `splitFirstWord` operation.
+ *
+ * @param text Value supplied for `text`.
+ * @return Value produced by the operation.
+ */
 SplitWordResult splitFirstWord(const std::string &text) {
     std::size_t index{};
     while (index < text.size() && std::isspace(static_cast<unsigned char>(text[index])) != 0) {
@@ -289,6 +328,12 @@ SplitWordResult splitFirstWord(const std::string &text) {
     return {std::move(first), std::move(rest), restOffset};
 }
 
+/**
+ * @brief Implements the `sourceEndLocation` operation.
+ *
+ * @param source Value supplied for `source`.
+ * @return Value produced by the operation.
+ */
 diagnostics::SourceLocation sourceEndLocation(const Source &source) {
     diagnostics::SourceLocation location{
         source.name.empty() ? source.id : source.name,
@@ -311,6 +356,17 @@ diagnostics::SourceLocation sourceEndLocation(const Source &source) {
 
 } // namespace
 
+/**
+ * @brief Constructs a `PreprocessorContext` instance.
+ *
+ * @param source Value supplied for `source`.
+ * @param diagnostics Value supplied for `diagnostics`.
+ * @param defines Value supplied for `defines`.
+ * @param conditionals Value supplied for `conditionals`.
+ * @param conditionalFloor Value supplied for `conditionalFloor`.
+ * @param output Value supplied for `output`.
+ * @param includeCallback Value supplied for `includeCallback`.
+ */
 PreprocessorContext::PreprocessorContext(
     const Source &source,
     diagnostics::DiagnosticEngine &diagnostics,
@@ -322,14 +378,29 @@ PreprocessorContext::PreprocessorContext(
     : source_{&source}, diagnostics_{&diagnostics}, defines_{&defines}, conditionals_{&conditionals},
       conditionalFloor_{conditionalFloor}, output_{&output}, includeCallback_{std::move(includeCallback)} {}
 
+/**
+ * @brief Implements the `source` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const Source &PreprocessorContext::source() const {
     return *source_;
 }
 
+/**
+ * @brief Implements the `diagnostics` operation.
+ *
+ * @return Value produced by the operation.
+ */
 diagnostics::DiagnosticEngine &PreprocessorContext::diagnostics() {
     return *diagnostics_;
 }
 
+/**
+ * @brief Creates a value through `define`.
+ *
+ * @param name Value supplied for `name`.
+ */
 void PreprocessorContext::define(std::string name) {
     if (name.empty()) {
         throw std::runtime_error("PreprocessorContext::define: symbol cannot be empty");
@@ -337,6 +408,11 @@ void PreprocessorContext::define(std::string name) {
     defines_->insert(std::move(name));
 }
 
+/**
+ * @brief Implements the `undefine` operation.
+ *
+ * @param name Value supplied for `name`.
+ */
 void PreprocessorContext::undefine(const std::string &name) {
     if (name.empty()) {
         throw std::runtime_error("PreprocessorContext::undefine: symbol cannot be empty");
@@ -344,10 +420,21 @@ void PreprocessorContext::undefine(const std::string &name) {
     defines_->erase(name);
 }
 
+/**
+ * @brief Creates a value through `defined`.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 bool PreprocessorContext::defined(const std::string &name) const {
     return defines_->find(name) != defines_->end();
 }
 
+/**
+ * @brief Checks the condition represented by `active`.
+ *
+ * @return Value produced by the operation.
+ */
 bool PreprocessorContext::active() const {
     if (conditionals_->empty()) {
         return true;
@@ -357,10 +444,18 @@ bool PreprocessorContext::active() const {
     return frame.parentActive && branch;
 }
 
+/**
+ * @brief Implements the `pushCondition` operation.
+ *
+ * @param value Value supplied for `value`.
+ */
 void PreprocessorContext::pushCondition(bool value) {
     conditionals_->push_back({active(), value, false});
 }
 
+/**
+ * @brief Implements the `alternateCondition` operation.
+ */
 void PreprocessorContext::alternateCondition() {
     if (conditionals_->size() <= conditionalFloor_) {
         throw std::runtime_error("PreprocessorContext::alternateCondition: #else without matching conditional");
@@ -372,6 +467,9 @@ void PreprocessorContext::alternateCondition() {
     frame.alternateSeen = true;
 }
 
+/**
+ * @brief Implements the `popCondition` operation.
+ */
 void PreprocessorContext::popCondition() {
     if (conditionals_->size() <= conditionalFloor_) {
         throw std::runtime_error("PreprocessorContext::popCondition: #endif without matching conditional");
@@ -379,21 +477,50 @@ void PreprocessorContext::popCondition() {
     conditionals_->pop_back();
 }
 
+/**
+ * @brief Implements the `include` operation.
+ *
+ * @param specifier Value supplied for `specifier`.
+ */
 void PreprocessorContext::include(const std::string &specifier) {
     includeCallback_(specifier, false);
 }
 
+/**
+ * @brief Implements the `import` operation.
+ *
+ * @param specifier Value supplied for `specifier`.
+ */
 void PreprocessorContext::import(const std::string &specifier) {
     includeCallback_(specifier, true);
 }
 
+/**
+ * @brief Emits output through `emit`.
+ *
+ * @param text Value supplied for `text`.
+ * @param origin Value supplied for `origin`.
+ */
 void PreprocessorContext::emit(std::string text, diagnostics::SourceLocation origin) {
     appendFragment(*output_, std::move(text), std::move(origin));
 }
 
+/**
+ * @brief Constructs a `PreprocessorController` instance.
+ *
+ * @param duplicatePolicy Value supplied for `duplicatePolicy`.
+ */
 PreprocessorController::PreprocessorController(registry::DuplicatePolicy duplicatePolicy)
     : directives_{}, pragmas_{}, duplicatePolicy_{duplicatePolicy} {}
 
+/**
+ * @brief Implements the `directive` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @param handler Value supplied for `handler`.
+ * @param mode Value supplied for `mode`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus PreprocessorController::directive(
     std::string name,
     DirectiveHandler handler,
@@ -413,6 +540,13 @@ registry::RegisterStatus PreprocessorController::directive(
         duplicatePolicy_, "PreprocessorController::directive");
 }
 
+/**
+ * @brief Implements the `pragma` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @param handler Value supplied for `handler`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus PreprocessorController::pragma(std::string name, PragmaHandler handler) {
     if (name.empty()) {
         throw std::runtime_error("PreprocessorController::pragma: name cannot be empty");
@@ -424,6 +558,16 @@ registry::RegisterStatus PreprocessorController::pragma(std::string name, Pragma
         pragmas_, std::move(name), std::move(handler), duplicatePolicy_, "PreprocessorController::pragma");
 }
 
+/**
+ * @brief Implements the `process` operation.
+ *
+ * @param root Value supplied for `root`.
+ * @param sources Value supplied for `sources`.
+ * @param lexerRules Value supplied for `lexerRules`.
+ * @param diagnostics Value supplied for `diagnostics`.
+ * @param options Value supplied for `options`.
+ * @return Value produced by the operation.
+ */
 PreprocessedSource PreprocessorController::process(
     const Source &root,
     const SourceController &sources,

@@ -1,9 +1,16 @@
 #include <iostream>
 
-#include "NovaC.hpp"
-#include "novac/engine/transformation/IR.hpp"
+#include <NovaC.hpp>
+#include <string>
 
 int main() {
+    // Illustrative input; the HIR is built programmatically in this example.
+    // This is not a parser or an executable frontend for the syntax below.
+    const std::string source{R"(
+give 20 + 22;
+)"};
+    (void)source;
+
     novac::ir::HIRBuilder builder{};
 
     const novac::ir::ValueId left{

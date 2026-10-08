@@ -39,17 +39,16 @@ int main() {
             dialect = directive.arguments;
         });
 
-    const Source mainSource{
-        "app:main",
-        "main.nova",
-        "#pragma dialect strict\n"
-        "#include \"config\"\n"
-        "#if FEATURE\n"
-        "#include \"shared\"\n"
-        "#endif\n"
-        "#import \"module\"\n"
-        "#import \"module-alias\"\n"
-        "root\n"};
+    const std::string source{R"(#pragma dialect strict
+#include "config"
+#if FEATURE
+#include "shared"
+#endif
+#import "module"
+#import "module-alias"
+root
+)"};
+    const Source mainSource{"app:main", "main.nova", source};
 
     const auto tokens{engine.tokenizeSource(mainSource)};
 

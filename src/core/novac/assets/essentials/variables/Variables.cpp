@@ -10,10 +10,20 @@
 
 namespace novac::assets::essentials::variables {
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialInfo VariablesFeature::info() const {
     return {"essentials.variables", "0.1.0", "Variable declarations, assignments, and lookups", {"VariableDeclaration", "VariableExpression", "AssignmentStatement"}, {traits::Expression, traits::Statement}, {"variables"}, {}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void VariablesFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions core{controller.core()};
     const VariableSyntaxOptions options{controller.variables()};
@@ -110,12 +120,22 @@ void VariablesFeature::install(EssentialsController &controller) const {
     });
 }
 
+/**
+ * @brief Implements the `variables` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack variables() {
     EssentialPack pack{};
     pack.add<VariablesFeature>();
     return pack;
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standard`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack standard() {
     EssentialPack pack{};
     pack.merge(variables());

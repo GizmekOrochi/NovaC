@@ -33,7 +33,18 @@ enum class MemoryErrorCode {
 /** Exception carrying a stable machine-readable memory error category. */
 class MemoryError : public std::runtime_error {
 public:
+    /**
+     * @brief Constructs a `MemoryError` instance.
+     *
+     * @param code Value supplied for `code`.
+     * @param message Value supplied for `message`.
+     */
     MemoryError(MemoryErrorCode code, std::string message);
+    /**
+     * @brief Performs the `code` operation.
+     *
+     * @return Value produced by the operation.
+     */
     MemoryErrorCode code() const noexcept;
 
 private:
@@ -42,42 +53,106 @@ private:
 
 struct AddressSpaceId {
     std::size_t value{0};
+    /**
+     * @brief Performs the `valid` operation.
+     *
+     * @return Value produced by the operation.
+     */
     bool valid() const noexcept;
+    /**
+     * @brief Implements the `operator bool` operation.
+     *
+     * @return Value produced by the operation.
+     */
     explicit operator bool() const noexcept;
     friend bool operator==(const AddressSpaceId &, const AddressSpaceId &) = default;
 };
 
 struct RegionId {
     std::size_t value{0};
+    /**
+     * @brief Performs the `valid` operation.
+     *
+     * @return Value produced by the operation.
+     */
     bool valid() const noexcept;
+    /**
+     * @brief Implements the `operator bool` operation.
+     *
+     * @return Value produced by the operation.
+     */
     explicit operator bool() const noexcept;
     friend bool operator==(const RegionId &, const RegionId &) = default;
 };
 
 struct AllocationId {
     std::size_t value{0};
+    /**
+     * @brief Performs the `valid` operation.
+     *
+     * @return Value produced by the operation.
+     */
     bool valid() const noexcept;
+    /**
+     * @brief Implements the `operator bool` operation.
+     *
+     * @return Value produced by the operation.
+     */
     explicit operator bool() const noexcept;
     friend bool operator==(const AllocationId &, const AllocationId &) = default;
 };
 
 struct LifetimeId {
     std::size_t value{0};
+    /**
+     * @brief Performs the `valid` operation.
+     *
+     * @return Value produced by the operation.
+     */
     bool valid() const noexcept;
+    /**
+     * @brief Implements the `operator bool` operation.
+     *
+     * @return Value produced by the operation.
+     */
     explicit operator bool() const noexcept;
     friend bool operator==(const LifetimeId &, const LifetimeId &) = default;
 };
 
 struct AddressSpaceIdHash {
+    /**
+     * @brief Invokes the callable object.
+     *
+     * @param id Value supplied for `id`.
+     * @return Value produced by the operation.
+     */
     std::size_t operator()(AddressSpaceId id) const noexcept;
 };
 struct RegionIdHash {
+    /**
+     * @brief Invokes the callable object.
+     *
+     * @param id Value supplied for `id`.
+     * @return Value produced by the operation.
+     */
     std::size_t operator()(RegionId id) const noexcept;
 };
 struct AllocationIdHash {
+    /**
+     * @brief Invokes the callable object.
+     *
+     * @param id Value supplied for `id`.
+     * @return Value produced by the operation.
+     */
     std::size_t operator()(AllocationId id) const noexcept;
 };
 struct LifetimeIdHash {
+    /**
+     * @brief Invokes the callable object.
+     *
+     * @param id Value supplied for `id`.
+     * @return Value produced by the operation.
+     */
     std::size_t operator()(LifetimeId id) const noexcept;
 };
 
@@ -86,6 +161,12 @@ struct Address {
     AddressSpaceId space{};
     std::size_t bitOffset{0};
 
+    /**
+     * @brief Performs the `advanced` operation.
+     *
+     * @param bits Value supplied for `bits`.
+     * @return Value produced by the operation.
+     */
     Address advanced(std::size_t bits) const;
     friend bool operator==(const Address &, const Address &) = default;
 };
@@ -95,10 +176,38 @@ struct AddressRange {
     Address begin{};
     std::size_t bitSize{0};
 
+    /**
+     * @brief Checks the condition represented by `empty`.
+     *
+     * @return Value produced by the operation.
+     */
     bool empty() const noexcept;
+    /**
+     * @brief Completes the operation represented by `endBitOffset`.
+     *
+     * @return Value produced by the operation.
+     */
     std::size_t endBitOffset() const;
+    /**
+     * @brief Checks the condition represented by `contains`.
+     *
+     * @param address Value supplied for `address`.
+     * @return Value produced by the operation.
+     */
     bool contains(Address address) const;
+    /**
+     * @brief Checks the condition represented by `contains`.
+     *
+     * @param other Value supplied for `other`.
+     * @return Value produced by the operation.
+     */
     bool contains(const AddressRange &other) const;
+    /**
+     * @brief Checks the condition represented by `overlaps`.
+     *
+     * @param other Value supplied for `other`.
+     * @return Value produced by the operation.
+     */
     bool overlaps(const AddressRange &other) const;
 };
 
@@ -136,6 +245,11 @@ struct Allocation {
     types::ExtensionSet extensions{};
     MemoryCapabilitySet capabilities{};
 
+    /**
+     * @brief Checks the condition represented by `active`.
+     *
+     * @return Value produced by the operation.
+     */
     bool active() const noexcept;
 };
 

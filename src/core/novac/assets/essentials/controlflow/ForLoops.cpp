@@ -12,6 +12,14 @@ namespace novac::assets::essentials::controlflow {
 
 namespace {
 
+/**
+ * @brief Parses input through `parseAssignmentNoSemicolon`.
+ *
+ * @param context Value supplied for `context`.
+ * @param core Value supplied for `core`.
+ * @param variables Value supplied for `variables`.
+ * @return Value produced by the operation.
+ */
 ast::NodePtr parseAssignmentNoSemicolon(parser::ParserContext &context, const CoreSyntaxOptions &core, const VariableSyntaxOptions &variables) {
     const token::Token name{context.consumeKind(token::Kind::Identifier)};
 
@@ -28,10 +36,20 @@ ast::NodePtr parseAssignmentNoSemicolon(parser::ParserContext &context, const Co
 
 } // namespace
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialInfo ForLoopsFeature::info() const {
     return {"essentials.controlflow.for", "0.1.0", "For loops", {"ForStatement"}, {traits::Statement}, {"controlflow.for"}, {}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void ForLoopsFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions core{controller.core()};
     const VariableSyntaxOptions variables{controller.variables()};
@@ -128,12 +146,22 @@ void ForLoopsFeature::install(EssentialsController &controller) const {
     });
 }
 
+/**
+ * @brief Implements the `forLoops` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack forLoops() {
     EssentialPack pack{};
     pack.add<ForLoopsFeature>();
     return pack;
 }
 
+/**
+ * @brief Configures the standard behavior provided by `standard`.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack standard() {
     EssentialPack pack{};
     pack.merge(ifStatements());

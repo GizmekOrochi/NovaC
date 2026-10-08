@@ -17,6 +17,13 @@ struct PreparedSuffixPattern {
     std::shared_ptr<const std::regex> regex;
 };
 
+/**
+ * @brief Prepares data for `prepareSuffixPattern`.
+ *
+ * @param pattern Value supplied for `pattern`.
+ * @param owner Value supplied for `owner`.
+ * @return Value produced by the operation.
+ */
 inline PreparedSuffixPattern prepareSuffixPattern(TokenPattern pattern, const std::string &owner) {
     PreparedSuffixPattern prepared{std::move(pattern), {}};
     if(prepared.pattern.mode == TokenPatternMode::SuffixRegex) {
@@ -29,6 +36,13 @@ inline PreparedSuffixPattern prepareSuffixPattern(TokenPattern pattern, const st
     return prepared;
 }
 
+/**
+ * @brief Validates data through `validateSuffix`.
+ *
+ * @param prepared Value supplied for `prepared`.
+ * @param item Value supplied for `item`.
+ * @param owner Value supplied for `owner`.
+ */
 inline void validateSuffix(const PreparedSuffixPattern &prepared, const token::Token &item, const std::string &owner) {
     const TokenPattern &pattern{prepared.pattern};
     if(pattern.mode == TokenPatternMode::Suffix) {
@@ -41,6 +55,13 @@ inline void validateSuffix(const PreparedSuffixPattern &prepared, const token::T
         throw std::runtime_error(owner + ": suffix '" + item.suffix + "' does not match regex '" + pattern.suffixPattern + "'");
 }
 
+/**
+ * @brief Parses input through `parseInteger`.
+ *
+ * @param text Value supplied for `text`.
+ * @param owner Value supplied for `owner`.
+ * @return Value produced by the operation.
+ */
 inline int parseInteger(const std::string &text, const std::string &owner) {
     int value{};
     const char *first{text.data()};
@@ -55,6 +76,13 @@ inline int parseInteger(const std::string &text, const std::string &owner) {
     return value;
 }
 
+/**
+ * @brief Parses input through `parseFloat`.
+ *
+ * @param text Value supplied for `text`.
+ * @param owner Value supplied for `owner`.
+ * @return Value produced by the operation.
+ */
 inline double parseFloat(const std::string &text, const std::string &owner) {
     double value{};
     const char *first{text.data()};

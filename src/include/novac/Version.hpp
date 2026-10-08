@@ -4,8 +4,8 @@
 
 #define NOVAC_VERSION_MAJOR 1
 #define NOVAC_VERSION_MINOR 4
-#define NOVAC_VERSION_PATCH 0
-#define NOVAC_VERSION_STRING "1.4.0"
+#define NOVAC_VERSION_PATCH 1
+#define NOVAC_VERSION_STRING "1.4.1"
 
 namespace novac {
 

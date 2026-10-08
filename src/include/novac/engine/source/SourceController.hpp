@@ -23,6 +23,11 @@ using SourceResolver = std::function<std::optional<Source>(const SourceRequest &
  */
 class SourceController {
 public:
+    /**
+     * @brief Constructs a `SourceController` instance.
+     *
+     * @param duplicatePolicy Value supplied for `duplicatePolicy`.
+     */
     explicit SourceController(
         registry::DuplicatePolicy duplicatePolicy = registry::DuplicatePolicy::Error);
 

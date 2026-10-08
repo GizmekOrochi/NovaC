@@ -6,10 +6,20 @@
 
 namespace novac::assets::essentials::functions {
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialInfo ReturnStatementsFeature::info() const {
     return {"essentials.functions.return", "0.1.0", "Return statements", {"ReturnStatement"}, {traits::Statement}, {"statement.return"}, {}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void ReturnStatementsFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions core{controller.core()};
     const FunctionSyntaxOptions options{controller.functions()};
@@ -49,6 +59,11 @@ void ReturnStatementsFeature::install(EssentialsController &controller) const {
     });
 }
 
+/**
+ * @brief Implements the `returnStatements` operation.
+ *
+ * @return Value produced by the operation.
+ */
 EssentialPack returnStatements() {
     EssentialPack pack{};
     pack.add<ReturnStatementsFeature>();

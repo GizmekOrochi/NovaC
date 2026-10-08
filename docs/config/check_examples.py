@@ -37,7 +37,33 @@ def run(command: list[str], *, cwd: Path | None = None) -> subprocess.CompletedP
     return subprocess.run(command, cwd=cwd, check=True, text=True, capture_output=True)
 
 
+def check_public_includes() -> bool:
+    """Reject documentation examples that bypass the public NovaC.hpp entry point."""
+    roots = [CONFIG / "examples", CONFIG / "source", ROOT / "README.md"]
+    bad: list[tuple[Path, int, str]] = []
+
+    for root in roots:
+        paths = [root] if root.is_file() else root.rglob("*")
+        for path in paths:
+            if not path.is_file() or path.suffix not in {".cpp", ".hpp", ".h", ".rst", ".md"}:
+                continue
+            for line_number, line in enumerate(path.read_text().splitlines(), 1):
+                stripped = line.strip()
+                if stripped.startswith("#include <novac/") or stripped.startswith('#include "novac/'):
+                    bad.append((path, line_number, stripped))
+
+    if bad:
+        print("error: documentation examples must include only <NovaC.hpp> from NovaC", file=sys.stderr)
+        for path, line_number, line in bad:
+            print(f"  {path.relative_to(ROOT)}:{line_number}: {line}", file=sys.stderr)
+        return False
+    return True
+
+
 def main() -> int:
+    if not check_public_includes():
+        return 1
+
     if shutil.which(CXX) is None:
         print(f"error: compiler '{CXX}' was not found", file=sys.stderr)
         return 1

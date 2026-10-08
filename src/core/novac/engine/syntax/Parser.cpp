@@ -5,9 +5,22 @@
 
 namespace novac::parser {
 
+/**
+ * @brief Constructs a `ParserRegistry` instance.
+ *
+ * @param duplicatePolicy Value supplied for `duplicatePolicy`.
+ */
 ParserRegistry::ParserRegistry(registry::DuplicatePolicy duplicatePolicy)
     : domains_{}, duplicatePolicy_{duplicatePolicy} {}
 
+/**
+ * @brief Implements the `rule` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param key Value supplied for `key`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::rule(std::string domain, std::string key, ParseFn fn) {
     if (domain.empty()) {
         throw std::runtime_error("ParserRegistry::rule: domain cannot be empty");
@@ -24,10 +37,25 @@ registry::RegisterStatus ParserRegistry::rule(std::string domain, std::string ke
     return registry::registerEntry(domains_[std::move(domain)].rules, std::move(key), std::move(fn), duplicatePolicy_, "ParserRegistry::rule");
 }
 
+/**
+ * @brief Implements the `rule` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param key Value supplied for `key`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::rule(const ids::ParseDomain &domain, std::string key, ParseFn fn) {
     return rule(domain.value, std::move(key), std::move(fn));
 }
 
+/**
+ * @brief Implements the `fallback` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::fallback(std::string domain, ParseFn fn) {
     if (domain.empty()) {
         throw std::runtime_error("ParserRegistry::fallback: domain cannot be empty");
@@ -42,10 +70,25 @@ registry::RegisterStatus ParserRegistry::fallback(std::string domain, ParseFn fn
     return registry::RegisterStatus::Inserted;
 }
 
+/**
+ * @brief Implements the `fallback` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::fallback(const ids::ParseDomain &domain, ParseFn fn) {
     return fallback(domain.value, std::move(fn));
 }
 
+/**
+ * @brief Implements the `prefix` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param key Value supplied for `key`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::prefix(std::string domain, std::string key, PrefixFn fn) {
     if (domain.empty()) {
         throw std::runtime_error("ParserRegistry::prefix: domain cannot be empty");
@@ -62,10 +105,26 @@ registry::RegisterStatus ParserRegistry::prefix(std::string domain, std::string 
     return registry::registerEntry(domains_[std::move(domain)].prefixes, std::move(key), std::move(fn), duplicatePolicy_, "ParserRegistry::prefix");
 }
 
+/**
+ * @brief Implements the `prefix` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param key Value supplied for `key`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::prefix(const ids::ParseDomain &domain, std::string key, PrefixFn fn) {
     return prefix(domain.value, std::move(key), std::move(fn));
 }
 
+/**
+ * @brief Implements the `prefixFallback` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param key Value supplied for `key`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::prefixFallback(std::string domain, std::string key, PrefixFn fn) {
     if (domain.empty()) {
         throw std::runtime_error("ParserRegistry::prefixFallback: domain cannot be empty");
@@ -83,14 +142,41 @@ registry::RegisterStatus ParserRegistry::prefixFallback(std::string domain, std:
     return registry::RegisterStatus::Inserted;
 }
 
+/**
+ * @brief Implements the `prefixFallback` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param key Value supplied for `key`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::prefixFallback(const ids::ParseDomain &domain, std::string key, PrefixFn fn) {
     return prefixFallback(domain.value, std::move(key), std::move(fn));
 }
 
+/**
+ * @brief Implements the `infix` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param op Value supplied for `op`.
+ * @param precedence Value supplied for `precedence`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::infix(std::string domain, std::string op, int precedence, InfixFn fn) {
     return infix(std::move(domain), std::move(op), precedence, Associativity::Left, std::move(fn));
 }
 
+/**
+ * @brief Implements the `infix` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param op Value supplied for `op`.
+ * @param precedence Value supplied for `precedence`.
+ * @param associativity Value supplied for `associativity`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::infix(std::string domain, std::string op, int precedence, Associativity associativity, InfixFn fn) {
     if (domain.empty()) {
         throw std::runtime_error("ParserRegistry::infix: domain cannot be empty");
@@ -112,14 +198,42 @@ registry::RegisterStatus ParserRegistry::infix(std::string domain, std::string o
         "ParserRegistry::infix");
 }
 
+/**
+ * @brief Implements the `infix` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param op Value supplied for `op`.
+ * @param precedence Value supplied for `precedence`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::infix(const ids::ParseDomain &domain, std::string op, int precedence, InfixFn fn) {
     return infix(domain.value, std::move(op), precedence, std::move(fn));
 }
 
+/**
+ * @brief Implements the `infix` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param op Value supplied for `op`.
+ * @param precedence Value supplied for `precedence`.
+ * @param associativity Value supplied for `associativity`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::infix(const ids::ParseDomain &domain, std::string op, int precedence, Associativity associativity, InfixFn fn) {
     return infix(domain.value, std::move(op), precedence, associativity, std::move(fn));
 }
 
+/**
+ * @brief Implements the `postfix` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param op Value supplied for `op`.
+ * @param precedence Value supplied for `precedence`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::postfix(std::string domain, std::string op, int precedence, PostfixFn fn) {
     if (domain.empty()) {
         throw std::runtime_error("ParserRegistry::postfix: domain cannot be empty");
@@ -141,10 +255,27 @@ registry::RegisterStatus ParserRegistry::postfix(std::string domain, std::string
         "ParserRegistry::postfix");
 }
 
+/**
+ * @brief Implements the `postfix` operation.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param op Value supplied for `op`.
+ * @param precedence Value supplied for `precedence`.
+ * @param fn Value supplied for `fn`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus ParserRegistry::postfix(const ids::ParseDomain &domain, std::string op, int precedence, PostfixFn fn) {
     return postfix(domain.value, std::move(op), precedence, std::move(fn));
 }
 
+/**
+ * @brief Parses input through `parse`.
+ *
+ * @param context Value supplied for `context`.
+ * @param domain Value supplied for `domain`.
+ * @param minPrecedence Value supplied for `minPrecedence`.
+ * @return Value produced by the operation.
+ */
 ast::NodePtr ParserRegistry::parse(ParserContext &context, const std::string &domain, int minPrecedence) const {
     const auto domainIter{domains_.find(domain)};
 
@@ -196,10 +327,27 @@ ast::NodePtr ParserRegistry::parse(ParserContext &context, const std::string &do
     throw std::runtime_error("ParserRegistry::parse: no rule matched domain '" + domain + "' at line " + std::to_string(context.cur().line) + ", column " + std::to_string(context.cur().column));
 }
 
+/**
+ * @brief Parses input through `parse`.
+ *
+ * @param context Value supplied for `context`.
+ * @param domain Value supplied for `domain`.
+ * @param minPrecedence Value supplied for `minPrecedence`.
+ * @return Value produced by the operation.
+ */
 ast::NodePtr ParserRegistry::parse(ParserContext &context, const ids::ParseDomain &domain, int minPrecedence) const {
     return parse(context, domain.value, minPrecedence);
 }
 
+/**
+ * @brief Parses input through `parsePratt`.
+ *
+ * @param context Value supplied for `context`.
+ * @param domain Value supplied for `domain`.
+ * @param rules Value supplied for `rules`.
+ * @param minPrecedence Value supplied for `minPrecedence`.
+ * @return Value produced by the operation.
+ */
 ast::NodePtr ParserRegistry::parsePratt(ParserContext &context, const std::string &domain, const ParseDomain &rules, int minPrecedence) const {
     const std::string prefixKey{tokenKey(context.cur())};
     const std::string prefixText{context.cur().text};
@@ -280,7 +428,17 @@ ast::NodePtr ParserRegistry::parsePratt(ParserContext &context, const std::strin
     return left;
 }
 
+/**
+ * @brief Implements the `tokenKey` operation.
+ *
+ * @param token Value supplied for `token`.
+ * @return Value produced by the operation.
+ */
 std::string ParserRegistry::tokenKey(const token::Token &token) {
+    if (!token.tag.empty()) {
+        return token.tag;
+    }
+
     if (token.kind == token::Kind::Integer) {
         return "$int";
     }
@@ -308,6 +466,12 @@ std::string ParserRegistry::tokenKey(const token::Token &token) {
     return token.text;
 }
 
+/**
+ * @brief Constructs a `ParserContext` instance.
+ *
+ * @param tokens Value supplied for `tokens`.
+ * @param registry Value supplied for `registry`.
+ */
 ParserContext::ParserContext(std::vector<token::Token> tokens, const ParserRegistry &registry)
     : tokens_{std::move(tokens)}, pos_{}, registry_{registry} {
     if (tokens_.empty()) {
@@ -322,10 +486,21 @@ ParserContext::ParserContext(std::vector<token::Token> tokens, const ParserRegis
     }
 }
 
+/**
+ * @brief Implements the `cur` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const token::Token &ParserContext::cur() const {
     return tokens_[pos_];
 }
 
+/**
+ * @brief Implements the `peek` operation.
+ *
+ * @param offset Value supplied for `offset`.
+ * @return Value produced by the operation.
+ */
 const token::Token &ParserContext::peek(std::size_t offset) const {
     const std::size_t index{pos_ + offset};
 
@@ -336,14 +511,30 @@ const token::Token &ParserContext::peek(std::size_t offset) const {
     return tokens_[index];
 }
 
+/**
+ * @brief Completes the operation represented by `end`.
+ *
+ * @return Value produced by the operation.
+ */
 bool ParserContext::end() const {
     return cur().kind == token::Kind::End;
 }
 
+/**
+ * @brief Implements the `check` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 bool ParserContext::check(const std::string &value) const {
     return cur().text == value;
 }
 
+/**
+ * @brief Implements the `advance` operation.
+ *
+ * @return Value produced by the operation.
+ */
 const token::Token &ParserContext::advance() {
     if (end()) {
         return cur();
@@ -354,6 +545,12 @@ const token::Token &ParserContext::advance() {
     return current;
 }
 
+/**
+ * @brief Implements the `consume` operation.
+ *
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 const token::Token &ParserContext::consume(const std::string &value) {
     if (!check(value)) {
         throw std::runtime_error("ParserContext::consume: expected '" + value + "', got '" + cur().text + "' at line " + std::to_string(cur().line) + ", column " + std::to_string(cur().column));
@@ -362,6 +559,12 @@ const token::Token &ParserContext::consume(const std::string &value) {
     return advance();
 }
 
+/**
+ * @brief Implements the `consumeKind` operation.
+ *
+ * @param kind Value supplied for `kind`.
+ * @return Value produced by the operation.
+ */
 const token::Token &ParserContext::consumeKind(token::Kind kind) {
     if (cur().kind != kind) {
         throw std::runtime_error("ParserContext::consumeKind: unexpected token '" + cur().text + "' at line " + std::to_string(cur().line) + ", column " + std::to_string(cur().column));
@@ -370,14 +573,34 @@ const token::Token &ParserContext::consumeKind(token::Kind kind) {
     return advance();
 }
 
+/**
+ * @brief Parses input through `parse`.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param minPrecedence Value supplied for `minPrecedence`.
+ * @return Value produced by the operation.
+ */
 ast::NodePtr ParserContext::parse(const std::string &domain, int minPrecedence) {
     return registry_.parse(*this, domain, minPrecedence);
 }
 
+/**
+ * @brief Parses input through `parse`.
+ *
+ * @param domain Value supplied for `domain`.
+ * @param minPrecedence Value supplied for `minPrecedence`.
+ * @return Value produced by the operation.
+ */
 ast::NodePtr ParserContext::parse(const ids::ParseDomain &domain, int minPrecedence) {
     return parse(domain.value, minPrecedence);
 }
 
+/**
+ * @brief Constructs a `Parser` instance.
+ *
+ * @param registry Value supplied for `registry`.
+ * @param startDomain Value supplied for `startDomain`.
+ */
 Parser::Parser(const ParserRegistry &registry, std::string startDomain)
     : registry_{registry}, startDomain_{std::move(startDomain)} {
     if (startDomain_.empty()) {
@@ -385,9 +608,21 @@ Parser::Parser(const ParserRegistry &registry, std::string startDomain)
     }
 }
 
+/**
+ * @brief Constructs a `Parser` instance.
+ *
+ * @param registry Value supplied for `registry`.
+ * @param startDomain Value supplied for `startDomain`.
+ */
 Parser::Parser(const ParserRegistry &registry, const ids::ParseDomain &startDomain)
     : Parser{registry, startDomain.value} {}
 
+/**
+ * @brief Parses input through `parse`.
+ *
+ * @param tokens Value supplied for `tokens`.
+ * @return Value produced by the operation.
+ */
 ast::NodePtr Parser::parse(std::vector<token::Token> tokens) const {
     ParserContext context{std::move(tokens), registry_};
     ast::NodePtr root{context.parse(startDomain_)};
@@ -399,6 +634,12 @@ ast::NodePtr Parser::parse(std::vector<token::Token> tokens) const {
     return root;
 }
 
+/**
+ * @brief Parses input through `parsePartial`.
+ *
+ * @param tokens Value supplied for `tokens`.
+ * @return Value produced by the operation.
+ */
 ast::NodePtr Parser::parsePartial(std::vector<token::Token> tokens) const {
     ParserContext context{std::move(tokens), registry_};
 

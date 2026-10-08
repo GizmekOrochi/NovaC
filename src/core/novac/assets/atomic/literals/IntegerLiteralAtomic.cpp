@@ -11,16 +11,32 @@
 namespace novac::assets::atomic::literals {
 
 
+/**
+ * @brief Constructs a `IntegerLiteralAtomic` instance.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param pattern Value supplied for `pattern`.
+ */
 IntegerLiteralAtomic::IntegerLiteralAtomic(std::string nodeKind, TokenPattern pattern)
     : nodeKind_{std::move(nodeKind)}, pattern_{std::move(pattern)} {
     if (nodeKind_.empty())
         throw std::runtime_error("IntegerLiteralAtomic::IntegerLiteralAtomic: node kind cannot be empty");
 }
 
+/**
+ * @brief Implements the `info` operation.
+ *
+ * @return Value produced by the operation.
+ */
 LiteralInfo IntegerLiteralAtomic::info() const {
     return {"core.literal.integer", "0.1.0", "Integer literal atomic", nodeKind_, pattern_, {"literal.integer", "expression.atom"}, {}};
 }
 
+/**
+ * @brief Installs the behavior provided by `install`.
+ *
+ * @param controller Value supplied for `controller`.
+ */
 void IntegerLiteralAtomic::install(AtomicController& controller) const {
     controller.registerPattern(pattern_);
 

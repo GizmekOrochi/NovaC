@@ -6,28 +6,62 @@
 
 namespace novac::ast {
 
+/**
+ * @brief Constructs a `Node` instance.
+ *
+ * @param kind Value supplied for `kind`.
+ */
 Node::Node(std::string kind)
-    : kind_{std::move(kind)}, fields_{} {
+    : kind_{std::move(kind)}, fields_{}, span_{}, metadata_{} {
     if (kind_.empty()) {
         throw std::runtime_error("Node::Node: kind cannot be empty");
     }
 }
 
+/**
+ * @brief Constructs a `Node` instance.
+ *
+ * @param kind Value supplied for `kind`.
+ */
 Node::Node(const ids::NodeKind &kind)
     : Node{kind.value} {}
 
+/**
+ * @brief Creates a value through `make`.
+ *
+ * @param kind Value supplied for `kind`.
+ * @return Value produced by the operation.
+ */
 NodePtr Node::make(std::string kind) {
     return std::make_shared<Node>(std::move(kind));
 }
 
+/**
+ * @brief Creates a value through `make`.
+ *
+ * @param kind Value supplied for `kind`.
+ * @return Value produced by the operation.
+ */
 NodePtr Node::make(const ids::NodeKind &kind) {
     return std::make_shared<Node>(kind);
 }
 
+/**
+ * @brief Returns the value exposed by `kind`.
+ *
+ * @return Value produced by the operation.
+ */
 const std::string &Node::kind() const {
     return kind_;
 }
 
+/**
+ * @brief Sets the value handled by `set`.
+ *
+ * @param name Value supplied for `name`.
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 Node &Node::set(std::string name, Field value) {
     if (name.empty()) {
         throw std::runtime_error("Node::set: field name cannot be empty");
@@ -38,18 +72,43 @@ Node &Node::set(std::string name, Field value) {
     return *this;
 }
 
+/**
+ * @brief Sets the value handled by `set`.
+ *
+ * @param name Value supplied for `name`.
+ * @param value Value supplied for `value`.
+ * @return Value produced by the operation.
+ */
 Node &Node::set(const ids::FieldName &name, Field value) {
     return set(name.value, std::move(value));
 }
 
+/**
+ * @brief Checks the condition represented by `has`.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 bool Node::has(const std::string &name) const {
     return fields_.find(name) != fields_.end();
 }
 
+/**
+ * @brief Checks the condition represented by `has`.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 bool Node::has(const ids::FieldName &name) const {
     return has(name.value);
 }
 
+/**
+ * @brief Implements the `field` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 const Field &Node::field(const std::string &name) const {
     const auto iter{fields_.find(name)};
 
@@ -60,14 +119,31 @@ const Field &Node::field(const std::string &name) const {
     return iter->second;
 }
 
+/**
+ * @brief Implements the `field` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 const Field &Node::field(const ids::FieldName &name) const {
     return field(name.value);
 }
 
+/**
+ * @brief Returns the value exposed by `fields`.
+ *
+ * @return Value produced by the operation.
+ */
 const std::unordered_map<std::string, Field> &Node::fields() const {
     return fields_;
 }
 
+/**
+ * @brief Implements the `str` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 const std::string &Node::str(const std::string &name) const {
     const Field &value{field(name)};
 
@@ -78,10 +154,22 @@ const std::string &Node::str(const std::string &name) const {
     return std::get<std::string>(value);
 }
 
+/**
+ * @brief Implements the `str` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 const std::string &Node::str(const ids::FieldName &name) const {
     return str(name.value);
 }
 
+/**
+ * @brief Implements the `integer` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 int Node::integer(const std::string &name) const {
     const Field &value{field(name)};
 
@@ -92,10 +180,22 @@ int Node::integer(const std::string &name) const {
     return std::get<int>(value);
 }
 
+/**
+ * @brief Implements the `integer` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 int Node::integer(const ids::FieldName &name) const {
     return integer(name.value);
 }
 
+/**
+ * @brief Implements the `child` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 NodePtr Node::child(const std::string &name) const {
     const Field &value{field(name)};
 
@@ -106,10 +206,22 @@ NodePtr Node::child(const std::string &name) const {
     return std::get<NodePtr>(value);
 }
 
+/**
+ * @brief Implements the `child` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 NodePtr Node::child(const ids::FieldName &name) const {
     return child(name.value);
 }
 
+/**
+ * @brief Implements the `list` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 const NodeList &Node::list(const std::string &name) const {
     const Field &value{field(name)};
 
@@ -120,13 +232,68 @@ const NodeList &Node::list(const std::string &name) const {
     return std::get<NodeList>(value);
 }
 
+/**
+ * @brief Implements the `list` operation.
+ *
+ * @param name Value supplied for `name`.
+ * @return Value produced by the operation.
+ */
 const NodeList &Node::list(const ids::FieldName &name) const {
     return list(name.value);
 }
 
+/**
+ * @brief Sets the value handled by `setSpan`.
+ *
+ * @param span Value supplied for `span`.
+ * @return Value produced by the operation.
+ */
+Node &Node::setSpan(diagnostics::SourceSpan span) {
+    span_ = std::move(span);
+    return *this;
+}
+
+/**
+ * @brief Returns the value exposed by `span`.
+ *
+ * @return Value produced by the operation.
+ */
+const diagnostics::SourceSpan &Node::span() const noexcept {
+    return span_;
+}
+
+/**
+ * @brief Returns the value exposed by `metadata`.
+ *
+ * @return Value produced by the operation.
+ */
+metadata::MetadataStore &Node::metadata() noexcept {
+    return metadata_;
+}
+
+/**
+ * @brief Returns the value exposed by `metadata`.
+ *
+ * @return Value produced by the operation.
+ */
+const metadata::MetadataStore &Node::metadata() const noexcept {
+    return metadata_;
+}
+
+/**
+ * @brief Constructs a `NodeRegistry` instance.
+ *
+ * @param duplicatePolicy Value supplied for `duplicatePolicy`.
+ */
 NodeRegistry::NodeRegistry(registry::DuplicatePolicy duplicatePolicy)
     : schemas_{}, duplicatePolicy_{duplicatePolicy} {}
 
+/**
+ * @brief Registers data through `registerNode`.
+ *
+ * @param schema Value supplied for `schema`.
+ * @return Value produced by the operation.
+ */
 registry::RegisterStatus NodeRegistry::registerNode(NodeSchema schema) {
     if (schema.kind.empty()) {
         throw std::runtime_error("NodeRegistry::registerNode: node kind cannot be empty");
@@ -137,6 +304,12 @@ registry::RegisterStatus NodeRegistry::registerNode(NodeSchema schema) {
     return registry::registerEntry(schemas_, kind, std::move(schema), duplicatePolicy_, "NodeRegistry::registerNode");
 }
 
+/**
+ * @brief Finds the value requested by `find`.
+ *
+ * @param kind Value supplied for `kind`.
+ * @return Value produced by the operation.
+ */
 const NodeSchema *NodeRegistry::find(const std::string &kind) const {
     const auto iter{schemas_.find(kind)};
 
@@ -147,10 +320,23 @@ const NodeSchema *NodeRegistry::find(const std::string &kind) const {
     return &iter->second;
 }
 
+/**
+ * @brief Finds the value requested by `find`.
+ *
+ * @param kind Value supplied for `kind`.
+ * @return Value produced by the operation.
+ */
 const NodeSchema *NodeRegistry::find(const ids::NodeKind &kind) const {
     return find(kind.value);
 }
 
+/**
+ * @brief Checks the condition represented by `hasTrait`.
+ *
+ * @param nodeKind Value supplied for `nodeKind`.
+ * @param trait Value supplied for `trait`.
+ * @return Value produced by the operation.
+ */
 bool NodeRegistry::hasTrait(const std::string &nodeKind, const std::string &trait) const {
     const NodeSchema *schema{find(nodeKind)};
 
@@ -161,6 +347,11 @@ bool NodeRegistry::hasTrait(const std::string &nodeKind, const std::string &trai
     return std::find(schema->traits.begin(), schema->traits.end(), trait) != schema->traits.end();
 }
 
+/**
+ * @brief Validates data through `validate`.
+ *
+ * @param node Value supplied for `node`.
+ */
 void NodeRegistry::validate(const Node &node) const {
     const NodeSchema *schema{find(node.kind())};
 
@@ -178,6 +369,13 @@ void NodeRegistry::validate(const Node &node) const {
     validateChildren(node);
 }
 
+/**
+ * @brief Implements the `fieldMatchesKind` operation.
+ *
+ * @param field Value supplied for `field`.
+ * @param kind Value supplied for `kind`.
+ * @return Value produced by the operation.
+ */
 bool NodeRegistry::fieldMatchesKind(const Field &field, FieldKind kind) {
     if (kind == FieldKind::Any) {
         return true;
@@ -211,15 +409,32 @@ bool NodeRegistry::fieldMatchesKind(const Field &field, FieldKind kind) {
         return std::holds_alternative<NodeList>(field);
     }
 
+    if (kind == FieldKind::Opaque) {
+        return std::holds_alternative<std::any>(field);
+    }
+
     return false;
 }
 
+/**
+ * @brief Validates data through `validateFieldKnown`.
+ *
+ * @param schema Value supplied for `schema`.
+ * @param fieldName Value supplied for `fieldName`.
+ * @param node Value supplied for `node`.
+ */
 void NodeRegistry::validateFieldKnown(const NodeSchema &schema, const std::string &fieldName, const Node &node) const {
     if (!findFieldSchema(schema, fieldName)) {
         throw std::runtime_error("NodeRegistry::validateFieldKnown: node kind '" + node.kind() + "' has unknown field '" + fieldName + "'");
     }
 }
 
+/**
+ * @brief Validates data through `validateRequiredFields`.
+ *
+ * @param schema Value supplied for `schema`.
+ * @param node Value supplied for `node`.
+ */
 void NodeRegistry::validateRequiredFields(const NodeSchema &schema, const Node &node) const {
     for (const FieldSchema &fieldSchema : schema.fields) {
         if (!fieldSchema.required) {
@@ -232,6 +447,12 @@ void NodeRegistry::validateRequiredFields(const NodeSchema &schema, const Node &
     }
 }
 
+/**
+ * @brief Validates data through `validateFieldTypes`.
+ *
+ * @param schema Value supplied for `schema`.
+ * @param node Value supplied for `node`.
+ */
 void NodeRegistry::validateFieldTypes(const NodeSchema &schema, const Node &node) const {
     for (const auto &[fieldName, field] : node.fields()) {
         const FieldSchema *fieldSchema{findFieldSchema(schema, fieldName)};
@@ -272,6 +493,13 @@ void NodeRegistry::validateFieldTypes(const NodeSchema &schema, const Node &node
     }
 }
 
+/**
+ * @brief Validates data through `validateChildConstraints`.
+ *
+ * @param fieldSchema Value supplied for `fieldSchema`.
+ * @param child Value supplied for `child`.
+ * @param owner Value supplied for `owner`.
+ */
 void NodeRegistry::validateChildConstraints(const FieldSchema &fieldSchema, const Node &child, const Node &owner) const {
     if (!fieldSchema.allowedNodeKinds.empty()) {
         const auto iter{std::find(fieldSchema.allowedNodeKinds.begin(), fieldSchema.allowedNodeKinds.end(), child.kind())};
@@ -301,6 +529,11 @@ void NodeRegistry::validateChildConstraints(const FieldSchema &fieldSchema, cons
     }
 }
 
+/**
+ * @brief Validates data through `validateChildren`.
+ *
+ * @param node Value supplied for `node`.
+ */
 void NodeRegistry::validateChildren(const Node &node) const {
     for (const auto &[fieldName, field] : node.fields()) {
         static_cast<void>(fieldName);
@@ -321,6 +554,13 @@ void NodeRegistry::validateChildren(const Node &node) const {
     }
 }
 
+/**
+ * @brief Finds the value requested by `findFieldSchema`.
+ *
+ * @param schema Value supplied for `schema`.
+ * @param fieldName Value supplied for `fieldName`.
+ * @return Value produced by the operation.
+ */
 const FieldSchema *NodeRegistry::findFieldSchema(const NodeSchema &schema, const std::string &fieldName) const {
     for (const FieldSchema &fieldSchema : schema.fields) {
         if (fieldSchema.name == fieldName) {

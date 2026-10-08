@@ -3,12 +3,28 @@
 #include "../foundation/registry/Registry.hpp"
 #include "../syntax/Token.hpp"
 
+#include <cstddef>
 #include <functional>
+#include <optional>
+#include <string_view>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
 namespace novac::lexer {
+
+/** Result produced by an extension-defined lexical rule. */
+struct TokenRuleMatch {
+    std::size_t length{};
+    token::Kind kind{token::Kind::Symbol};
+    std::string text{};
+    std::string suffix{};
+    std::string tag{};
+};
+
+/** Extension lexical rule. The callback sees the unconsumed source suffix. */
+using TokenRuleFn = std::function<std::optional<TokenRuleMatch>(std::string_view)>;
+
 
 /**
  * @brief Configures lexical analysis rules and token definitions.
@@ -68,6 +84,14 @@ public:
      * @throws std::runtime_error If the symbol is empty.
      */
     registry::RegisterStatus symbol(std::string symbol);
+
+    /**
+     * Registers a custom lexical recognizer. Higher priority rules run first.
+     * A rule rejects input by returning std::nullopt and accepts it by returning
+     * a positive consumed length plus the token to emit.
+     */
+    registry::RegisterStatus tokenRule(std::string id, int priority, TokenRuleFn fn);
+
 
     /**
      * @brief Replaces the identifier classification rules.
@@ -144,6 +168,20 @@ public:
      */
     const std::vector<std::string> &symbols() const;
 
+    struct TokenRuleEntry {
+        std::string id{};
+        int priority{};
+        std::size_t registrationOrder{};
+        TokenRuleFn fn{};
+    };
+
+    /**
+     * @brief Performs the `tokenRules` operation.
+     *
+     * @return Value produced by the operation.
+     */
+    const std::vector<TokenRuleEntry> &tokenRules() const noexcept;
+
     /**
      * @brief Returns the configured line comment prefix.
      *
@@ -168,6 +206,8 @@ public:
 private:
     std::unordered_set<std::string> keywords_;
     std::vector<std::string> symbols_;
+    std::vector<TokenRuleEntry> tokenRules_;
+    std::size_t nextTokenRuleOrder_{};
     IdentifierStartPredicate identifierStart_;
     IdentifierContinuePredicate identifierContinue_;
     std::string lineCommentPrefix_;

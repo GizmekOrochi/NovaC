@@ -1,6 +1,9 @@
 #pragma once
 
+#include "Metadata.hpp"
+
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -64,6 +67,26 @@ struct SourceSpan {
     SourceLocation end{};
 };
 
+
+/** Secondary source annotation attached to a diagnostic. */
+struct DiagnosticLabel {
+    SourceSpan span{};
+    std::string message{};
+};
+
+/** Additional explanatory note attached to a diagnostic. */
+struct DiagnosticNote {
+    std::string message{};
+    std::optional<SourceSpan> span{};
+};
+
+/** Machine-applicable or advisory source replacement. */
+struct DiagnosticFixIt {
+    SourceSpan span{};
+    std::string replacement{};
+    std::string message{};
+};
+
 /**
  * @brief Stores one diagnostic message.
  *
@@ -79,6 +102,21 @@ struct Diagnostic {
 
     /** Source range associated with the diagnostic, if available. */
     SourceSpan span{};
+
+    /** Stable extension-defined diagnostic code, for example "parse.expected". */
+    std::string code{};
+
+    /** Secondary ranges that explain relationships involved in the issue. */
+    std::vector<DiagnosticLabel> labels{};
+
+    /** Explanatory notes grouped with this diagnostic. */
+    std::vector<DiagnosticNote> notes{};
+
+    /** Suggested source edits. */
+    std::vector<DiagnosticFixIt> fixes{};
+
+    /** Arbitrary machine-readable diagnostic metadata. */
+    metadata::MetadataStore metadata{};
 };
 
 /**

@@ -15,8 +15,8 @@ Build and install the library and public headers:
    $ make -j
    $ sudo make install PREFIX=/usr/local
 
-This installs ``libNovaC.a``, the ``novac`` public header tree, and the NovaC
-CMake package files.
+This installs ``libNovaC.a``, the ``NovaC.hpp`` public umbrella header, the
+headers used by that umbrella internally, and the NovaC CMake package files.
 
 To test an installation without modifying the host system, use a staged prefix:
 
@@ -75,14 +75,13 @@ link the archive explicitly:
        "$NOVAC/lib/libNovaC.a" \
        -o my_language
 
-The supported public include root is ``src/include``. Consumer code should
-include public headers from the ``novac/...`` hierarchy, for example:
+The supported public include root is ``src/include``. Consumer code should use
+the single public umbrella header regardless of whether it uses the standard
+controllers or composes lower-level NovaC components directly:
 
 .. code-block:: cpp
 
-   #include <novac/engine/EngineController.hpp>
-   #include <novac/assets/atomic/AtomicController.hpp>
-   #include <novac/assets/essentials/EssentialsController.hpp>
+   #include <NovaC.hpp>
 
 Do not compile files from ``src/core`` directly into normal consumers. The
 static library is the distribution boundary for NovaC's implementation.
@@ -116,8 +115,10 @@ Static linking model
 
 NovaC V1 is distributed as a static library. Each executable that links
 ``libNovaC.a`` receives the required NovaC implementation objects at link time.
-The public API remains defined by the headers under ``novac/``; ``src/core`` is
-an implementation directory and is not installed.
+The supported consumer entry point is ``NovaC.hpp``. The ``novac/...`` headers
+are included by that umbrella and should not be required by documentation or
+normal consumer code. ``src/core`` remains an implementation directory and is
+not compiled directly by consumers.
 
 Package-manager staging
 -----------------------

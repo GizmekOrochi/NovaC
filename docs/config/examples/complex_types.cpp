@@ -1,5 +1,5 @@
 #include <NovaC.hpp>
-#include "novac/assets/types/aggregate/StructType.hpp"
+#include <string>
 
 #include <iostream>
 
@@ -7,6 +7,13 @@ using namespace novac::assets::types;
 using namespace novac::assets::types::aggregate;
 
 int main() {
+    // Illustrative declarations for the layout demonstrated below.
+    // This example builds type definitions via the API; it does not parse this text.
+    const std::string source{R"(
+struct Example { short a; int b; short c; }
+)"};
+    (void)source;
+
     TypeController types;
 
     types.definePrimitive("short")
