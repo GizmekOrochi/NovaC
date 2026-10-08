@@ -6,8 +6,10 @@
 #include "novac/assets/atomic/literals/BooleanLiteralAtomic.hpp"
 #include "novac/assets/atomic/operations/NumericOperations.hpp"
 #include "novac/assets/atomic/operations/ComparisonOperations.hpp"
+#include "novac/assets/atomic/operations/LogicalOperations.hpp"
 
 #include <limits>
+#include <utility>
 
 namespace {
 
@@ -33,6 +35,7 @@ using novac::assets::atomic::operations::AddOperationAtomic;
 using novac::assets::atomic::operations::LessOperationAtomic;
 using novac::assets::atomic::operations::DivideOperationAtomic;
 using novac::assets::atomic::operations::ModuloOperationAtomic;
+using novac::assets::atomic::operations::NumericNegateOperationAtomic;
 using novac::controllers::EngineController;
 
 class ThrowingLiteralFeature final : public novac::assets::atomic::LiteralFeature {
@@ -170,6 +173,49 @@ TEST(AtomicController, FailedOperationInstallRollsBackEngineAndController) {
         [](const novac::ast::Node &, novac::runtime::RuntimeContext &) {
             return novac::runtime::Value::integer(1);
         });
+}
+
+TEST(AtomicController, UnaryDispatchSurvivesControllerDestruction) {
+    EngineController engine;
+    {
+        AtomicController controller{engine};
+        controller.integer();
+        controller.use(NumericNegateOperationAtomic{});
+    }
+
+    const auto expression{engine.parse("-7")};
+    CHECK(engine.eval(*expression).asInt() == -7);
+}
+
+TEST(AtomicController, UnaryDispatchSurvivesControllerMove) {
+    EngineController engine;
+    AtomicController controller{engine};
+    controller.integer();
+    controller.use(NumericNegateOperationAtomic{});
+
+    AtomicController moved{std::move(controller)};
+    const auto expression{engine.parse("-5")};
+    CHECK(engine.eval(*expression).asInt() == -5);
+}
+
+TEST(AtomicController, UnaryDispatchSurvivesFailedOperationRollback) {
+    EngineController engine;
+    AtomicController controller{engine};
+    controller.integer();
+    controller.use(NumericNegateOperationAtomic{});
+
+    ThrowingOperationFeature failingFeature;
+    CHECK(throwsRuntimeError([&]() { controller.use(failingFeature); }));
+
+    // Rolling back must restore the shared handler map, without breaking the
+    // already-registered engine callback.
+    const auto expression{engine.parse("-11")};
+    CHECK(engine.eval(*expression).asInt() == -11);
+
+    // The handler inserted by the failed installation must also be gone.
+    controller.registerUnaryOperation("test.operation.transaction", [](const auto &, const auto &) {
+        return novac::runtime::Value::integer(1);
+    });
 }
 
 TEST(AtomicController, EmptyLiteralPatternIsRejectedBeforeInstall) {

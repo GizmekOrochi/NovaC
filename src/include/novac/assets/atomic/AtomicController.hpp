@@ -536,7 +536,10 @@ private:
     std::unordered_set<std::string> literalIds_;
     std::unordered_set<std::string> operationIds_;
     std::unordered_set<std::string> registeredPatterns_;
-    std::unordered_map<std::string, runtime::ExprHandler> unaryHandlers_;
+    // Shared with the engine's unary dispatcher: installed expressions must
+    // remain executable when this AtomicController is moved or destroyed.
+    std::shared_ptr<std::unordered_map<std::string, runtime::ExprHandler>> unaryHandlers_{
+        std::make_shared<std::unordered_map<std::string, runtime::ExprHandler>>()};
     bool binaryNodeInstalled_{};
     bool unaryNodeInstalled_{};
 };

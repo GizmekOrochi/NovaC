@@ -220,7 +220,7 @@ AtomicController &AtomicController::use(const LiteralFeature &feature) {
     const auto literalIdsSnapshot{literalIds_};
     const auto operationIdsSnapshot{operationIds_};
     const auto registeredPatternsSnapshot{registeredPatterns_};
-    const auto unaryHandlersSnapshot{unaryHandlers_};
+    const auto unaryHandlersSnapshot{*unaryHandlers_};
     const bool binaryNodeInstalledSnapshot{binaryNodeInstalled_};
     const bool unaryNodeInstalledSnapshot{unaryNodeInstalled_};
     const std::size_t ownedLiteralsSize{ownedLiterals_.size()};
@@ -237,7 +237,7 @@ AtomicController &AtomicController::use(const LiteralFeature &feature) {
         literalIds_ = literalIdsSnapshot;
         operationIds_ = operationIdsSnapshot;
         registeredPatterns_ = registeredPatternsSnapshot;
-        unaryHandlers_ = unaryHandlersSnapshot;
+        *unaryHandlers_ = unaryHandlersSnapshot;
         binaryNodeInstalled_ = binaryNodeInstalledSnapshot;
         unaryNodeInstalled_ = unaryNodeInstalledSnapshot;
         ownedLiterals_.resize(ownedLiteralsSize);
@@ -264,7 +264,7 @@ AtomicController &AtomicController::use(const OperationFeature &feature) {
     const auto literalIdsSnapshot{literalIds_};
     const auto operationIdsSnapshot{operationIds_};
     const auto registeredPatternsSnapshot{registeredPatterns_};
-    const auto unaryHandlersSnapshot{unaryHandlers_};
+    const auto unaryHandlersSnapshot{*unaryHandlers_};
     const bool binaryNodeInstalledSnapshot{binaryNodeInstalled_};
     const bool unaryNodeInstalledSnapshot{unaryNodeInstalled_};
     const std::size_t ownedLiteralsSize{ownedLiterals_.size()};
@@ -281,7 +281,7 @@ AtomicController &AtomicController::use(const OperationFeature &feature) {
         literalIds_ = literalIdsSnapshot;
         operationIds_ = operationIdsSnapshot;
         registeredPatterns_ = registeredPatternsSnapshot;
-        unaryHandlers_ = unaryHandlersSnapshot;
+        *unaryHandlers_ = unaryHandlersSnapshot;
         binaryNodeInstalled_ = binaryNodeInstalledSnapshot;
         unaryNodeInstalled_ = unaryNodeInstalledSnapshot;
         ownedLiterals_.resize(ownedLiteralsSize);
@@ -675,11 +675,14 @@ void AtomicController::ensureUnaryExpressionNode() {
         .doc = "Atomic unary expression carrier"
     });
 
-    engine_.expression(options_.unaryNodeKind, [this](const ast::Node &node, runtime::RuntimeContext &context) {
+    // The engine can outlive this controller. Share the handler storage instead
+    // of capturing `this`, so dispatch survives controller moves/destruction.
+    const auto handlers{unaryHandlers_};
+    engine_.expression(options_.unaryNodeKind, [handlers](const ast::Node &node, runtime::RuntimeContext &context) {
         const std::string op{node.str(fields::Operation)};
-        const auto iter{unaryHandlers_.find(op)};
+        const auto iter{handlers->find(op)};
 
-        if(iter == unaryHandlers_.end())
+        if(iter == handlers->end())
             throw std::runtime_error("AtomicController::ensureUnaryExpressionNode: missing unary operation handler for '" + op + "'");
 
         return iter->second(node, context);
@@ -701,7 +704,7 @@ void AtomicController::registerUnaryOperation(std::string operationId, runtime::
     if(!handler)
         throw std::runtime_error("AtomicController::registerUnaryOperation: handler cannot be empty");
 
-    const auto result{unaryHandlers_.emplace(std::move(operationId), std::move(handler))};
+    const auto result{unaryHandlers_->emplace(std::move(operationId), std::move(handler))};
 
     if(!result.second)
         throw std::runtime_error("AtomicController::registerUnaryOperation: duplicate unary operation handler");
