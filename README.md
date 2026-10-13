@@ -116,11 +116,11 @@ make release-check
 
 This requires the normal tests, ASan, UBSan, the installed-package smoke test, and strict documentation validation to pass.
 
-Continuous integration runs normal tests with GCC and Clang, sanitizer jobs, the installed CMake package smoke test, and strict documentation on clean Linux runners.
+The [continuous integration workflow](.github/workflows/ci.yml) runs normal tests with GCC and Clang, sanitizer jobs, the installed CMake package smoke test, and strict documentation on clean Linux runners whenever changes are pushed or proposed as pull requests.
 
 ## Release
 
-NovaC 1.4.1 is the latest stable public release. Release notes are maintained in [`CHANGELOG.md`](CHANGELOG.md).
+This source tree targets **NovaC 1.4.1**. Publication of the corresponding Git tag or GitHub release is a separate maintainer step. Changes are documented in [`CHANGELOG.md`](CHANGELOG.md).
 
 After committing all release changes and obtaining a green release gate, create a clean source archive from the committed `HEAD` with:
 
@@ -128,7 +128,7 @@ After committing all release changes and obtaining a green release gate, create 
 make dist
 ```
 
-`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.4.0.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded.
+`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.4.1.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded. Its release checks include tests, sanitizers, package installation, and strict documentation. GitHub Actions runs the equivalent checks as separate jobs, then invokes `make dist-source` to create the same clean archive without rerunning them.
 
 ## License
 

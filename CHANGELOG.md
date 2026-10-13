@@ -5,6 +5,20 @@ All notable changes to NovaC are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - Unreleased
+
+### Fixed
+
+- Hardened non-owning registry and controller constructor APIs against temporary lifetime hazards.
+- Stabilized scope and symbol record references when registering more scopes or symbols.
+- Avoided retaining an `AtomicController` instance through unary-dispatch callbacks and improved feature-installation rollback behavior.
+- Aligned version checks in the Makefile and installed CMake consumer tests with the public version header.
+
+### Added
+
+- GitHub Actions checks with GCC, Clang, ASan, UBSan, installed-package smoke tests, and strict documentation.
+- Automated clean source archives after successful continuous integration checks.
+
 ## [1.4.0] - 2026-10-05
 
 - Added a core custom control-flow extension API that composes lexer, AST, parser, runtime, and HIR hooks through regular `EngineFeature` installers without depending on `EssentialsController`.

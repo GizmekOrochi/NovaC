@@ -58,12 +58,20 @@ PACKAGE_SMOKE_BUILD := build/package-smoke
 PACKAGE_SMOKE_STAGE := $(PACKAGE_SMOKE_BUILD)/stage
 PACKAGE_SMOKE_CMAKE_BUILD := $(PACKAGE_SMOKE_BUILD)/consumer
 
-VERSION := 1.4.0
+# Derive the archive version from the public C++ version declaration.
+VERSION := $(shell sed -n 's/^#define NOVAC_VERSION_STRING "\([^"]*\)"/\1/p' src/include/novac/Version.hpp)
 DIST_DIR := dist
 DIST_NAME := NovaC-$(VERSION)
 DIST_ZIP := $(DIST_DIR)/$(DIST_NAME).zip
 
 all: $(LIB)
+
+check-version:
+	@test -n "$(VERSION)" || { echo "Error: missing NOVAC_VERSION_STRING in Version.hpp"; exit 1; }
+	@grep -Fxq 'set(PACKAGE_VERSION "$(VERSION)")' cmake/NovaCConfigVersion.cmake || { \
+		echo "Error: CMake package version disagrees with Version.hpp ($(VERSION))."; \
+		exit 1; \
+	}
 
 $(LIB): $(LIB_OBJ)
 	@mkdir -p $(dir $@)
@@ -102,7 +110,7 @@ build/test-obj/%.o: tests/%.cpp
 
 -include $(TEST_OBJ:.o=.d)
 
-test: check-public-api $(TEST_BIN)
+test: check-public-api check-version $(TEST_BIN)
 	./$(TEST_BIN)
 
 build/asan/lib/%.o: src/%.cpp
@@ -165,7 +173,7 @@ uninstall:
 	rm -rf $(DESTDIR)$(INCLUDEDIR)/novac
 	rm -rf $(DESTDIR)$(CMAKEDIR)
 
-package-smoke: $(LIB) package-config
+package-smoke: check-version $(LIB) package-config
 	@echo "[NovaC package] Validating installed CMake package..."
 	@rm -rf $(PACKAGE_SMOKE_BUILD)
 	@$(MAKE) install DESTDIR="$(abspath $(PACKAGE_SMOKE_STAGE))" PREFIX=/usr CXX="$(CXX)"
@@ -214,10 +222,10 @@ doc-strict: doc-check doc-examples $(DOC_VENV)/.ready
 	@$(DOC_SPHINX) -W -c $(DOC_CONFIG) -b html --keep-going $(DOC_SOURCE) $(DOC_OUTPUT)
 	@echo "[NovaC docs] Strict build passed: $(DOC_OUTPUT)/index.html"
 
-release-check: test test-asan test-ubsan package-smoke doc-strict
+release-check: check-version test test-asan test-ubsan package-smoke doc-strict
 	@echo "[NovaC release] Tests, sanitizers, and strict documentation validation passed."
 
-dist: release-check
+dist-source: check-version
 	@command -v git >/dev/null 2>&1 || { echo "Error: git is required to create a source release archive."; exit 1; }
 	@git diff --quiet --ignore-submodules -- && git diff --cached --quiet --ignore-submodules -- || { \
 		echo "Error: tracked files contain uncommitted changes. Commit them before creating a release archive."; \
@@ -233,6 +241,8 @@ dist: release-check
 	@git archive --format=zip --prefix=$(DIST_NAME)/ --output=$(DIST_ZIP) HEAD
 	@echo "[NovaC release] Created $(DIST_ZIP) from clean HEAD."
 
+dist: release-check dist-source
+
 doc-clean:
 	rm -rf $(DOC_OUTPUT) $(DOC_BUILD)
 
@@ -243,4 +253,4 @@ clean:
 	rm -rf bin lib build
 	rm -rf $(DOC_OUTPUT) $(DOC_BUILD)
 
-.PHONY: all check-public-api tests test test-asan test-ubsan package-config install uninstall package-smoke doc-check doc doc-examples doc-strict release-check dist doc-clean doc-clean-all clean
+.PHONY: all check-public-api check-version tests test test-asan test-ubsan package-config install uninstall package-smoke doc-check doc doc-examples doc-strict release-check dist-source dist doc-clean doc-clean-all clean
