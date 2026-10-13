@@ -24,6 +24,9 @@ public:
     StorageController(const TypeController &types, const LayoutController &layouts)
         : types_{types}, layouts_{layouts} {}
 
+    StorageController(const TypeController &&, const LayoutController &) = delete;
+    StorageController(const TypeController &, const LayoutController &&) = delete;
+
     /**
      * @brief Returns the value exposed by `types`.
      *

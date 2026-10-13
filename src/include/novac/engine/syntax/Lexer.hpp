@@ -240,6 +240,7 @@ public:
      * @param registry Lexer configuration source.
      */
     explicit Lexer(const LexerRegistry &registry);
+    Lexer(const LexerRegistry &&) = delete; // Cannot borrow a temporary registry.
 
     /**
      * @brief Tokenizes source text.

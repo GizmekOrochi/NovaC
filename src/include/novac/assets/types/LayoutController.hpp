@@ -23,6 +23,7 @@ public:
      * @param types Value supplied for `types`.
      */
     explicit LayoutResolutionSession(const TypeController &types) : types_{&types} {}
+    LayoutResolutionSession(const TypeController &&) = delete; // Borrow only lvalues.
 
     /** @brief Returns the type registry used by this session. */
     const TypeController &types() const noexcept override { return *types_; }
@@ -49,6 +50,7 @@ public:
      * @param types Value supplied for `types`.
      */
     explicit LayoutController(const TypeController &types) : types_{&types} {}
+    LayoutController(const TypeController &&) = delete; // Borrow only lvalues.
 
     /** @brief Creates a reusable resolution session for one higher-level operation. */
     LayoutResolutionSession session() const;

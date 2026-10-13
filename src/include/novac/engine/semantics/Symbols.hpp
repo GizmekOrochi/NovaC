@@ -5,6 +5,7 @@
 #include "novac/engine/syntax/Node.hpp"
 
 #include <cstdint>
+#include <deque>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -87,7 +88,8 @@ public:
     std::vector<ScopeId> ancestors(ScopeId id, bool includeSelf = false) const;
 
 private:
-    std::vector<ScopeRecord> scopes_{};
+    // References returned by find()/require() must survive create().
+    std::deque<ScopeRecord> scopes_{};
     std::unordered_map<const ast::Node *, ScopeId> nodeScopes_{};
 };
 
@@ -112,6 +114,7 @@ public:
      * @param scopes Value supplied for `scopes`.
      */
     explicit SymbolTable(const ScopeGraph &scopes) : scopes_{&scopes} {}
+    SymbolTable(const ScopeGraph &&) = delete; // Cannot borrow a temporary graph.
 
     /**
      * @brief Performs the `declare` operation.
@@ -189,7 +192,8 @@ private:
     };
 
     const ScopeGraph *scopes_{};
-    std::vector<SymbolRecord> symbols_{};
+    // References returned by find()/require()/mutableRecord() must survive declare().
+    std::deque<SymbolRecord> symbols_{};
     std::unordered_map<ScopeNameKey, std::vector<SymbolId>, ScopeNameHash> byScopeName_{};
 };
 

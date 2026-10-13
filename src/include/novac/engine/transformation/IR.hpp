@@ -881,6 +881,7 @@ public:
      * @param registry Lowering registry used by the pass.
      */
     explicit ASTLoweringPass(const LoweringRegistry &registry);
+    ASTLoweringPass(const LoweringRegistry &&) = delete; // Cannot borrow a temporary registry.
 
     /**
      * @brief Lowers an AST root node into HIR.
@@ -915,6 +916,7 @@ public:
      * @param registry Lowering registry used by the pass.
      */
     explicit HIRLoweringPass(const LoweringRegistry &registry);
+    HIRLoweringPass(const LoweringRegistry &&) = delete; // Cannot borrow a temporary registry.
 
     /**
      * @brief Lowers a HIR module into MIR.

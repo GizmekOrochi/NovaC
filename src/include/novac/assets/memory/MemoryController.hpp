@@ -30,6 +30,9 @@ public:
      * @param storage Value supplied for `storage`.
      */
     MemoryController(const types::TypeController &types, const types::LayoutController &layouts, const types::StorageController &storage);
+    MemoryController(const types::TypeController &&, const types::LayoutController &, const types::StorageController &) = delete;
+    MemoryController(const types::TypeController &, const types::LayoutController &&, const types::StorageController &) = delete;
+    MemoryController(const types::TypeController &, const types::LayoutController &, const types::StorageController &&) = delete;
 
     //Global behavior
 

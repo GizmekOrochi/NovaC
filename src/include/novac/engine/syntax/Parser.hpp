@@ -310,6 +310,7 @@ public:
      * @param registry Parser rule registry.
      */
     ParserContext(std::vector<token::Token> tokens, const ParserRegistry &registry);
+    ParserContext(std::vector<token::Token>, const ParserRegistry &&) = delete; // Borrow only lvalues.
 
     /**
      * @brief Returns the token currently being parsed.
@@ -424,6 +425,7 @@ public:
      * @throws std::runtime_error If the start domain is empty.
      */
     Parser(const ParserRegistry &registry, std::string startDomain);
+    Parser(const ParserRegistry &&, std::string) = delete; // Borrow only lvalues.
 
     /**
      * @brief Creates a parser using a typed start domain identifier.
@@ -432,6 +434,7 @@ public:
      * @param startDomain Initial parse domain.
      */
     Parser(const ParserRegistry &registry, const ids::ParseDomain &startDomain);
+    Parser(const ParserRegistry &&, const ids::ParseDomain &) = delete;
 
     /**
      * @brief Parses an entire token stream.

@@ -288,6 +288,7 @@ public:
      * @param registry Runtime registry used for dispatch.
      */
     explicit RuntimeContext(const RuntimeRegistry &registry);
+    RuntimeContext(const RuntimeRegistry &&) = delete; // Cannot borrow a temporary registry.
 
     /**
      * @brief Evaluates an expression node.
@@ -650,6 +651,7 @@ public:
      * @param registry Runtime handler registry.
      */
     explicit Runtime(const RuntimeRegistry &registry);
+    Runtime(const RuntimeRegistry &&) = delete; // Cannot borrow a temporary registry.
 
     /**
      * @brief Evaluates an AST root node.
