@@ -2,6 +2,8 @@
 #include "novac/engine/EngineController.hpp"
 
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -665,3 +667,40 @@ TEST(EngineController, SnapshotAndRestore) {
     CHECK(!engine.lexer().isKeyword("while"));
 }
 
+
+TEST(EngineController, SnapshotsAndOwnedMovesRemainAvailable) {
+    static_assert(std::is_copy_constructible_v<EngineController>);
+    static_assert(std::is_copy_assignable_v<EngineController>);
+    static_assert(std::is_move_constructible_v<EngineController>);
+    static_assert(std::is_move_assignable_v<EngineController>);
+}
+
+TEST(EngineController, FeatureInstallUsesStableEngineAddress) {
+    EngineController engine{};
+    EngineController *installationTarget{};
+    EngineFeature feature{"stable-installer"};
+    feature.onInstall([&](EngineController &target) {
+        installationTarget = &target;
+        target.keyword("stable");
+    });
+    engine.install(feature);
+    CHECK(installationTarget == &engine);
+    CHECK(engine.lexer().isKeyword("stable"));
+}
+
+TEST(EngineController, FailedFeatureInstallPreservesBorrowedRegistry) {
+    EngineController engine{};
+    auto *const lex{&engine.lexer()};
+    engine.keyword("original");
+
+    EngineFeature failed{"failing"};
+    failed.onInstall([](EngineController &target) {
+        target.keyword("temporary");
+        throw std::runtime_error("fail");
+    });
+
+    CHECK(throwsRuntimeError([&] { engine.install(failed); }));
+    CHECK(lex == &engine.lexer());
+    CHECK(lex->isKeyword("original"));
+    CHECK(!lex->isKeyword("temporary"));
+}

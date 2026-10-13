@@ -634,3 +634,29 @@ TEST(AtomicController, ExpressionTraitIsPreservedAcrossAtomicNodes) {
 }
 
 } // namespace
+
+TEST(AtomicController, SnapshotAtomicParsersOutliveOriginalEngine) {
+    EngineController snapshot{};
+    {
+        EngineController original{};
+        AtomicController controller{original};
+        controller.installStandardCore();
+        snapshot.restore(original);
+    }
+    CHECK(snapshot.eval(*snapshot.parse("-7")).asInt() == -7);
+    CHECK(snapshot.eval(*snapshot.parse("2 + 3")).asInt() == 5);
+    CHECK(snapshot.eval(*snapshot.parse("true")).truthy());
+}
+
+TEST(AtomicController, MovedEngineRetainsBuiltInAtomicParsers) {
+    EngineController destination{};
+    {
+        EngineController original{};
+        AtomicController controller{original};
+        controller.installStandardCore();
+        destination = std::move(original);
+    }
+
+    CHECK(destination.eval(*destination.parse("-9")).asInt() == -9);
+    CHECK(destination.eval(*destination.parse("4 + 2")).asInt() == 6);
+}

@@ -54,13 +54,12 @@ void installBinaryLogical(
     const std::string binaryKind{controller.binaryNodeKind()};
     const std::string opId{operation.id};
     const std::string key{operatorKey(operation)};
-    auto *const engine{&controller.engine()};
 
     controller.registerPattern(operation.pattern);
     controller.ensureBinaryExpressionNode();
 
-    const auto builder{[binaryKind, opId, engine](parser::ParserContext &, ast::NodePtr left, const token::Token &, ast::NodePtr right) {
-        ast::NodePtr node{engine->makeNode(binaryKind)};
+    const auto builder{[binaryKind, opId](parser::ParserContext &, ast::NodePtr left, const token::Token &, ast::NodePtr right) {
+        ast::NodePtr node{ast::Node::make(binaryKind)};
         node->set(fields::Operation, opId);
         node->set(fields::Left, left);
         node->set(fields::Right, right);
@@ -172,12 +171,11 @@ void LogicalNotOperationAtomic::install(AtomicController &controller) const {
 
     controller.registerPattern(operation.pattern);
     controller.ensureUnaryExpressionNode();
-    auto *const engine{&controller.engine()};
 
-    controller.engine().prefix(domain, key, [domain, unaryKind, opId, engine](parser::ParserContext &context) {
+    controller.engine().prefix(domain, key, [domain, unaryKind, opId](parser::ParserContext &context) {
         context.advance();
         ast::NodePtr operand{context.parse(domain, 30)};
-        ast::NodePtr node{engine->makeNode(unaryKind)};
+        ast::NodePtr node{ast::Node::make(unaryKind)};
         node->set(fields::Operation, opId);
         node->set(fields::Expression, operand);
         return node;
@@ -220,12 +218,11 @@ void NumericNegateOperationAtomic::install(AtomicController &controller) const {
 
     controller.registerPattern(operation.pattern);
     controller.ensureUnaryExpressionNode();
-    auto *const engine{&controller.engine()};
 
-    controller.engine().prefix(domain, key, [domain, unaryKind, opId, engine](parser::ParserContext &context) {
+    controller.engine().prefix(domain, key, [domain, unaryKind, opId](parser::ParserContext &context) {
         context.advance();
         ast::NodePtr operand{context.parse(domain, 30)};
-        ast::NodePtr node{engine->makeNode(unaryKind)};
+        ast::NodePtr node{ast::Node::make(unaryKind)};
         node->set(fields::Operation, opId);
         node->set(fields::Expression, operand);
         return node;

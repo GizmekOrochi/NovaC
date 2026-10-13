@@ -56,11 +56,10 @@ void BooleanLiteralAtomic::install(AtomicController &controller) const {
     const std::string domain{controller.expressionDomain()};
     const std::string kind{nodeKind_};
     const std::string trueToken{tokens_.trueToken};
-    auto *const engine{&controller.engine()};
 
-    const auto makeBoolean{[kind, trueToken, engine](parser::ParserContext &context) {
+    const auto makeBoolean{[kind, trueToken](parser::ParserContext &context) {
         const token::Token item{context.consumeKind(token::Kind::Keyword)};
-        ast::NodePtr node{engine->makeNode(kind)};
+        ast::NodePtr node{ast::Node::make(kind)};
         node->set(fields::Value, item.text == trueToken);
         return node;
     }};

@@ -236,6 +236,11 @@ public:
      */
     explicit EngineController(EngineControllerOptions options = {});
 
+    EngineController(const EngineController &) = default;
+    EngineController &operator=(const EngineController &) = default;
+    EngineController(EngineController &&) = default;
+    EngineController &operator=(EngineController &&) = default;
+
     /**
      * @brief Registers a lexer keyword.
      *
@@ -271,10 +276,7 @@ public:
      * @param mode Whether the callback also runs in inactive conditional branches.
      * @return Registration result.
      */
-    registry::RegisterStatus directive(
-        std::string name,
-        source::PreprocessorController::DirectiveHandler handler,
-        source::DirectiveMode mode = source::DirectiveMode::ActiveOnly);
+    registry::RegisterStatus directive(std::string name, source::PreprocessorController::DirectiveHandler handler, source::DirectiveMode mode = source::DirectiveMode::ActiveOnly);
 
     /**
      * @brief Registers one named handler dispatched by #pragma.
@@ -283,9 +285,7 @@ public:
      * @param handler Callback receiving the remaining pragma arguments.
      * @return Registration result.
      */
-    registry::RegisterStatus pragma(
-        std::string name,
-        source::PreprocessorController::PragmaHandler handler);
+    registry::RegisterStatus pragma(std::string name, source::PreprocessorController::PragmaHandler handler);
 
     /**
      * @brief Registers an AST node schema.
@@ -671,9 +671,7 @@ public:
      * @param options Per-run preprocessing options.
      * @return Ordered source-origin fragments plus the root end location.
      */
-    source::PreprocessedSource preprocess(
-        const source::Source &sourceValue,
-        source::PreprocessOptions options = {}) const;
+    source::PreprocessedSource preprocess(const source::Source &sourceValue, source::PreprocessOptions options = {}) const;
 
     /**
      * @brief Preprocesses and tokenizes one logical source.
@@ -685,9 +683,7 @@ public:
      * @param options Per-run preprocessing options.
      * @return Combined token stream terminated by one End token.
      */
-    std::vector<token::Token> tokenizeSource(
-        const source::Source &sourceValue,
-        source::PreprocessOptions options = {}) const;
+    std::vector<token::Token> tokenizeSource(const source::Source &sourceValue, source::PreprocessOptions options = {}) const;
 
     /**
      * @brief Preprocesses and parses one logical source using the configured start domain.
@@ -696,9 +692,7 @@ public:
      * @return Parsed AST root.
      * @throws std::runtime_error If no start domain is configured or preprocessing/parsing fails.
      */
-    ast::NodePtr parseSource(
-        const source::Source &sourceValue,
-        source::PreprocessOptions options = {}) const;
+    ast::NodePtr parseSource(const source::Source &sourceValue, source::PreprocessOptions options = {}) const;
 
     /**
      * @brief Resolves, preprocesses and parses a root source specifier.
@@ -709,9 +703,7 @@ public:
      * @param options Per-run preprocessing options.
      * @return Parsed AST root.
      */
-    ast::NodePtr parseSource(
-        const std::string &specifier,
-        source::PreprocessOptions options = {}) const;
+    ast::NodePtr parseSource(const std::string &specifier, source::PreprocessOptions options = {}) const;
 
     /**
      * @brief Parses source text using the configured start domain.
@@ -843,12 +835,10 @@ public:
      * Installation first validates duplicate features, conflicts and required
      * capabilities.
      *
-     * The feature is then installed into a copy of the current controller.
-     * Only after every installer succeeds and the feature metadata is recorded
-     * is the candidate moved back into this controller.
-     *
-     * This prevents partially applied feature installations from modifying the
-     * original engine state.
+     * A snapshot is taken first, then installers run against this controller.
+     * If an installer fails, state is restored from the snapshot. Running
+     * installers against the live controller ensures that callbacks which
+     * borrow the installation target never capture a short-lived candidate.
      *
      * @param feature Feature to install.
      *

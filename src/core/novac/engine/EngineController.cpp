@@ -868,11 +868,14 @@ ir::MIRModule EngineController::lowerToMIR(const ast::Node &node) const {
 void EngineController::install(const EngineFeature &feature) {
     validateFeatureInstall(feature);
 
-    EngineController candidate{*this};
-    feature.install(candidate);
-    candidate.rememberFeature(feature);
-
-    *this = std::move(candidate);
+    const EngineController before{snapshot()};
+    try {
+        feature.install(*this);
+        rememberFeature(feature);
+    } catch (...) {
+        restore(before);
+        throw;
+    }
 }
 
 /**

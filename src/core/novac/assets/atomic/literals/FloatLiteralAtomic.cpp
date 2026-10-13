@@ -59,12 +59,11 @@ void FloatLiteralAtomic::install(AtomicController& controller) const {
     const auto preparedPattern{detail::prepareSuffixPattern(pattern_, "FloatLiteralAtomic::install")};
     const TokenPattern &pattern{preparedPattern.pattern};
     const std::string key{pattern.tokenKey.empty() ? pattern.token : pattern.tokenKey};
-    auto *const engine{&controller.engine()};
 
-    controller.engine().prefix(domain, key, [kind, preparedPattern, engine](parser::ParserContext& context) {
+    controller.engine().prefix(domain, key, [kind, preparedPattern](parser::ParserContext& context) {
         const token::Token item{context.consumeKind(token::Kind::Float)};
         detail::validateSuffix(preparedPattern, item, "FloatLiteralAtomic::install");
-        ast::NodePtr node{engine->makeNode(kind)};
+        ast::NodePtr node{ast::Node::make(kind)};
         node->set(fields::Value, detail::parseFloat(item.text, "FloatLiteralAtomic::install"));
 
         return node;

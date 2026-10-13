@@ -78,13 +78,12 @@ void NumericBinaryOperationAtomic::install(AtomicController &controller) const {
     const std::string binaryKind{controller.binaryNodeKind()};
     const std::string opId{operation.id};
     const std::string key{operatorKey(operation)};
-    auto *const engine{&controller.engine()};
 
     controller.registerPattern(operation.pattern);
     controller.ensureBinaryExpressionNode();
 
-    const auto builder{[binaryKind, opId, engine](parser::ParserContext &, ast::NodePtr left, const token::Token &, ast::NodePtr right) {
-        ast::NodePtr node{engine->makeNode(binaryKind)};
+    const auto builder{[binaryKind, opId](parser::ParserContext &, ast::NodePtr left, const token::Token &, ast::NodePtr right) {
+        ast::NodePtr node{ast::Node::make(binaryKind)};
         node->set(fields::Operation, opId);
         node->set(fields::Left, left);
         node->set(fields::Right, right);
