@@ -34,6 +34,15 @@ public:
         artifacts_.insert_or_assign(std::move(name), std::move(entry));
     }
 
+    /** Insert exactly once; a stage may not silently overwrite another stage's artifact. */
+    template <typename T>
+    void insert(std::string name, T value) {
+        if (name.empty()) throw std::runtime_error("ArtifactStore::insert: empty name");
+        if (has(name)) throw std::runtime_error("ArtifactStore::insert: duplicate artifact '" + name + "'");
+        Entry entry{std::type_index(typeid(T)), std::make_shared<T>(std::move(value))};
+        artifacts_.emplace(std::move(name), std::move(entry));
+    }
+
     /**
      * @brief Performs the `emplace` operation.
      *

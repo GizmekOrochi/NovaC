@@ -213,7 +213,8 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
                 const Operand &cond = block.terminator->operands.front();
                 if (cond.isValue()) {
                     const TypeRef type = definitions.at(cond.asValue().value).type;
-                    if (type != ValueType::Bool && type != ValueType::Unknown &&
+                    if (type != options.branchBooleanType.value_or(TypeRef{ValueType::Bool}) &&
+                        type != ValueType::Unknown &&
                         type != TypeRef{"dynamic", "novac.builtin"})
                         throw std::runtime_error(prefix + "block " + std::to_string(b) + ": branch condition must be bool or unknown");
                 } else if (const auto *literal = std::get_if<Literal>(&cond.data())) {
@@ -693,8 +694,8 @@ void HIRBuilder::terminate(const ids::Operation &op, std::vector<Operand> operan
  *
  * @return Value produced by the operation.
  */
-HIRModule HIRBuilder::finish() {
-    validate(module_);
+HIRModule HIRBuilder::finish(IRValidationOptions options) {
+    validate(module_, options);
     return std::move(module_);
 }
 
@@ -921,8 +922,8 @@ void MIRBuilder::terminate(const ids::Operation &op, std::vector<Operand> operan
  *
  * @return Value produced by the operation.
  */
-MIRModule MIRBuilder::finish() {
-    validate(module_);
+MIRModule MIRBuilder::finish(IRValidationOptions options) {
+    validate(module_, options);
     return std::move(module_);
 }
 

@@ -1,6 +1,7 @@
 #include "novac/assets/compilation/CompilationController.hpp"
 
 #include <iterator>
+#include <unordered_set>
 #include <stdexcept>
 #include <utility>
 
@@ -32,6 +33,13 @@ void validateArtifactNames(const CompilationArtifactNames &names) {
     requireArtifactName(names.ast, "ast");
     requireArtifactName(names.hir, "hir");
     requireArtifactName(names.mir, "mir");
+    const std::vector<std::string> entries{names.source, names.preprocessedSource,
+        names.tokens, names.ast, names.hir, names.mir};
+    std::unordered_set<std::string> seen;
+    for (const auto &name : entries) {
+        if (!seen.insert(name).second)
+            throw std::runtime_error("CompilationController: duplicate artifact name '" + name + "'");
+    }
 }
 
 /**

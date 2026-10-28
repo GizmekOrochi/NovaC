@@ -13,6 +13,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 PARKED_SOURCES = ROOT / "src/core/novac/assets/compilation"
 PARKED_HEADERS = ROOT / "src/include/novac/assets/compilation"
+# Optional compiler extensions of other assets are parked as well.
+OPTIONAL_COMPILATION_SOURCES = tuple((ROOT / "src/core/novac/assets").glob("*/compilation"))
+OPTIONAL_COMPILATION_HEADERS = tuple((ROOT / "src/include/novac/assets").glob("*/compilation"))
 BACKEND_SOURCES = PARKED_SOURCES / "backend"
 BACKEND_HEADERS = PARKED_HEADERS / "backend"
 LEGACY_DIRS = (
@@ -83,7 +86,7 @@ def main():
         for file in location.rglob("*"):
             if file.suffix not in (".cpp", ".hpp", ".h"):
                 continue
-            if any(parked in file.parents for parked in (PARKED_SOURCES, PARKED_HEADERS)):
+            if any(parked in file.parents for parked in (PARKED_SOURCES, PARKED_HEADERS, *OPTIONAL_COMPILATION_SOURCES, *OPTIONAL_COMPILATION_HEADERS)):
                 continue
             if BAD_CORE_DEPENDENCIES.search(file.read_text(encoding="utf-8")):
                 errors.append(f"core depends on parked compilation: {file.relative_to(ROOT)}")
@@ -125,6 +128,7 @@ def main():
         for relative in (
             "novac/engine/backend", "novac/engine/compilation",
             "novac/assets/compilation", "novac/assets/backend",
+            "novac/assets/atomic/compilation", "novac/assets/types/compilation",
         ):
             check(not (includedir / relative).exists(),
                   f"parked/legacy headers installed: {relative}", errors)

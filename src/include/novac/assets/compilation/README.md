@@ -33,3 +33,11 @@ access lowering through `EngineController`.
 
 The original `novac::backend` C++ namespace is deliberately unchanged in this
 move; naming and interfaces can be refactored when compilation is reactivated.
+
+## Développement expérimental M0/M1
+
+Un prototype compilable **sur demande** est maintenant présent dans le même
+asset : `feature/CompilationFacet.hpp`, `ModularCompilationController.hpp`,
+`backend/CSourceBackend.hpp`. Il n'est ni lié par défaut ni installé. Les
+classes historiques sont conservées et le contrat du compilateur modulaire
+est détaillé dans `COMPILATION_PROTOTYPE.md` à la racine.

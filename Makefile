@@ -13,7 +13,7 @@ LDLIBS ?=
 
 # The compilation asset is parked for a future redesign: it must not be
 # compiled into or linked with the core NovaC library.
-LIB_SRC := $(filter-out src/core/novac/assets/compilation/% src/core/novac/engine/compilation/% src/core/novac/engine/backend/%,$(shell find src/core -name '*.cpp' | sort))
+LIB_SRC := $(filter-out src/core/novac/assets/compilation/% src/core/novac/engine/compilation/% src/core/novac/engine/backend/%,$(shell find src/core -name '*.cpp' ! -path '*/assets/*/compilation/*' | sort))
 LIB_OBJ := $(patsubst src/%.cpp,build/obj/%.o,$(LIB_SRC))
 LIB_SOURCE_DIRS := $(shell find src/core -type d | sort)
 # The parked compilation tests are retained but must not be built/linked.
@@ -23,6 +23,20 @@ ASAN_LIB_OBJ := $(patsubst src/%.cpp,build/asan/lib/%.o,$(LIB_SRC))
 ASAN_TEST_OBJ := $(patsubst tests/%.cpp,build/asan/tests/%.o,$(TEST_SRC))
 UBSAN_LIB_OBJ := $(patsubst src/%.cpp,build/ubsan/lib/%.o,$(LIB_SRC))
 UBSAN_TEST_OBJ := $(patsubst tests/%.cpp,build/ubsan/tests/%.o,$(TEST_SRC))
+
+# Opt-in compilation implementation and its tests. No Compilation source or
+# tests are linked into libNovaC.a or the default test binary.
+COMPILATION_SRC := $(shell find src/core/novac/assets/compilation src/core/novac/assets/atomic/compilation src/core/novac/assets/types/compilation -name '*.cpp' | sort)
+COMPILATION_TEST_SRC := tests/main.cpp \
+    tests/assets/compilation/Compilation_isolated_tests.cpp \
+    tests/assets/compilation/ModularCompilation_prototype_tests.cpp \
+    tests/assets/compilation/X86_64_backend_tests.cpp \
+    tests/assets/compilation/MachineRecipe_tests.cpp \
+    tests/assets/compilation/MachineLayout_tests.cpp
+COMPILATION_OBJ := $(patsubst src/%.cpp,build/compilation/obj/%.o,$(COMPILATION_SRC))
+COMPILATION_TEST_OBJ := $(patsubst tests/%.cpp,build/compilation/test-obj/%.o,$(COMPILATION_TEST_SRC))
+COMPILATION_TEST_BIN := bin/tests-compilation
+COMPILATION_LIB := lib/libNovaCCompilation.a
 
 LIB_DIR := lib
 LIB_NAME := libNovaC.a
@@ -124,6 +138,91 @@ build/test-obj/%.o: tests/%.cpp
 
 -include $(TEST_OBJ:.o=.d)
 
+# Compilation-specific tests live under tests/assets/compilation, never in the
+# production asset directories. Explicit opt-in build, retaining isolation.
+build/compilation/obj/%.o: src/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+build/compilation/test-obj/%.o: tests/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) -Itests $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+-include $(COMPILATION_OBJ:.o=.d) $(COMPILATION_TEST_OBJ:.o=.d)
+
+$(COMPILATION_TEST_BIN): $(LIB) $(COMPILATION_OBJ) $(COMPILATION_TEST_OBJ)
+	@mkdir -p $(dir $@)
+	$(CXX) $(COMPILATION_TEST_OBJ) $(COMPILATION_OBJ) $(LIB) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(COMPILATION_LIB): $(COMPILATION_OBJ)
+	@mkdir -p $(dir $@)
+	@rm -f $@
+	$(AR) rcs $@ $(COMPILATION_OBJ)
+	$(RANLIB) $@
+
+# Do not install Compilation by default. An interpreter-only consumer sees
+# only NovaC::NovaC. This target is explicitly opted into by the installer.
+install-compilation: install $(COMPILATION_LIB)
+	@find src/include/novac/assets -type f \
+	  \( -path '*/compilation/*' -o -path '*/assets/compilation/*' \) -print | \
+	  while IFS= read -r file; do \
+	    relative=$${file#src/include/}; \
+	    $(INSTALL) -d "$(DESTDIR)$(INCLUDEDIR)/$$(dirname "$$relative")"; \
+	    $(INSTALL) -m 0644 "$$file" "$(DESTDIR)$(INCLUDEDIR)/$$relative"; \
+	  done
+	$(INSTALL) -m 0644 $(COMPILATION_LIB) $(DESTDIR)$(LIBDIR)/libNovaCCompilation.a
+	$(INSTALL) -m 0644 cmake/NovaCCompilationTargets.cmake $(DESTDIR)$(CMAKEDIR)/NovaCCompilationTargets.cmake
+
+package-compilation-smoke: $(COMPILATION_LIB) check-version
+	@rm -rf build/package-compilation-smoke
+	@$(MAKE) install-compilation DESTDIR="$(abspath build/package-compilation-smoke/stage)" PREFIX=/usr CXX="$(CXX)"
+	@$(CMAKE) -S tests/package/compilation -B build/package-compilation-smoke/consumer \
+	  -DCMAKE_PREFIX_PATH="$(abspath build/package-compilation-smoke/stage)/usr" -DCMAKE_CXX_COMPILER="$(CXX)"
+	@$(CMAKE) --build build/package-compilation-smoke/consumer --parallel 2
+	@build/package-compilation-smoke/consumer/novac-compilation-consumer
+	@echo "[NovaC Compilation] Optional package smoke test passed."
+
+test-compilation: check-public-api check-version check-compilation-isolation $(COMPILATION_TEST_BIN)
+	./$(COMPILATION_TEST_BIN)
+
+# Opt-in sanitizer builds for Compilation (the linked Core library is built
+# normally; tests target the Compilation implementation and extensions).
+COMPILATION_ASAN_OBJ := $(patsubst src/%.cpp,build/compilation/asan/obj/%.o,$(COMPILATION_SRC))
+COMPILATION_ASAN_TEST_OBJ := $(patsubst tests/%.cpp,build/compilation/asan/tests/%.o,$(COMPILATION_TEST_SRC))
+COMPILATION_UBSAN_OBJ := $(patsubst src/%.cpp,build/compilation/ubsan/obj/%.o,$(COMPILATION_SRC))
+COMPILATION_UBSAN_TEST_OBJ := $(patsubst tests/%.cpp,build/compilation/ubsan/tests/%.o,$(COMPILATION_TEST_SRC))
+
+build/compilation/asan/obj/%.o: src/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(ASAN_FLAGS) -MMD -MP -c $< -o $@
+build/compilation/asan/tests/%.o: tests/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) -Itests $(CXXFLAGS) $(ASAN_FLAGS) -MMD -MP -c $< -o $@
+build/compilation/ubsan/obj/%.o: src/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(UBSAN_FLAGS) -MMD -MP -c $< -o $@
+build/compilation/ubsan/tests/%.o: tests/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) -Itests $(CXXFLAGS) $(UBSAN_FLAGS) -MMD -MP -c $< -o $@
+
+-include $(COMPILATION_ASAN_OBJ:.o=.d) $(COMPILATION_ASAN_TEST_OBJ:.o=.d)
+-include $(COMPILATION_UBSAN_OBJ:.o=.d) $(COMPILATION_UBSAN_TEST_OBJ:.o=.d)
+
+bin/tests-compilation-asan: $(LIB) $(COMPILATION_ASAN_OBJ) $(COMPILATION_ASAN_TEST_OBJ)
+	@mkdir -p $(dir $@)
+	$(CXX) $(ASAN_FLAGS) $(COMPILATION_ASAN_TEST_OBJ) $(COMPILATION_ASAN_OBJ) $(LIB) $(LDFLAGS) $(LDLIBS) -o $@
+bin/tests-compilation-ubsan: $(LIB) $(COMPILATION_UBSAN_OBJ) $(COMPILATION_UBSAN_TEST_OBJ)
+	@mkdir -p $(dir $@)
+	$(CXX) $(UBSAN_FLAGS) $(COMPILATION_UBSAN_TEST_OBJ) $(COMPILATION_UBSAN_OBJ) $(LIB) $(LDFLAGS) $(LDLIBS) -o $@
+
+test-compilation-asan: check-compilation-isolation bin/tests-compilation-asan
+	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./bin/tests-compilation-asan
+test-compilation-ubsan: check-compilation-isolation bin/tests-compilation-ubsan
+	UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ./bin/tests-compilation-ubsan
+
+# Backwards-compatible name from the prototype documentation.
+test-compilation-prototype: test-compilation
+
 test: check-public-api check-version check-compilation-isolation $(TEST_BIN)
 	./$(TEST_BIN)
 
@@ -179,7 +278,7 @@ install: check-compilation-isolation package-config
 	       "$(DESTDIR)$(INCLUDEDIR)/novac/assets/compilation" \
 	       "$(DESTDIR)$(INCLUDEDIR)/novac/assets/backend"
 	@# Install only supported headers, never the parked compilation asset.
-	@find src/include -type f ! -path 'src/include/novac/assets/compilation/*' -print | \
+	@find src/include -type f ! -path 'src/include/novac/assets/compilation/*' ! -path 'src/include/novac/assets/*/compilation/*' -print | \
 	  while IFS= read -r file; do \
 	    relative=$${file#src/include/}; \
 	    $(INSTALL) -d "$(DESTDIR)$(INCLUDEDIR)/$$(dirname "$$relative")"; \
@@ -279,5 +378,3 @@ doc-clean-all: doc-clean
 clean:
 	rm -rf bin lib build
 	rm -rf $(DOC_OUTPUT) $(DOC_BUILD)
-
-.PHONY: all check-compilation-source check-compilation-isolation check-public-api check-version tests test test-asan test-ubsan package-config install uninstall package-smoke doc-check doc doc-examples doc-strict release-check dist-source dist doc-clean doc-clean-all clean

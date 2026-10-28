@@ -314,6 +314,9 @@ struct IRValidationOptions {
     bool requireTerminators{false};
     bool requireResolvedTypes{false};
     const TypeSpace *types{nullptr}; // optional strict scope validation
+    // A language may define its own bool identity; default remains builtin bool.
+    // Never accept arbitrary types as branch conditions without this contract.
+    std::optional<TypeRef> branchBooleanType{};
 };
 
 /**
@@ -468,7 +471,7 @@ public:
      *
      * @return Built HIR module.
      */
-    HIRModule finish();
+    HIRModule finish(IRValidationOptions options = {});
 
 private:
     /**
@@ -639,7 +642,7 @@ public:
      *
      * @return Built MIR module.
      */
-    MIRModule finish();
+    MIRModule finish(IRValidationOptions options = {});
 
 private:
     /**

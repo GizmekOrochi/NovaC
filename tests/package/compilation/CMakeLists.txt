@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(novac_compilation_consumer LANGUAGES CXX)
+find_package(NovaC 1.4.2 CONFIG REQUIRED)
+if(NOT TARGET NovaC::Compilation)
+    message(FATAL_ERROR "Optional NovaC::Compilation package target missing")
+endif()
+add_executable(novac-compilation-consumer main.cpp)
+target_link_libraries(novac-compilation-consumer PRIVATE NovaC::Compilation)

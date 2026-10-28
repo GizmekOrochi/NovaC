@@ -69,6 +69,10 @@ Remove an installation made with the same prefix using:
 sudo make uninstall PREFIX=/usr/local
 ```
 
+**Compilation M2 (opt-in)** : voir [COMPILATION_M2.md](COMPILATION_M2.md)
+pour les types machine 8/16/32/64 bits, l'installation séparée, les tests
+et les limites actuelles du backend natif.
+
 ## Tests and reliability
 
 Run the normal test suite:
@@ -133,3 +137,30 @@ make dist
 ## License
 
 NovaC is released under the [MIT License](LICENSE), copyright © 2026 GizmekOrochi.
+
+## Compilation modulaire (prototype optionnel)
+
+NovaC 1.4.2 contient un premier prototype expérimental de compilation
+modulaire **non activé par défaut**. Voir [COMPILATION_PROTOTYPE.md](COMPILATION_PROTOTYPE.md)
+pour les facettes associées aux features, les backends déclaratifs et la
+démonstration `40+2 → HIR → MIR → C → exécutable`.
+
+```sh
+make test-compilation
+```
+
+`libNovaC.a` et les en-têtes installés ne contiennent toujours pas Compilation.
+
+
+## Compilation machine personnalisable (expérimental)
+
+Le prototype natif prend en charge les recettes machine optionnelles apportées
+par les assets. Voir [MACHINE_RECIPES.md](MACHINE_RECIPES.md). Pour construire et lancer
+les tests du backend natif et des recettes depuis un arbre de sources propre :
+
+```sh
+make -j4 test-compilation
+```
+
+Les tests de Compilation vivent exclusivement sous `tests/assets/compilation/`.
+L'asset et ses tests restent exclus de la bibliothèque de base.

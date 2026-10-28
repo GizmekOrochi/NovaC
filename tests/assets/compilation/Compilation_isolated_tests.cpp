@@ -1,5 +1,4 @@
-// PARKED TESTS: not part of the default NovaC test target while the
-// compilation asset is isolated for redesign. Do not automatically link them.
+// Optional Compilation test suite; never linked into the core NovaC target.
 #include "../../tester.hpp"
 #include "NovaC.hpp"
 #include "novac/assets/compilation/Compilation.hpp"
@@ -75,9 +74,9 @@ TEST(Extensibility, CompilationControllerProvidesOptionalClassicPipeline) {
         out.emit("example.hir");
         return ir::LoweringRegistry::LoweredValue{};
     });
-    compiler.steps().lowering->mir("example.hir", [](const ir::Instruction &, ir::MIRBuilder &out, ir::MIRLoweringContext &, const ir::LoweringRegistry &) {
-        out.emit("example.mir");
-        return ir::LoweringRegistry::LoweredValue{};
+    compiler.steps().lowering->mir("example.hir", [](const ir::MIRLoweringInput &in, ir::MIRBuilder &out, const ir::MIRLoweringContext &, const ir::LoweringRegistry &) -> ir::MIRLoweringResult {
+        out.emit("example.mir", in.operands);
+        return {};
     });
 
     compiler.backend("classic", std::make_shared<ClassicPipelineBackend>());
@@ -226,4 +225,15 @@ TEST(Extensibility, CompilationControllerUsesConfiguredDefaultRunOptions) {
     CHECK(session.artifacts().has("ast"));
     CHECK(!session.artifacts().has("hir"));
     CHECK(!session.artifacts().has("mir"));
+}
+
+TEST(Extensibility, CompilationControllerRejectsDuplicateArtifactNames) {
+    controllers::CompilationControllerOptions options{};
+    options.artifacts.hir = options.artifacts.mir;
+    bool rejected = false;
+    try { controllers::CompilationController invalid{controllers::CompilationSteps{}, options}; }
+    catch (const std::runtime_error &error) {
+        rejected = std::string{error.what()}.find("duplicate artifact name") != std::string::npos;
+    }
+    CHECK(rejected);
 }

@@ -1,6 +1,8 @@
 #include "novac/assets/compilation/backend/Backend.hpp"
+#include "novac/engine/transformation/IR.hpp"
 
 #include <stdexcept>
+#include <algorithm>
 #include <utility>
 
 namespace novac::backend {
@@ -68,6 +70,39 @@ const Backend &BackendRegistry::require(const std::string &id) const {
  */
 void BackendRegistry::run(const std::string &id, compilation::CompilationSession &session) const {
     require(id).run(session);
+}
+
+void BackendRegistry::runChecked(const std::string &id, compilation::CompilationSession &session) const {
+    const Backend &selected = require(id);
+    auto caps = selected.capabilities();
+    if (!caps || caps->inputArtifact.empty() || caps->outputArtifact.empty() ||
+        caps->inputArtifact == caps->outputArtifact) {
+        throw std::runtime_error("BackendRegistry: backend '" + id + "' has no valid capabilities contract");
+    }
+    const ir::MIRModule &mir = session.artifacts().require<ir::MIRModule>(caps->inputArtifact);
+    ir::validate(mir, {.requireTerminators = true,
+                       .branchBooleanType = selected.branchBooleanType()});
+    if (session.artifacts().has(caps->outputArtifact)) {
+        throw std::runtime_error("BackendRegistry: output artifact already exists: '" + caps->outputArtifact + "'");
+    }
+    auto supports = [](const std::vector<std::string> &list, const std::string &name) {
+        return std::find(list.begin(), list.end(), name) != list.end();
+    };
+    for (const auto &block : mir.blocks) {
+        for (const auto &inst : block.instructions) {
+            if (!supports(caps->instructions, inst.op)) {
+                throw std::runtime_error("BackendRegistry: backend '" + id + "' cannot compile MIR operation '" + inst.op + "'");
+            }
+        }
+        if (block.terminator && !supports(caps->terminators, block.terminator->op)) {
+            throw std::runtime_error("BackendRegistry: backend '" + id + "' cannot compile terminator '" + block.terminator->op + "'");
+        }
+    }
+    selected.preflight(mir);
+    selected.run(session);
+    if (!session.artifacts().has(caps->outputArtifact)) {
+        throw std::runtime_error("BackendRegistry: backend '" + id + "' failed to produce '" + caps->outputArtifact + "'");
+    }
 }
 
 } // namespace novac::backend
