@@ -14,6 +14,8 @@ namespace {
 struct ValueDefinition {
     std::size_t block{};
     std::size_t instruction{};
+    ValueType type{ValueType::Unknown};
+    bool parameter{false};
 };
 
 void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRValidationOptions options) {
@@ -34,6 +36,16 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
         if (options.requireTerminators && !block.terminator) {
             throw std::runtime_error(where + "missing terminator");
         }
+        if (b == 0 && !block.arguments.empty()) {
+            throw std::runtime_error(where + "entry block requires an external signature; parameters not allowed");
+        }
+        for (std::size_t i = 0; i < block.arguments.size(); ++i) {
+            const BlockArgument &arg = block.arguments[i];
+            if (arg.type == ValueType::Void) throw std::runtime_error(where + "void block parameter");
+            if (!definitions.emplace(arg.value.value, ValueDefinition{b, 0, arg.type, true}).second) {
+                throw std::runtime_error(where + "duplicate value v" + std::to_string(arg.value.value));
+            }
+        }
         for (std::size_t i = 0; i < block.instructions.size(); ++i) {
             const Instruction &instruction = block.instructions[i];
             if (instruction.op.empty()) {
@@ -45,7 +57,7 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
             if (!instruction.result && instruction.type != ValueType::Void) {
                 throw std::runtime_error(where + "instruction without result must have void type");
             }
-            if (instruction.result && !definitions.emplace(instruction.result->value, ValueDefinition{b, i}).second) {
+            if (instruction.result && !definitions.emplace(instruction.result->value, ValueDefinition{b, i, instruction.type, false}).second) {
                 throw std::runtime_error(where + "duplicate value v" + std::to_string(instruction.result->value));
             }
         }
@@ -54,17 +66,26 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
         if (term.op.empty()) throw std::runtime_error(where + "empty terminator operation");
         // These operations have engine-defined CFG semantics; extension-defined
         // terminators retain their own operation-specific successor contracts.
-        if ((term.op == "jump" && term.targets.size() != 1) ||
-            (term.op == "branch" && term.targets.size() != 2) ||
-            (term.op == "return" && !term.targets.empty())) {
+        if (term.op == "branch" && term.operands.size() > 1) {
+            throw std::runtime_error(where + "branch accepts a single condition operand");
+        }
+        if ((term.op == "jump" && term.successors.size() != 1) ||
+            (term.op == "branch" && term.successors.size() != 2) ||
+            (term.op == "return" && !term.successors.empty())) {
             throw std::runtime_error(where + "invalid successor count for '" + term.op + "'");
         }
-        for (BlockId target : term.targets) {
-            if (target.value >= blocks.size()) {
-                throw std::runtime_error(where + "invalid target block " + std::to_string(target.value));
+        for (std::size_t e = 0; e < term.successors.size(); ++e) {
+            const Successor &edge = term.successors[e];
+            if (edge.target.value >= blocks.size()) {
+                throw std::runtime_error(where + "invalid target block " + std::to_string(edge.target.value));
             }
-            successors[b].push_back(target.value);
-            predecessors[target.value].push_back(b);
+            const BasicBlock &dest = blocks[edge.target.value];
+            if (edge.arguments.size() != dest.arguments.size()) {
+                throw std::runtime_error(where + "edge " + std::to_string(e) + " to block " +
+                    std::to_string(edge.target.value) + " has wrong argument count");
+            }
+            successors[b].push_back(edge.target.value);
+            predecessors[edge.target.value].push_back(b);
         }
     }
 
@@ -158,7 +179,7 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
             if (it == definitions.end()) throw std::runtime_error(where + "undefined value v" + std::to_string(v));
             const ValueDefinition def = it->second;
             if (def.block == block) {
-                if (def.instruction >= instruction) {
+                if (!def.parameter && def.instruction >= instruction) {
                     throw std::runtime_error(where + "use of v" + std::to_string(v) + " before its definition");
                 }
             } else if (!reachable[block] || !dominates(def.block, block)) {
@@ -175,6 +196,35 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
         if (block.terminator) {
             checkOperands(block.terminator->operands, b, block.instructions.size(),
                 prefix + "block " + std::to_string(b) + " terminator: ");
+            // Legacy branch without a condition is retained for old CFG tests.
+            // Typed conditions are checked; Unknown and symbolic conditions
+            // need a language-level runtime boolean contract.
+            if (block.terminator->op == "branch" && !block.terminator->operands.empty()) {
+                const Operand &cond = block.terminator->operands.front();
+                if (cond.isValue()) {
+                    const ValueType type = definitions.at(cond.asValue().value).type;
+                    if (type != ValueType::Bool && type != ValueType::Unknown)
+                        throw std::runtime_error(prefix + "block " + std::to_string(b) + ": branch condition must be bool or unknown");
+                } else if (const auto *literal = std::get_if<Literal>(&cond.data())) {
+                    if (!std::holds_alternative<bool>(literal->data()))
+                        throw std::runtime_error(prefix + "block " + std::to_string(b) + ": branch condition literal must be bool");
+                }
+            }
+            for (std::size_t e = 0; e < block.terminator->successors.size(); ++e) {
+                const Successor &edge = block.terminator->successors[e];
+                const auto &formals = blocks[edge.target.value].arguments;
+                for (std::size_t i = 0; i < edge.arguments.size(); ++i) {
+                    const Operand &input = edge.arguments[i];
+                    const std::string where = prefix + "block " + std::to_string(b) +
+                        " edge " + std::to_string(e) + " argument " + std::to_string(i) + ": ";
+                    if (!input.isValue()) throw std::runtime_error(where + "edge arguments must be SSA values");
+                    checkOperands({input}, b, block.instructions.size(), where);
+                    const auto def = definitions.find(input.asValue().value);
+                    if (def->second.type != formals[i].type) {
+                        throw std::runtime_error(where + "argument type does not match destination parameter");
+                    }
+                }
+            }
         }
     }
 }
@@ -183,6 +233,14 @@ void checkTargets(const std::vector<BlockId> &targets, std::size_t size, const c
     for (BlockId target : targets) {
         if (target.value >= size) {
             throw std::runtime_error(std::string(owner) + ": invalid target block " + std::to_string(target.value));
+        }
+    }
+}
+
+void checkSuccessors(const std::vector<Successor> &successors, std::size_t size, const char *owner) {
+    for (const auto &edge : successors) {
+        if (edge.target.value >= size) {
+            throw std::runtime_error(std::string(owner) + ": invalid target block " + std::to_string(edge.target.value));
         }
     }
 }
@@ -437,6 +495,36 @@ BlockId HIRBuilder::createBlock(std::string name) {
     return id;
 }
 
+BlockId HIRBuilder::createBlock(std::string name, const std::vector<ValueType> &types) {
+    // Validate before adding the block so a bad parameter list doesn't mutate the builder.
+    for (const auto type : types) if (type == ValueType::Void)
+        throw std::runtime_error("HIRBuilder::createBlock: void block parameter");
+    if (types.size() > std::numeric_limits<std::uint32_t>::max() - nextValue_)
+        throw std::runtime_error("HIRBuilder::createBlock: value ID overflow");
+    BlockId id = createBlock(std::move(name));
+    for (ValueType type : types) addBlockArgument(id, type);
+    return id;
+}
+
+ValueId HIRBuilder::addBlockArgument(BlockId block, ValueType type) {
+    if (block.value >= module_.blocks.size() || block.value == 0)
+        throw std::runtime_error("HIRBuilder::addBlockArgument: invalid block or entry signature");
+    if (type == ValueType::Void || nextValue_ == std::numeric_limits<std::uint32_t>::max())
+        throw std::runtime_error("HIRBuilder::addBlockArgument: void type or value ID overflow");
+    if (module_.blocks[block.value].terminator || !module_.blocks[block.value].instructions.empty())
+        throw std::runtime_error("HIRBuilder::addBlockArgument: cannot append to populated block");
+    for (const auto &other : module_.blocks) {
+        if (!other.terminator) continue;
+        for (const auto &edge : other.terminator->successors) {
+            if (edge.target.value == block.value)
+                throw std::runtime_error("HIRBuilder::addBlockArgument: block already has incoming edges");
+        }
+    }
+    ValueId value{nextValue_++};
+    module_.blocks[block.value].arguments.push_back(BlockArgument{value,type});
+    return value;
+}
+
 /**
  * @brief Sets the value handled by `setCurrentBlock`.
  *
@@ -539,16 +627,24 @@ void HIRBuilder::emit(const ids::Operation &op, std::vector<Operand> operands) {
  * @param targets Value supplied for `targets`.
  */
 void HIRBuilder::terminate(std::string op, std::vector<Operand> operands, std::vector<BlockId> targets) {
-    if (op.empty()) {
-        throw std::runtime_error("HIRBuilder::terminate: terminator op cannot be empty");
-    }
-
-    if (currentBlock().terminator.has_value()) {
-        throw std::runtime_error("HIRBuilder::terminate: block already has a terminator");
-    }
     checkTargets(targets, module_.blocks.size(), "HIRBuilder::terminate");
+    std::vector<Successor> edges;
+    edges.reserve(targets.size());
+    for (BlockId target : targets) edges.emplace_back(target);
+    terminateWithSuccessors(std::move(op), std::move(operands), std::move(edges));
+}
 
-    currentBlock().terminator = Terminator{std::move(op), std::move(operands), std::move(targets)};
+void HIRBuilder::terminateWithSuccessors(std::string op, std::vector<Operand> operands,
+                                             std::vector<Successor> successors) {
+    if (op.empty()) throw std::runtime_error("HIRBuilder::terminate: empty operation");
+    if (currentBlock().terminator) throw std::runtime_error("HIRBuilder::terminate: block already terminated");
+    checkSuccessors(successors, module_.blocks.size(), "HIRBuilder::terminate");
+    currentBlock().terminator = Terminator{std::move(op), std::move(operands), std::move(successors)};
+}
+
+void HIRBuilder::terminateWithSuccessors(const ids::Operation &op, std::vector<Operand> operands,
+                                             std::vector<Successor> successors) {
+    terminateWithSuccessors(op.value, std::move(operands), std::move(successors));
 }
 
 /**
@@ -623,6 +719,37 @@ BlockId MIRBuilder::createBlock(std::string name) {
     return id;
 }
 
+BlockId MIRBuilder::createBlock(std::string name, const std::vector<ValueType> &types) {
+    // Validate before adding the block so a bad parameter list doesn't mutate the builder.
+    for (const auto type : types) if (type == ValueType::Void)
+        throw std::runtime_error("MIRBuilder::createBlock: void block parameter");
+    if (types.size() > std::numeric_limits<std::uint32_t>::max() - nextValue_)
+        throw std::runtime_error("MIRBuilder::createBlock: value ID overflow");
+    BlockId id = createBlock(std::move(name));
+    for (ValueType type : types) addBlockArgument(id, type);
+    return id;
+}
+
+ValueId MIRBuilder::addBlockArgument(BlockId block, ValueType type) {
+    if (block.value >= module_.blocks.size() || block.value == 0)
+        throw std::runtime_error("MIRBuilder::addBlockArgument: invalid block or entry signature");
+    if (type == ValueType::Void || nextValue_ == std::numeric_limits<std::uint32_t>::max())
+        throw std::runtime_error("MIRBuilder::addBlockArgument: void type or value ID overflow");
+    if (module_.blocks[block.value].terminator || !module_.blocks[block.value].instructions.empty())
+        throw std::runtime_error("MIRBuilder::addBlockArgument: cannot append to populated block");
+    for (const auto &other : module_.blocks) {
+        if (!other.terminator) continue;
+        for (const auto &edge : other.terminator->successors) {
+            if (edge.target.value == block.value)
+                throw std::runtime_error("MIRBuilder::addBlockArgument: block already has incoming edges");
+        }
+    }
+    ValueId value{nextValue_++};
+    module_.blocks[block.value].arguments.push_back(BlockArgument{value,type});
+    valueTypes_.emplace(value.value, type);
+    return value;
+}
+
 /**
  * @brief Sets the value handled by `setCurrentBlock`.
  *
@@ -659,6 +786,7 @@ ValueId MIRBuilder::emitValue(std::string op, std::vector<Operand> operands, Val
     const ValueId result{nextValue_++};
 
     currentBlock().instructions.push_back({std::move(op), result, std::move(operands), type});
+    valueTypes_.emplace(result.value, type);
 
     return result;
 }
@@ -708,16 +836,24 @@ void MIRBuilder::emit(const ids::Operation &op, std::vector<Operand> operands) {
  * @param targets Value supplied for `targets`.
  */
 void MIRBuilder::terminate(std::string op, std::vector<Operand> operands, std::vector<BlockId> targets) {
-    if (op.empty()) {
-        throw std::runtime_error("MIRBuilder::terminate: terminator op cannot be empty");
-    }
-
-    if (currentBlock().terminator.has_value()) {
-        throw std::runtime_error("MIRBuilder::terminate: block already has a terminator");
-    }
     checkTargets(targets, module_.blocks.size(), "MIRBuilder::terminate");
+    std::vector<Successor> edges;
+    edges.reserve(targets.size());
+    for (BlockId target : targets) edges.emplace_back(target);
+    terminateWithSuccessors(std::move(op), std::move(operands), std::move(edges));
+}
 
-    currentBlock().terminator = Terminator{std::move(op), std::move(operands), std::move(targets)};
+void MIRBuilder::terminateWithSuccessors(std::string op, std::vector<Operand> operands,
+                                             std::vector<Successor> successors) {
+    if (op.empty()) throw std::runtime_error("MIRBuilder::terminate: empty operation");
+    if (currentBlock().terminator) throw std::runtime_error("MIRBuilder::terminate: block already terminated");
+    checkSuccessors(successors, module_.blocks.size(), "MIRBuilder::terminate");
+    currentBlock().terminator = Terminator{std::move(op), std::move(operands), std::move(successors)};
+}
+
+void MIRBuilder::terminateWithSuccessors(const ids::Operation &op, std::vector<Operand> operands,
+                                             std::vector<Successor> successors) {
+    terminateWithSuccessors(op.value, std::move(operands), std::move(successors));
 }
 
 /**
@@ -1017,16 +1153,9 @@ MIRLoweringResult LoweringRegistry::lowerMIR(const Instruction &instruction, MIR
         throw std::runtime_error("LoweringRegistry::lowerMIR: conversion has no result");
     }
     if (lowered.value) {
-        bool defined = false;
-        ValueType mappedType{ValueType::Unknown};
-        for (const auto &block : after.blocks) {
-            for (const auto &item : block.instructions) {
-                if (item.result && item.result->value == lowered.value->value) {
-                    defined = true;
-                    mappedType = item.type;
-                }
-            }
-        }
+        const auto mapped = out.valueType(*lowered.value);
+        const bool defined = mapped.has_value();
+        const ValueType mappedType = mapped.value_or(ValueType::Unknown);
         if (!defined) {
             throw std::runtime_error("LoweringRegistry::lowerMIR: lowerer returned undefined MIR value v" +
                                      std::to_string(lowered.value->value));
@@ -1149,6 +1278,14 @@ MIRModule HIRLoweringPass::lower(const HIRModule &hir, HIRLoweringOptions option
         builder.createBlock(hir.blocks[i].name);
     }
 
+    // Predeclare every MIR block parameter before DFS, including cyclic backedges.
+    // All block parameters share the very same builder allocator as instruction results.
+    for (std::size_t b = 1; b < blockCount; ++b) {
+        for (const auto &arg : hir.blocks[b].arguments) {
+            context.bind(arg.value, builder.addBlockArgument(BlockId{static_cast<std::uint32_t>(b)}, arg.type));
+        }
+    }
+
     // DFS preorder visits a dominator before every dominated reachable block,
     // irrespective of the physical block order. Iterative DFS avoids stack
     // overflow for deeply nested control-flow graphs.
@@ -1162,9 +1299,9 @@ MIRModule HIRLoweringPass::lower(const HIRModule &hir, HIRLoweringOptions option
         seen[b] = true;
         order.push_back(b);
         if (hir.blocks[b].terminator) {
-            const auto &targets = hir.blocks[b].terminator->targets;
+            const auto &targets = hir.blocks[b].terminator->successors;
             for (auto it = targets.rbegin(); it != targets.rend(); ++it) {
-                if (!seen[it->value]) stack.push_back(it->value);
+                if (!seen[it->target.value]) stack.push_back(it->target.value);
             }
         }
     }
@@ -1207,9 +1344,14 @@ MIRModule HIRLoweringPass::lower(const HIRModule &hir, HIRLoweringOptions option
         }
         if (block.terminator) {
             try {
-                builder.terminate(block.terminator->op,
-                                  context.remapOperands(block.terminator->operands),
-                                  block.terminator->targets);
+                std::vector<Successor> remapped{};
+                remapped.reserve(block.terminator->successors.size());
+                for (const Successor &edge : block.terminator->successors) {
+                    remapped.emplace_back(edge.target, context.remapOperands(edge.arguments));
+                    if (options.propagateMetadata) remapped.back().metadata = edge.metadata;
+                }
+                builder.terminateWithSuccessors(block.terminator->op,
+                    context.remapOperands(block.terminator->operands), std::move(remapped));
             } catch (const std::exception &error) {
                 throw std::runtime_error("HIR->MIR lowering: block " + std::to_string(b) +
                                          " terminator '" + block.terminator->op + "': " + error.what());
@@ -1222,6 +1364,9 @@ MIRModule HIRLoweringPass::lower(const HIRModule &hir, HIRLoweringOptions option
         result.metadata = hir.metadata;
         for (std::size_t b = 0; b < blockCount; ++b) {
             result.blocks[b].metadata = hir.blocks[b].metadata;
+            for (std::size_t i = 0; i < hir.blocks[b].arguments.size(); ++i) {
+                result.blocks[b].arguments[i].metadata = hir.blocks[b].arguments[i].metadata;
+            }
             if (hir.blocks[b].terminator) {
                 result.blocks[b].terminator->metadata = hir.blocks[b].terminator->metadata;
             }

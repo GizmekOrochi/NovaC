@@ -148,6 +148,27 @@ instructions.
 The pass type is :cpp:class:`novac::ir::ASTLoweringPass` and the registrations
 live in :cpp:class:`novac::ir::LoweringRegistry`.
 
+SSA block arguments and CFG edges
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+HIR and MIR can declare parameters for a basic block using
+``builder.addBlockArgument(blockId, ValueType::Int)`` or
+``builder.createBlock(name, parameterTypes)``. A terminating block sends
+values on individual ``Successor`` edges using
+``builder.terminateWithSuccessors(op, ownOperands, successors)``.
+The old ``terminate(op, operands, targets)`` remains available for
+**zero-argument** edges only. Use ``terminator.successors`` rather than the
+removed ``terminator.targets`` field.
+
+The SSA validator checks parameter IDs, unique definitions, dominance at the
+source terminator, and each edge's argument count and exact type. Block
+parameters are defined at block entry, including cyclic backedges. Lowering
+predeclares all MIR parameters and maps their HIR IDs before visiting blocks.
+The semantics for an interpreter taking an edge are **simultaneous** transfer:
+evaluate all outgoing values before assigning new parameter values. This IR
+feature does not itself add an interpreter. See ``SSA_BLOCK_ARGUMENTS.md``
+for migration, examples and known extension points.
+
 HIR -> MIR
 ^^^^^^^^^^
 

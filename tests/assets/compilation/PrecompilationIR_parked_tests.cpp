@@ -84,6 +84,6 @@ TEST(PrecompilationIR, ForwardBranchesLowerAfterAllBlocksAreRegistered) {
     builder.terminate("return");
     const auto mir = ir::HIRLoweringPass{registry}.lower(builder.finish());
     CHECK(mir.blocks.size() == 2);
-    CHECK(mir.blocks[0].terminator->targets[0].value == dest.value);
+    CHECK(mir.blocks[0].terminator->successors[0].target.value == dest.value);
     CHECK(mir.blocks[1].instructions[0].op == "kept");
 }

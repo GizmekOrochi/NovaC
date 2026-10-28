@@ -136,8 +136,8 @@ TEST(HIRBuilder, TerminatesCurrentBlock) {
 
     CHECK(module.blocks[0].terminator.has_value());
     CHECK(module.blocks[0].terminator->op == "jump");
-    CHECK(module.blocks[0].terminator->targets.size() == 1);
-    CHECK(module.blocks[0].terminator->targets[0].value == target.value);
+    CHECK(module.blocks[0].terminator->successors.size() == 1);
+    CHECK(module.blocks[0].terminator->successors[0].target.value == target.value);
 }
 
 TEST(HIRBuilder, TerminatesCurrentBlockWithTypedOperation) {

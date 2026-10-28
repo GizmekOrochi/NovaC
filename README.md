@@ -2,13 +2,6 @@
 
 NovaC is a modular C++20 framework for building programming languages. Its engine provides extensible logical-source preprocessing, tokenization, Pratt parsing, AST/runtime execution, generic control-flow signals, diagnostics, while optional assets add typed semantics, memory, and reusable language behavior through installable features instead of hard-coding one language into the core.
 
-HIR/MIR/IR modules, builders, validation and generic lowering are part of the
-**Engine** (`novac/engine/transformation/`) and available to interpreters and
-analysis tools through `<NovaC.hpp>`. Compiler orchestration and backend code
-remain together in one parked `novac/assets/compilation/` asset, with the
-backend under `novac/assets/compilation/backend/`. This asset is not compiled,
-linked, installed or enabled by default.
-
 ## Quick start
 
 Requirements: a C++20 compiler, `make`, and `ar`.

@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -139,6 +140,7 @@ public:
      * @return Text representation of the literal.
      */
     std::string toString() const;
+    const Data &data() const noexcept { return data_; }
 
 private:
     Data data_;
@@ -276,47 +278,43 @@ struct Instruction {
     metadata::MetadataStore metadata{};
 };
 
-/**
- * @brief Instruction that ends a basic block.
- *
- * A terminator describes how execution leaves the block. Its targets can point
- * to other basic blocks, for example for jumps or conditional branches.
- */
-struct Terminator {
-    /** Terminator operation name, such as a branch or return operation. */
-    std::string op{};
-
-    /** Values consumed by the terminator. */
-    std::vector<Operand> operands{};
-
-    /** Basic blocks that can be reached from this terminator. */
-    std::vector<BlockId> targets{};
-
-    /** Extension-defined information attached to this terminator. */
+/** A value defined at the start of a basic block; shares the module's ValueId namespace. */
+struct BlockArgument {
+    ValueId value{};
+    ValueType type{ValueType::Unknown};
     metadata::MetadataStore metadata{};
 };
 
-/**
- * @brief Sequence of IR instructions forming one basic block.
- *
- * Instructions are executed in order. A block can end with one terminator,
- * which describes the next control-flow destination or the end of execution.
- */
-struct BasicBlock {
-    /** Identifier used to reference this block. */
-    BlockId id{};
-
-    /** Human-readable block name, mainly useful for debug output. */
-    std::string name{};
-
-    /** Regular instructions executed before the terminator. */
-    std::vector<Instruction> instructions{};
-
-    /** Optional instruction describing how control leaves the block. */
-    std::optional<Terminator> terminator{};
-
-    /** Extension-defined information attached to this block. */
+/** One control-flow edge, including arguments bound atomically on entry to target. */
+struct Successor {
+    BlockId target{};
+    std::vector<Operand> arguments{};
     metadata::MetadataStore metadata{};
+
+    // Allows legacy aggregate Terminator{op, operands, {BlockId{...}}} code.
+    Successor() = default;
+    Successor(BlockId block, std::vector<Operand> values = {})
+        : target{block}, arguments{std::move(values)} {}
+};
+
+/** Block terminator; operands are operation inputs, not edge payloads. */
+struct Terminator {
+    std::string op{};
+    std::vector<Operand> operands{};
+    // Single canonical representation, including distinct edges to same block.
+    std::vector<Successor> successors{};
+    metadata::MetadataStore metadata{};
+};
+
+/** Generic SSA basic block, optionally parameterized by incoming edge values. */
+struct BasicBlock {
+    BlockId id{};
+    std::string name{};
+    std::vector<Instruction> instructions{};
+    std::optional<Terminator> terminator{};
+    metadata::MetadataStore metadata{};
+    // Kept last to preserve legacy aggregate initialization of other fields.
+    std::vector<BlockArgument> arguments{};
 };
 
 /**
@@ -386,6 +384,18 @@ public:
      * @return Identifier of the created block.
      */
     BlockId createBlock(std::string name);
+
+    /** Create a block and declare its arguments using the shared ValueId allocator. */
+    BlockId createBlock(std::string name, const std::vector<ValueType> &argumentTypes);
+
+    /** Declare one block parameter before any incoming terminator is built. */
+    ValueId addBlockArgument(BlockId block, ValueType type);
+
+    /** Encode per-edge arguments; distinct from the old no-payload terminate(). */
+    void terminateWithSuccessors(std::string op, std::vector<Operand> operands,
+                                 std::vector<Successor> successors);
+    void terminateWithSuccessors(const ids::Operation &op, std::vector<Operand> operands,
+                                 std::vector<Successor> successors);
 
     /**
      * @brief Changes the block receiving emitted instructions.
@@ -533,6 +543,12 @@ public:
     BlockId currentBlockId() const noexcept { return currentBlock_; }
     /** Changes to the insertion point, even if later restored. */
     std::size_t insertionChanges() const noexcept { return insertionChanges_; }
+    /** Constant-time lookup of parameter and instruction result types. */
+    std::optional<ValueType> valueType(ValueId id) const noexcept {
+        const auto it = valueTypes_.find(id.value);
+        if (it == valueTypes_.end()) return std::nullopt;
+        return it->second;
+    }
 
     /**
      * @brief Creates a new basic block.
@@ -541,6 +557,18 @@ public:
      * @return Identifier of the created block.
      */
     BlockId createBlock(std::string name);
+
+    /** Create a block and declare its arguments using the shared ValueId allocator. */
+    BlockId createBlock(std::string name, const std::vector<ValueType> &argumentTypes);
+
+    /** Declare one block parameter before any incoming terminator is built. */
+    ValueId addBlockArgument(BlockId block, ValueType type);
+
+    /** Encode per-edge arguments; distinct from the old no-payload terminate(). */
+    void terminateWithSuccessors(std::string op, std::vector<Operand> operands,
+                                 std::vector<Successor> successors);
+    void terminateWithSuccessors(const ids::Operation &op, std::vector<Operand> operands,
+                                 std::vector<Successor> successors);
 
     /**
      * @brief Changes the block receiving emitted instructions.
@@ -658,6 +686,7 @@ private:
     BlockId currentBlock_;
     std::uint32_t nextValue_;
     std::size_t insertionChanges_{0};
+    std::unordered_map<std::uint32_t, ValueType> valueTypes_{};
 };
 
 /**

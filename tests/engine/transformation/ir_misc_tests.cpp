@@ -38,7 +38,7 @@ TEST(Terminator, DefaultConstruction) {
 
     CHECK(terminator.op.empty());
     CHECK(terminator.operands.empty());
-    CHECK(terminator.targets.empty());
+    CHECK(terminator.successors.empty());
 }
 
 TEST(BasicBlock, DefaultConstruction) {
