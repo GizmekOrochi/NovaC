@@ -40,13 +40,12 @@ TEST(MIRLoweringContext, BindsAndResolvesValues) {
     CHECK(context.resolve(ValueId{1}).value == 10);
 }
 
-TEST(MIRLoweringContext, ReplacesExistingBinding) {
+TEST(MIRLoweringContext, RejectsExistingBinding) {
     MIRLoweringContext context{};
 
     context.bind(ValueId{1}, ValueId{10});
-    context.bind(ValueId{1}, ValueId{20});
-
-    CHECK(context.resolve(ValueId{1}).value == 20);
+    CHECK(throwsRuntimeError([&] { context.bind(ValueId{1}, ValueId{20}); }));
+    CHECK(context.resolve(ValueId{1}).value == 10);
 }
 
 TEST(MIRLoweringContext, RejectsUnknownResolution) {

@@ -76,6 +76,10 @@ Remove an installation made with the same prefix using:
 sudo make uninstall PREFIX=/usr/local
 ```
 
+**HIR → MIR lowering stabilization:** see [LOWERING_FIXES.md](LOWERING_FIXES.md)
+for the new callback contract, migration notes, correctness fixes, and known
+limits. The compilation asset remains parked.
+
 ## Tests and reliability
 
 Run the normal test suite:

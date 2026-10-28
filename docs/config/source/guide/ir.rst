@@ -151,11 +151,49 @@ live in :cpp:class:`novac::ir::LoweringRegistry`.
 HIR -> MIR
 ^^^^^^^^^^
 
-Register a MIR lowerer for HIR operation names. A MIR lowerer receives one HIR
-instruction, a ``MIRBuilder``, and a ``MIRLoweringContext``. The context tracks
-how HIR result IDs map to new MIR result IDs.
+Register a MIR lowerer for HIR operation names. A MIR lowerer receives a
+``MIRLoweringInput``, a ``MIRBuilder``, and a **read-only**
+``MIRLoweringContext``. Use ``input.operands`` for values already translated
+from HIR identifiers to MIR identifiers. ``input.source`` contains the original
+HIR instruction only for inspection, type information and provenance; **do not**
+pass ``input.source.operands`` directly to a MIR builder.
 
-The pass type is :cpp:class:`novac::ir::HIRLoweringPass`.
+A lowerer returns a ``MIRLoweringResult``. If the HIR instruction produces a
+value, the result must be an existing MIR value, or an explicitly elided value
+(``MIRLoweringResult::elided()``). A type-changing lowering must explicitly
+return ``MIRLoweringResult::converted(value)``. The engine checks value existence,
+type compatibility, alias dominance, CFG stability, and duplicate HIR bindings.
+A normal instruction lowerer cannot change blocks or emit terminators. A callback
+may emit zero, one or many MIR instructions, and a callback that eliminates a
+result must ensure that the result has no remaining consumers.
+
+Example::
+
+    registry.mir("const", [](const novac::ir::MIRLoweringInput &input,
+                             novac::ir::MIRBuilder &builder,
+                             const novac::ir::MIRLoweringContext &,
+                             const novac::ir::LoweringRegistry &)
+                             -> novac::ir::MIRLoweringResult {
+        return builder.emitValue("mir.const", input.operands, input.source.type);
+    });
+
+The pass type is :cpp:class:`novac::ir::HIRLoweringPass`. It pre-registers every
+block and processes the reachable control-flow graph in depth-first order, then
+unreachable blocks. Block IDs, block names and terminators are preserved. Opaque
+module, block, instruction and terminator metadata is copied by default;
+source instruction metadata is applied to each MIR instruction emitted for it.
+Such metadata may contain language-specific HIR references; extensions storing
+those references remain responsible for rewriting their contents.
+
+By default, partial modules with unterminated blocks are supported. Use
+``lower(hir, {{true}})`` to require termination in **all** blocks, or
+``lower(hir, {{true}, false})`` to disable opaque metadata propagation.
+
+**API change:** lowerer callbacks now use ``MIRLoweringInput`` and return
+``MIRLoweringResult`` instead of taking a raw HIR ``Instruction`` and returning
+an ``optional<ValueId>``. ``MIRLoweringContext::bind`` rejects duplicate bindings.
+Adapt third-party callbacks before updating. Compilation-specific transformations
+and CFG rewriting remain out of this Engine pass.
 
 Do standard Atomic/Essentials programs automatically produce HIR/MIR?
 ---------------------------------------------------------------------

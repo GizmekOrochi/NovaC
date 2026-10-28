@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -526,6 +527,13 @@ public:
      */
     MIRBuilder();
 
+    /** Read-only snapshot for verifying callback postconditions. */
+    const MIRModule &inspect() const noexcept { return module_; }
+    /** Current MIR insertion block. */
+    BlockId currentBlockId() const noexcept { return currentBlock_; }
+    /** Changes to the insertion point, even if later restored. */
+    std::size_t insertionChanges() const noexcept { return insertionChanges_; }
+
     /**
      * @brief Creates a new basic block.
      *
@@ -649,6 +657,7 @@ private:
     MIRModule module_;
     BlockId currentBlock_;
     std::uint32_t nextValue_;
+    std::size_t insertionChanges_{0};
 };
 
 /**
@@ -669,6 +678,7 @@ public:
      * @param hirValue Source HIR value.
      * @param mirValue Replacement MIR value.
      */
+    /** Duplicate source bindings are rejected; mappings are immutable. */
     void bind(ValueId hirValue, ValueId mirValue);
 
     /**
@@ -729,11 +739,49 @@ private:
  * The registry also provides helpers for lowering child AST nodes and handles
  * HIR-to-MIR value mappings through MIRLoweringContext.
  */
+/**
+ * Input to a MIR lowerer: HIR source is available for inspection, but values
+ * to emit must come from the separately provided, already-remapped operands.
+ * Source ValueIds and MIR ValueIds are intentionally not interchangeable.
+ */
+struct MIRLoweringInput {
+    const Instruction &source;
+    const std::vector<Operand> operands;
+};
+
+/**
+ * Contract of a lowerer. A HIR result must be mapped unless intentionally
+ * elided. Conversions between generic ValueTypes must be explicitly declared.
+ */
+struct MIRLoweringResult {
+    std::optional<ValueId> value{};
+    bool explicitlyElided{false};
+    bool declaredConversion{false};
+
+    MIRLoweringResult() = default;
+    MIRLoweringResult(ValueId result) : value{result} {}
+    static MIRLoweringResult replacement(ValueId result) { return MIRLoweringResult{result}; }
+    static MIRLoweringResult converted(ValueId result) {
+        MIRLoweringResult outcome{result}; outcome.declaredConversion = true; return outcome;
+    }
+    static MIRLoweringResult elided() {
+        MIRLoweringResult outcome{}; outcome.explicitlyElided = true; return outcome;
+    }
+};
+
+/** Controls incremental vs complete IR lowering and metadata provenance. */
+struct HIRLoweringOptions {
+    IRValidationOptions validation{};
+    // Opaque metadata is copied, including frozen status. Language-specific
+    // HIR references inside metadata need explicit rewriting by their owners.
+    bool propagateMetadata{true};
+};
+
 class LoweringRegistry {
 public:
     using LoweredValue = std::optional<ValueId>;
     using HIRLowerer = std::function<LoweredValue(const ast::Node &, HIRBuilder &, const LoweringRegistry &)>;
-    using MIRLowerer = std::function<LoweredValue(const Instruction &, MIRBuilder &, MIRLoweringContext &, const LoweringRegistry &)>;
+    using MIRLowerer = std::function<MIRLoweringResult(const MIRLoweringInput &, MIRBuilder &, const MIRLoweringContext &, const LoweringRegistry &)>;
 
     /**
      * @brief Creates a lowering registry.
@@ -836,8 +884,9 @@ public:
      * @brief Lowers a HIR instruction into MIR.
      *
      * The instruction operation selects the registered MIR lowerer. If the HIR
-     * instruction and the lowered MIR instruction both produce values, their
-     * identifiers are automatically associated in the lowering context.
+     * instruction produces a value, its lowerer must return a valid mapped
+     * value or explicitly mark the result as eliminated. Callback operands
+     * are remapped automatically, and source mappings cannot be overwritten.
      *
      * @param instruction HIR instruction to lower.
      * @param out MIR builder receiving emitted instructions.
@@ -846,7 +895,7 @@ public:
      *
      * @throws std::runtime_error If no MIR lowerer is registered for the instruction operation.
      */
-    LoweredValue lowerMIR(const Instruction &instruction, MIRBuilder &out, MIRLoweringContext &context) const;
+    MIRLoweringResult lowerMIR(const Instruction &instruction, MIRBuilder &out, MIRLoweringContext &context) const;
 
     /**
      * @brief Lowers all child nodes directly stored in a node.
@@ -916,7 +965,8 @@ private:
 /**
  * @brief Runs the HIR-to-MIR lowering stage.
  *
- * Blocks are visited in module order. Registered MIR lowerers translate each
+ * Reachable blocks are visited in CFG depth-first order (definitions dominate
+ * uses), then unreachable blocks. Registered MIR lowerers translate each
  * instruction, while MIRLoweringContext keeps result references consistent
  * between both representations.
  *
@@ -943,7 +993,7 @@ public:
      * @param hir HIR module to lower.
      * @return Produced MIR module.
      */
-    MIRModule lower(const HIRModule &hir) const;
+    MIRModule lower(const HIRModule &hir, HIRLoweringOptions options = {}) const;
 
 private:
     const LoweringRegistry &registry_;

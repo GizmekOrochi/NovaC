@@ -71,10 +71,10 @@ TEST(EngineIR, EnforcesDefinitionBeforeUseAndDominance) {
 
 TEST(EngineIR, ForwardBranchesLowerAfterAllBlocksAreRegistered) {
     ir::LoweringRegistry registry{};
-    registry.mir("keep", [](const ir::Instruction &, ir::MIRBuilder &builder,
-                              ir::MIRLoweringContext &, const ir::LoweringRegistry &) -> std::optional<ir::ValueId> {
+    registry.mir("keep", [](const ir::MIRLoweringInput &, ir::MIRBuilder &builder,
+                              const ir::MIRLoweringContext &, const ir::LoweringRegistry &) -> ir::MIRLoweringResult {
         builder.emit("kept");
-        return std::nullopt;
+        return {};
     });
     ir::HIRBuilder builder{};
     const auto dest = builder.createBlock("dest");

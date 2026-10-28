@@ -1,6 +1,8 @@
 #include "novac/engine/transformation/IR.hpp"
 
 #include <limits>
+#include <algorithm>
+#include <exception>
 #include <stdexcept>
 #include <utility>
 #include <variant>
@@ -66,38 +68,87 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
         }
     }
 
-    // Reachable CFG and iterative dominators. Non-reachable blocks may still
-    // contain local definitions, but may not consume values from other blocks.
+    // Reachability and reverse postorder, computed without recursion so even
+    // pathological deeply nested CFGs cannot overflow the call stack.
+    // Non-reachable blocks may still define and use their local values only.
+    const std::size_t noBlock = blocks.size();
     std::vector<bool> reachable(blocks.size(), false);
+    std::vector<std::size_t> postorder{};
+    struct Frame { std::size_t block, child; };
+    std::vector<Frame> work{{0, 0}};
     reachable[0] = true;
-    std::vector<std::size_t> worklist{0};
-    for (std::size_t cursor = 0; cursor < worklist.size(); ++cursor) {
-        for (const auto to : successors[worklist[cursor]]) {
-            if (!reachable[to]) { reachable[to] = true; worklist.push_back(to); }
+    while (!work.empty()) {
+        Frame &frame = work.back();
+        if (frame.child == successors[frame.block].size()) {
+            postorder.push_back(frame.block);
+            work.pop_back();
+            continue;
+        }
+        const std::size_t next = successors[frame.block][frame.child++];
+        if (!reachable[next]) {
+            reachable[next] = true;
+            work.push_back({next, 0});
         }
     }
-    std::vector<std::vector<bool>> dom(blocks.size(), std::vector<bool>(blocks.size(), false));
-    for (std::size_t b = 0; b < blocks.size(); ++b) {
-        if (reachable[b]) {
-            for (std::size_t d = 0; d < blocks.size(); ++d) dom[b][d] = reachable[d];
+    std::vector<std::size_t> rpo(postorder.rbegin(), postorder.rend());
+    std::vector<std::size_t> rank(blocks.size(), noBlock);
+    for (std::size_t i = 0; i < rpo.size(); ++i) rank[rpo[i]] = i;
+
+    // Immediate dominators (Cooper et al.) need O(B+E) storage rather than
+    // the previous dense O(B^2) boolean table. Cyclic CFGs are supported.
+    std::vector<std::size_t> idom(blocks.size(), noBlock);
+    idom[0] = 0;
+    const auto intersect = [&](std::size_t left, std::size_t right) {
+        while (left != right) {
+            while (rank[left] > rank[right]) left = idom[left];
+            while (rank[right] > rank[left]) right = idom[right];
         }
-    }
-    dom[0].assign(blocks.size(), false);
-    dom[0][0] = true;
+        return left;
+    };
     bool changed = true;
     while (changed) {
         changed = false;
-        for (std::size_t b = 1; b < blocks.size(); ++b) {
-            if (!reachable[b]) continue;
-            std::vector<bool> next(blocks.size(), true);
-            for (std::size_t pred : predecessors[b]) {
-                if (!reachable[pred]) continue;
-                for (std::size_t d = 0; d < blocks.size(); ++d) next[d] = next[d] && dom[pred][d];
+        for (std::size_t index = 1; index < rpo.size(); ++index) {
+            const std::size_t block = rpo[index];
+            std::size_t newIdom = noBlock;
+            for (std::size_t pred : predecessors[block]) {
+                if (idom[pred] == noBlock) continue;
+                newIdom = newIdom == noBlock ? pred : intersect(pred, newIdom);
             }
-            next[b] = true;
-            if (next != dom[b]) { dom[b] = std::move(next); changed = true; }
+            if (newIdom == noBlock) {
+                throw std::runtime_error(prefix + "internal CFG dominator analysis failure");
+            }
+            if (idom[block] != newIdom) {
+                idom[block] = newIdom;
+                changed = true;
+            }
         }
     }
+
+    // Dominator-tree preorder intervals allow O(1) dominance queries.
+    std::vector<std::vector<std::size_t>> domChildren(blocks.size());
+    for (std::size_t i = 1; i < rpo.size(); ++i) {
+        domChildren[idom[rpo[i]]].push_back(rpo[i]);
+    }
+    std::vector<std::size_t> enter(blocks.size(), 0), leave(blocks.size(), 0);
+    std::size_t tick = 0;
+    std::vector<Frame> domWalk{{0, 0}};
+    enter[0] = ++tick;
+    while (!domWalk.empty()) {
+        Frame &frame = domWalk.back();
+        if (frame.child == domChildren[frame.block].size()) {
+            leave[frame.block] = ++tick;
+            domWalk.pop_back();
+        } else {
+            const std::size_t next = domChildren[frame.block][frame.child++];
+            enter[next] = ++tick;
+            domWalk.push_back({next, 0});
+        }
+    }
+    const auto dominates = [&](std::size_t definition, std::size_t use) {
+        return reachable[definition] && reachable[use] &&
+               enter[definition] <= enter[use] && leave[use] <= leave[definition];
+    };
 
     const auto checkOperands = [&](const std::vector<Operand> &operands, std::size_t block, std::size_t instruction, const std::string &where) {
         for (const Operand &operand : operands) {
@@ -110,7 +161,7 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
                 if (def.instruction >= instruction) {
                     throw std::runtime_error(where + "use of v" + std::to_string(v) + " before its definition");
                 }
-            } else if (!reachable[block] || !dom[block][def.block]) {
+            } else if (!reachable[block] || !dominates(def.block, block)) {
                 throw std::runtime_error(where + "definition of v" + std::to_string(v) + " does not dominate its use");
             }
         }
@@ -582,6 +633,7 @@ void MIRBuilder::setCurrentBlock(BlockId block) {
         throw std::runtime_error("MIRBuilder::setCurrentBlock: invalid block id");
     }
 
+    ++insertionChanges_;
     currentBlock_ = block;
 }
 
@@ -722,7 +774,9 @@ const BasicBlock &MIRBuilder::currentBlock() const {
  * @param mirValue Value supplied for `mirValue`.
  */
 void MIRLoweringContext::bind(ValueId hirValue, ValueId mirValue) {
-    values_[hirValue.value] = mirValue;
+    if (!values_.emplace(hirValue.value, mirValue).second) {
+        throw std::runtime_error("MIRLoweringContext::bind: duplicate HIR binding v" + std::to_string(hirValue.value));
+    }
 }
 
 /**
@@ -915,19 +969,75 @@ LoweringRegistry::LoweredValue LoweringRegistry::lowerHIR(const ast::Node &node,
  * @param context Value supplied for `context`.
  * @return Value produced by the operation.
  */
-LoweringRegistry::LoweredValue LoweringRegistry::lowerMIR(const Instruction &instruction, MIRBuilder &out, MIRLoweringContext &context) const {
+MIRLoweringResult LoweringRegistry::lowerMIR(const Instruction &instruction, MIRBuilder &out, MIRLoweringContext &context) const {
     const auto iter{mir_.find(instruction.op)};
-
     if (iter == mir_.end()) {
         throw std::runtime_error("LoweringRegistry::lowerMIR: missing MIR lowerer for HIR instruction '" + instruction.op + "'");
     }
 
-    LoweredValue lowered{iter->second(instruction, out, context, *this)};
-
-    if (instruction.result.has_value() && lowered.has_value()) {
-        context.bind(*instruction.result, *lowered);
+    // The callback receives only MIR-mapped operands as its normal input.
+    // The original source remains accessible for metadata and diagnostics.
+    MIRLoweringInput input{instruction, context.remapOperands(instruction.operands)};
+    const auto &before{out.inspect()};
+    const std::size_t blockCount = before.blocks.size();
+    const BlockId insertion = out.currentBlockId();
+    const std::size_t insertionChanges = out.insertionChanges();
+    std::vector<std::size_t> counts{};
+    std::vector<bool> terminated{};
+    counts.reserve(blockCount);
+    terminated.reserve(blockCount);
+    for (const auto &block : before.blocks) {
+        counts.push_back(block.instructions.size());
+        terminated.push_back(block.terminator.has_value());
     }
 
+    MIRLoweringResult lowered = iter->second(input, out, context, *this);
+    const auto &after{out.inspect()};
+    if (after.blocks.size() != blockCount || out.currentBlockId().value != insertion.value ||
+        out.insertionChanges() != insertionChanges) {
+        throw std::runtime_error("LoweringRegistry::lowerMIR: lowerer changed the CFG or insertion block");
+    }
+    for (std::size_t b = 0; b < blockCount; ++b) {
+        if (after.blocks[b].instructions.size() < counts[b] ||
+            (b != insertion.value && after.blocks[b].instructions.size() != counts[b]) ||
+            after.blocks[b].terminator.has_value() != terminated[b]) {
+            throw std::runtime_error("LoweringRegistry::lowerMIR: lowerer modified another block or its terminator");
+        }
+    }
+    if (lowered.value && lowered.explicitlyElided) {
+        throw std::runtime_error("LoweringRegistry::lowerMIR: conflicting result and elision");
+    }
+    if (!instruction.result && (lowered.value || lowered.explicitlyElided || lowered.declaredConversion)) {
+        throw std::runtime_error("LoweringRegistry::lowerMIR: void HIR instruction returned a result or elision");
+    }
+    if (instruction.result && !lowered.value && !lowered.explicitlyElided) {
+        throw std::runtime_error("LoweringRegistry::lowerMIR: HIR result silently discarded");
+    }
+    if (lowered.declaredConversion && !lowered.value) {
+        throw std::runtime_error("LoweringRegistry::lowerMIR: conversion has no result");
+    }
+    if (lowered.value) {
+        bool defined = false;
+        ValueType mappedType{ValueType::Unknown};
+        for (const auto &block : after.blocks) {
+            for (const auto &item : block.instructions) {
+                if (item.result && item.result->value == lowered.value->value) {
+                    defined = true;
+                    mappedType = item.type;
+                }
+            }
+        }
+        if (!defined) {
+            throw std::runtime_error("LoweringRegistry::lowerMIR: lowerer returned undefined MIR value v" +
+                                     std::to_string(lowered.value->value));
+        }
+        if (!lowered.declaredConversion && instruction.type != mappedType) {
+            throw std::runtime_error("LoweringRegistry::lowerMIR: value type changed from " +
+                                     valueTypeName(instruction.type) + " to " + valueTypeName(mappedType) +
+                                     " without declared conversion");
+        }
+        context.bind(*instruction.result, *lowered.value);
+    }
     return lowered;
 }
 
@@ -1027,31 +1137,136 @@ HIRLoweringPass::HIRLoweringPass(const LoweringRegistry &registry)
  * @param hir Value supplied for `hir`.
  * @return Value produced by the operation.
  */
-MIRModule HIRLoweringPass::lower(const HIRModule &hir) const {
-    validate(hir);
+MIRModule HIRLoweringPass::lower(const HIRModule &hir, HIRLoweringOptions options) const {
+    validate(hir, options.validation);
     MIRBuilder builder{};
     MIRLoweringContext context{};
+    const std::size_t blockCount = hir.blocks.size();
 
-    // Register all blocks up front: a terminator may branch forward.
-    for (std::size_t i = 1; i < hir.blocks.size(); ++i) {
+    // Preserve stable block IDs, including forward targets. Callback code is
+    // not allowed to change the CFG inside this structure-preserving pass.
+    for (std::size_t i = 1; i < blockCount; ++i) {
         builder.createBlock(hir.blocks[i].name);
     }
-    for (const BasicBlock &block : hir.blocks) {
-        builder.setCurrentBlock(block.id);
 
-        for (const Instruction &instruction : block.instructions) {
-            registry_.lowerMIR(instruction, builder, context);
-        }
-
-        if (block.terminator.has_value()) {
-            builder.terminate(
-                block.terminator->op,
-                context.remapOperands(block.terminator->operands),
-                block.terminator->targets);
+    // DFS preorder visits a dominator before every dominated reachable block,
+    // irrespective of the physical block order. Iterative DFS avoids stack
+    // overflow for deeply nested control-flow graphs.
+    std::vector<std::size_t> order{};
+    std::vector<bool> seen(blockCount, false);
+    std::vector<std::size_t> stack{0};
+    while (!stack.empty()) {
+        const std::size_t b = stack.back();
+        stack.pop_back();
+        if (seen[b]) continue;
+        seen[b] = true;
+        order.push_back(b);
+        if (hir.blocks[b].terminator) {
+            const auto &targets = hir.blocks[b].terminator->targets;
+            for (auto it = targets.rbegin(); it != targets.rend(); ++it) {
+                if (!seen[it->value]) stack.push_back(it->value);
+            }
         }
     }
+    // Unreachable blocks are permitted by the structural IR validator, but
+    // their use-def references must be local; process them independently.
+    for (std::size_t b = 0; b < blockCount; ++b) {
+        if (!seen[b]) order.push_back(b);
+    }
 
-    return builder.finish();
+    struct Emission {
+        std::size_t block;
+        std::size_t begin;
+        std::size_t end;
+        metadata::MetadataStore metadata;
+    };
+    std::vector<Emission> emissions{};
+    struct BoundUse { std::size_t block, insertion; ValueId mirValue; };
+    std::vector<BoundUse> boundUses{};
+
+    for (std::size_t b : order) {
+        const BasicBlock &block = hir.blocks[b];
+        builder.setCurrentBlock(block.id);
+        for (std::size_t i = 0; i < block.instructions.size(); ++i) {
+            const Instruction &instruction = block.instructions[i];
+            const std::size_t begin = builder.inspect().blocks[b].instructions.size();
+            try {
+                MIRLoweringResult mapped = registry_.lowerMIR(instruction, builder, context);
+                if (mapped.value) {
+                    boundUses.push_back({b, builder.inspect().blocks[b].instructions.size(), *mapped.value});
+                }
+                if (builder.inspect().blocks[b].instructions.size() > begin && options.propagateMetadata) {
+                    emissions.push_back({b, begin, builder.inspect().blocks[b].instructions.size(), instruction.metadata});
+                }
+            } catch (const std::exception &error) {
+                throw std::runtime_error("HIR->MIR lowering: block " + std::to_string(b) +
+                    " ('" + block.name + "') instruction " + std::to_string(i) + " '" + instruction.op +
+                    "'" + (instruction.result ? " HIR v" + std::to_string(instruction.result->value) : "") +
+                    ": " + error.what());
+            }
+        }
+        if (block.terminator) {
+            try {
+                builder.terminate(block.terminator->op,
+                                  context.remapOperands(block.terminator->operands),
+                                  block.terminator->targets);
+            } catch (const std::exception &error) {
+                throw std::runtime_error("HIR->MIR lowering: block " + std::to_string(b) +
+                                         " terminator '" + block.terminator->op + "': " + error.what());
+            }
+        }
+    }
+    MIRModule result{builder.finish()};
+    result.blocks[0].name = hir.blocks[0].name;
+    if (options.propagateMetadata) {
+        result.metadata = hir.metadata;
+        for (std::size_t b = 0; b < blockCount; ++b) {
+            result.blocks[b].metadata = hir.blocks[b].metadata;
+            if (hir.blocks[b].terminator) {
+                result.blocks[b].terminator->metadata = hir.blocks[b].terminator->metadata;
+            }
+        }
+        // Every MIR instruction emitted by one callback inherits its source
+        // metadata. Callbacks must attach more specific metadata themselves in
+        // a future richer IR rewriting API; this pass preserves provenance.
+        for (const auto &e : emissions) {
+            for (std::size_t i = e.begin; i < e.end; ++i) {
+                result.blocks[e.block].instructions[i].metadata = e.metadata;
+            }
+        }
+    }
+    validate(result, options.validation);
+
+    // Validate aliases even when they are never used by the source HIR. By
+    // inserting temporary uses at the precise bind sites into a throwaway MIR
+    // copy, the normal validator checks both same-block ordering and inter-
+    // block dominance. No validation instructions escape into the result.
+    if (!boundUses.empty()) {
+        MIRModule bindingsChecked{result};
+        std::vector<std::vector<BoundUse>> usesByBlock(blockCount);
+        for (const BoundUse &binding : boundUses) usesByBlock[binding.block].push_back(binding);
+        for (std::size_t b = 0; b < blockCount; ++b) {
+            const auto &uses = usesByBlock[b];
+            if (uses.empty()) continue;
+            const auto &original = result.blocks[b].instructions;
+            std::vector<Instruction> checked{};
+            checked.reserve(original.size() + uses.size());
+            std::size_t cursor = 0;
+            for (const BoundUse &binding : uses) {
+                while (cursor < binding.insertion) checked.push_back(original[cursor++]);
+                checked.push_back({"novac.ir.check.binding", std::nullopt,
+                                   {Operand::fromValue(binding.mirValue)}, ValueType::Void});
+            }
+            while (cursor < original.size()) checked.push_back(original[cursor++]);
+            bindingsChecked.blocks[b].instructions = std::move(checked);
+        }
+        try {
+            validate(bindingsChecked, options.validation);
+        } catch (const std::exception &error) {
+            throw std::runtime_error(std::string("HIR->MIR lowering: invalid mapped result: ") + error.what());
+        }
+    }
+    return result;
 }
 
 /**
