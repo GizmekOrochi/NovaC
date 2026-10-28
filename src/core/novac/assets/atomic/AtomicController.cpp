@@ -629,9 +629,9 @@ void AtomicController::registerPattern(const TokenPattern &pattern) {
         return;
 
     if(pattern.keyword)
-        engine_.keyword(pattern.token);
+        engine_.ensureKeyword(pattern.token);
     else
-        engine_.symbol(pattern.token);
+        engine_.ensureSymbol(pattern.token);
 
     registeredPatterns_.insert(key);
 }

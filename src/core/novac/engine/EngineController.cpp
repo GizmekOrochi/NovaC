@@ -204,7 +204,6 @@ EngineController::EngineController(EngineControllerOptions options)
       runtime_{options.duplicatePolicy},
       sources_{options.duplicatePolicy},
       preprocessor_{options.duplicatePolicy},
-      lowering_{options.duplicatePolicy},
       diagnostics_{},
       startDomain_{std::move(options.startDomain)},
       features_{},
@@ -228,6 +227,22 @@ registry::RegisterStatus EngineController::keyword(std::string keyword) {
  * @return Value produced by the operation.
  */
 registry::RegisterStatus EngineController::symbol(std::string symbol) {
+    return lexer_.symbol(std::move(symbol));
+}
+
+
+registry::RegisterStatus EngineController::ensureKeyword(std::string keyword) {
+    if (keyword.empty()) throw std::runtime_error("EngineController::ensureKeyword: keyword cannot be empty");
+    if (lexer_.isKeyword(keyword)) return registry::RegisterStatus::Ignored;
+    return lexer_.keyword(std::move(keyword));
+}
+
+registry::RegisterStatus EngineController::ensureSymbol(std::string symbol) {
+    if (symbol.empty()) throw std::runtime_error("EngineController::ensureSymbol: symbol cannot be empty");
+    const auto &symbols = lexer_.symbols();
+    if (std::find(symbols.begin(), symbols.end(), symbol) != symbols.end()) {
+        return registry::RegisterStatus::Ignored;
+    }
     return lexer_.symbol(std::move(symbol));
 }
 
@@ -541,50 +556,6 @@ void EngineController::setBinaryNodeKind(std::string kind) {
 }
 
 /**
- * @brief Implements the `hir` operation.
- *
- * @param nodeKind Value supplied for `nodeKind`.
- * @param lowerer Value supplied for `lowerer`.
- * @return Value produced by the operation.
- */
-registry::RegisterStatus EngineController::hir(std::string nodeKind, ir::LoweringRegistry::HIRLowerer lowerer) {
-    return lowering_.hir(std::move(nodeKind), std::move(lowerer));
-}
-
-/**
- * @brief Implements the `hir` operation.
- *
- * @param nodeKind Value supplied for `nodeKind`.
- * @param lowerer Value supplied for `lowerer`.
- * @return Value produced by the operation.
- */
-registry::RegisterStatus EngineController::hir(const ids::NodeKind &nodeKind, ir::LoweringRegistry::HIRLowerer lowerer) {
-    return lowering_.hir(nodeKind, std::move(lowerer));
-}
-
-/**
- * @brief Implements the `mir` operation.
- *
- * @param instructionKind Value supplied for `instructionKind`.
- * @param lowerer Value supplied for `lowerer`.
- * @return Value produced by the operation.
- */
-registry::RegisterStatus EngineController::mir(std::string instructionKind, ir::LoweringRegistry::MIRLowerer lowerer) {
-    return lowering_.mir(std::move(instructionKind), std::move(lowerer));
-}
-
-/**
- * @brief Implements the `mir` operation.
- *
- * @param instructionKind Value supplied for `instructionKind`.
- * @param lowerer Value supplied for `lowerer`.
- * @return Value produced by the operation.
- */
-registry::RegisterStatus EngineController::mir(const ids::Operation &instructionKind, ir::LoweringRegistry::MIRLowerer lowerer) {
-    return lowering_.mir(instructionKind, std::move(lowerer));
-}
-
-/**
  * @brief Creates a value through `makeNode`.
  *
  * @param kind Value supplied for `kind`.
@@ -615,6 +586,9 @@ std::vector<token::Token> EngineController::tokenize(const std::string &source) 
 
     try {
         return lexer.tokenize(source);
+    } catch (const diagnostics::DiagnosticException &error) {
+        diagnostics_.report(error.diagnostic());
+        throw;
     } catch (const std::runtime_error &error) {
         diagnostics_.error(error.what());
         throw;
@@ -633,6 +607,9 @@ source::PreprocessedSource EngineController::preprocess(
     source::PreprocessOptions options) const {
     try {
         return preprocessor_.process(sourceValue, sources_, lexer_, diagnostics_, std::move(options));
+    } catch (const diagnostics::DiagnosticException &error) {
+        diagnostics_.report(error.diagnostic());
+        throw;
     } catch (const std::runtime_error &error) {
         diagnostics_.error(error.what());
         throw;
@@ -664,6 +641,9 @@ std::vector<token::Token> EngineController::tokenizeSource(
                 std::make_move_iterator(fragmentTokens.begin()),
                 std::make_move_iterator(fragmentTokens.end()));
         }
+    } catch (const diagnostics::DiagnosticException &error) {
+        diagnostics_.report(error.diagnostic());
+        throw;
     } catch (const std::runtime_error &error) {
         diagnostics_.error(error.what());
         throw;
@@ -761,6 +741,9 @@ ast::NodePtr EngineController::parseTokens(std::vector<token::Token> tokens, std
 
     try {
         return parser.parse(std::move(tokens));
+    } catch (const diagnostics::DiagnosticException &error) {
+        diagnostics_.report(error.diagnostic());
+        throw;
     } catch (const std::runtime_error &error) {
         diagnostics_.error(error.what());
         throw;
@@ -776,7 +759,7 @@ void EngineController::validate(const ast::Node &node) const {
     try {
         nodes_.validate(node);
     } catch (const std::runtime_error &error) {
-        diagnostics_.error(error.what());
+        diagnostics_.error(error.what(), node.span(), "ast.validation");
         throw;
     }
 }
@@ -793,7 +776,7 @@ runtime::Value EngineController::eval(const ast::Node &node) const {
     try {
         return runtime.eval(node);
     } catch (const std::runtime_error &error) {
-        diagnostics_.error(error.what());
+        diagnostics_.error(error.what(), node.span(), "runtime.evaluation");
         throw;
     }
 }
@@ -809,55 +792,9 @@ void EngineController::exec(const ast::Node &node) const {
     try {
         runtime.exec(node);
     } catch (const std::runtime_error &error) {
-        diagnostics_.error(error.what());
+        diagnostics_.error(error.what(), node.span(), "runtime.execution");
         throw;
     }
-}
-
-/**
- * @brief Lowers input through `lowerToHIR`.
- *
- * @param node Value supplied for `node`.
- * @return Value produced by the operation.
- */
-ir::HIRModule EngineController::lowerToHIR(const ast::Node &node) const {
-    ir::ASTLoweringPass pass{lowering_};
-
-    try {
-        return pass.lower(node);
-    } catch (const std::runtime_error &error) {
-        diagnostics_.error(error.what());
-        throw;
-    }
-}
-
-/**
- * @brief Lowers input through `lowerToMIR`.
- *
- * @param hir Value supplied for `hir`.
- * @return Value produced by the operation.
- */
-ir::MIRModule EngineController::lowerToMIR(const ir::HIRModule &hir) const {
-    ir::HIRLoweringPass pass{lowering_};
-
-    try {
-        return pass.lower(hir);
-    } catch (const std::runtime_error &error) {
-        diagnostics_.error(error.what());
-        throw;
-    }
-}
-
-/**
- * @brief Lowers input through `lowerToMIR`.
- *
- * @param node Value supplied for `node`.
- * @return Value produced by the operation.
- */
-ir::MIRModule EngineController::lowerToMIR(const ast::Node &node) const {
-    ir::HIRModule hir{lowerToHIR(node)};
-
-    return lowerToMIR(hir);
 }
 
 /**
@@ -1080,24 +1017,6 @@ source::PreprocessorController &EngineController::preprocessor() {
  */
 const source::PreprocessorController &EngineController::preprocessor() const {
     return preprocessor_;
-}
-
-/**
- * @brief Lowers input through `lowering`.
- *
- * @return Value produced by the operation.
- */
-ir::LoweringRegistry &EngineController::lowering() {
-    return lowering_;
-}
-
-/**
- * @brief Lowers input through `lowering`.
- *
- * @return Value produced by the operation.
- */
-const ir::LoweringRegistry &EngineController::lowering() const {
-    return lowering_;
 }
 
 /**

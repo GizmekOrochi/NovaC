@@ -9,7 +9,7 @@ normal Engine registrations and installing them through an
 The control-flow facilities are intentionally small. They do **not** introduce
 another controller, another feature hierarchy, or a fixed branch instruction
 set. They provide reusable glue around the Engine APIs that already own syntax,
-AST schemas, runtime handlers, and HIR lowering.
+AST schemas, and runtime handlers.
 
 The complete tested example is :doc:`../examples/custom_control_flow`.
 
@@ -37,9 +37,6 @@ usually belong to one statement:
 
 ``runtime``
    Optional runtime statement handler.
-
-``hir``
-   Optional AST-to-HIR lowerer.
 
 ``novac::controlflow::statement(spec)`` returns an ordinary
 ``EngineFeature::Installer``. Installation therefore remains transactional: if
@@ -69,8 +66,7 @@ The shape of a language-defined ``unless`` feature is:
            "Language-defined conditional"
        },
        .parse = /* parse unless + condition + body */,
-       .runtime = /* execute body when condition is false */,
-       .hir = /* create condition/body/exit control-flow blocks */
+       .runtime = /* execute body when condition is false */
    }));
 
    engine.install(unless);
@@ -175,43 +171,9 @@ Call ``step()`` immediately before each body execution. A maximum of ``0`` means
 unlimited execution. The guard counts iterations only; it does not interpret
 break, continue, return, or language-specific signals.
 
-HIR lowering
-------------
-
-NovaC does not impose operation names such as ``branch`` or ``jump`` on custom
-languages. A HIR lowerer chooses its own operations and control-flow convention.
-The generic builder only provides blocks, instructions, and terminators.
-
-Typical conditional lowering is:
-
-.. code-block:: cpp
-
-   const auto condition{lowering.lowerHIR(*node.child("condition"), out)};
-   const auto body{out.createBlock("unless.body")};
-   const auto exit{out.createBlock("unless.exit")};
-
-   out.terminate(
-       "branch.false",
-       {novac::ir::Operand::fromValue(*condition)},
-       {body, exit});
-
-   out.setCurrentBlock(body);
-   lowering.lowerHIR(*node.child("body"), out);
-   if (!out.currentBlockTerminated()) {
-       out.terminate("jump", {}, {exit});
-   }
-
-   out.setCurrentBlock(exit);
-
-``currentBlockTerminated()`` is important when composing lowerers: a nested body
-may already have emitted a terminating operation, so the outer lowerer must not
-blindly add another terminator.
-
 What this API deliberately does not define
 ------------------------------------------
 
 The facility does not define standard ``if``, ``while``, ``break`` or
 ``continue`` semantics. Essentials remains the reusable standard implementation
-of those constructs. It also does not define a universal HIR control-flow
-instruction set. A language/backend can choose the operations it needs while
-still using NovaC's generic block structure.
+of those constructs. Compilation lowering belongs to the separate, parked compilation asset.

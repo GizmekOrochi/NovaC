@@ -4,6 +4,8 @@
 
 #include <cstddef>
 #include <optional>
+#include <stdexcept>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -27,7 +29,7 @@ enum class DiagnosticSeverity {
     Warning,
 
     /**
-     * @brief Diagnostic indicating a compilation or processing error.
+     * @brief Diagnostic indicating a source or processing error.
      */
     Error
 };
@@ -119,6 +121,18 @@ struct Diagnostic {
     metadata::MetadataStore metadata{};
 };
 
+/** Exception carrying a structured diagnostic across lexer/parser boundaries. */
+class DiagnosticException : public std::runtime_error {
+public:
+    explicit DiagnosticException(Diagnostic diagnostic)
+        : std::runtime_error(diagnostic.message), diagnostic_{std::move(diagnostic)} {}
+
+    const Diagnostic &diagnostic() const noexcept { return diagnostic_; }
+
+private:
+    Diagnostic diagnostic_;
+};
+
 /**
  * @brief Collects and formats diagnostics produced by the engine.
  *
@@ -159,6 +173,9 @@ public:
      * @param span Source span associated with the diagnostic.
      */
     void error(std::string message, SourceSpan span);
+
+    /** Reports a coded error with source provenance. */
+    void error(std::string message, SourceSpan span, std::string code);
 
     /**
      * @brief Reports a warning without source location.
@@ -235,10 +252,11 @@ public:
     /**
      * @brief Formats all diagnostics as human-readable text.
      *
-     * Each diagnostic is written on its own line. When a valid line and column
+     * Each diagnostic is written on its own line. File names are emitted
+     * when available, followed by one-based line and column. When a valid line and column
      * are present, the output follows the form:
      *
-     * severity: line:column: message
+     * severity: file:line:column: message [optional.code]
      *
      * Otherwise only the severity and message are printed.
      *

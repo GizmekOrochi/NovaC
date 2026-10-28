@@ -4,6 +4,26 @@
 #include <utility>
 
 namespace novac::diagnostics {
+namespace {
+SourceSpan unknownSpan() {
+    SourceSpan span{};
+    span.begin.line = span.begin.column = 0;
+    span.end.line = span.end.column = 0;
+    return span;
+}
+
+void formatLocation(std::ostringstream &output, const SourceLocation &loc) {
+    if (!loc.file.empty()) {
+        output << loc.file;
+        if (loc.line > 0 && loc.column > 0) output << ':';
+        else { output << ": "; return; }
+    }
+    if (loc.line > 0 && loc.column > 0) {
+        output << loc.line << ':' << loc.column << ": ";
+    }
+}
+} // namespace
+
 
 /**
  * @brief Implements the `report` operation.
@@ -20,7 +40,7 @@ void DiagnosticEngine::report(Diagnostic diagnostic) {
  * @param message Value supplied for `message`.
  */
 void DiagnosticEngine::error(std::string message) {
-    report({DiagnosticSeverity::Error, std::move(message), {}});
+    report({DiagnosticSeverity::Error, std::move(message), unknownSpan()});
 }
 
 /**
@@ -38,8 +58,17 @@ void DiagnosticEngine::error(std::string message, SourceSpan span) {
  *
  * @param message Value supplied for `message`.
  */
+void DiagnosticEngine::error(std::string message, SourceSpan span, std::string code) {
+    Diagnostic diagnostic{};
+    diagnostic.severity = DiagnosticSeverity::Error;
+    diagnostic.message = std::move(message);
+    diagnostic.span = std::move(span);
+    diagnostic.code = std::move(code);
+    report(std::move(diagnostic));
+}
+
 void DiagnosticEngine::warning(std::string message) {
-    report({DiagnosticSeverity::Warning, std::move(message), {}});
+    report({DiagnosticSeverity::Warning, std::move(message), unknownSpan()});
 }
 
 /**
@@ -58,7 +87,7 @@ void DiagnosticEngine::warning(std::string message, SourceSpan span) {
  * @param message Value supplied for `message`.
  */
 void DiagnosticEngine::note(std::string message) {
-    report({DiagnosticSeverity::Note, std::move(message), {}});
+    report({DiagnosticSeverity::Note, std::move(message), unknownSpan()});
 }
 
 /**
@@ -122,9 +151,7 @@ std::string DiagnosticEngine::format() const {
     for (const Diagnostic &diagnostic : diagnostics_) {
         output << severityName(diagnostic.severity) << ": ";
 
-        if (diagnostic.span.begin.line > 0 && diagnostic.span.begin.column > 0) {
-            output << diagnostic.span.begin.line << ':' << diagnostic.span.begin.column << ": ";
-        }
+        formatLocation(output, diagnostic.span.begin);
 
         output << diagnostic.message;
         if (!diagnostic.code.empty()) {
@@ -134,22 +161,19 @@ std::string DiagnosticEngine::format() const {
 
         for (const DiagnosticLabel &label : diagnostic.labels) {
             output << "  label: ";
-            if (label.span.begin.line > 0 && label.span.begin.column > 0) {
-                output << label.span.begin.line << ':' << label.span.begin.column << ": ";
-            }
+            formatLocation(output, label.span.begin);
             output << label.message << '\n';
         }
 
         for (const DiagnosticNote &noteValue : diagnostic.notes) {
             output << "  note: ";
-            if (noteValue.span.has_value() && noteValue.span->begin.line > 0 && noteValue.span->begin.column > 0) {
-                output << noteValue.span->begin.line << ':' << noteValue.span->begin.column << ": ";
-            }
+            if (noteValue.span.has_value()) formatLocation(output, noteValue.span->begin);
             output << noteValue.message << '\n';
         }
 
         for (const DiagnosticFixIt &fix : diagnostic.fixes) {
             output << "  fix: ";
+            formatLocation(output, fix.span.begin);
             if (!fix.message.empty()) {
                 output << fix.message << " -> ";
             }

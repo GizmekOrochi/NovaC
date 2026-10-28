@@ -67,7 +67,7 @@ public:
      * @param keyword Keyword text to register.
      * @return Registration result.
      *
-     * @throws std::runtime_error If the keyword is empty.
+     * @throws std::runtime_error If the keyword is empty or duplicated under DuplicatePolicy::Error.
      */
     registry::RegisterStatus keyword(std::string keyword);
 
@@ -81,7 +81,7 @@ public:
      * @param symbol Symbol text to register.
      * @return Registration result.
      *
-     * @throws std::runtime_error If the symbol is empty.
+     * @throws std::runtime_error If the symbol is empty or duplicated under DuplicatePolicy::Error.
      */
     registry::RegisterStatus symbol(std::string symbol);
 

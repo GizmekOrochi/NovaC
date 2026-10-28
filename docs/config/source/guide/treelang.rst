@@ -3,7 +3,7 @@ Using NovaC as the compiler framework for TreeLang
 
 NovaC can be used as the compiler infrastructure underneath TreeLang without
 making TreeLang part of NovaC itself. This distinction is important: NovaC
-provides reusable compiler mechanisms, while TreeLang remains responsible for
+provides reusable language-building mechanisms (with compilation assets parked), while TreeLang remains responsible for
 its own syntax, semantics, intermediate representations, ABI lowering and
 runtime behavior.
 
@@ -15,13 +15,10 @@ The intended boundary is:
    +-- source / preprocessing infrastructure
    +-- extensible lexer and parser registries
    +-- generic AST schemas and metadata
-   +-- compilation sessions and pass registries
    +-- scopes and symbol infrastructure
    +-- type, layout, storage and memory infrastructure
-   +-- classic HIR/MIR when a CFG-oriented representation is appropriate
-   +-- generic region/block/operation IR for custom representations
+   +-- generic HIR/MIR/IR and lowering infrastructure
    +-- diagnostics
-   +-- backend interfaces
           |
           v
    TreeLang integration
@@ -51,21 +48,24 @@ header:
 
    #include <NovaC.hpp>
 
-The umbrella header exposes both convenience controllers and the lower-level
-building blocks. TreeLang therefore does not need a second compiler-specific
-NovaC header.
+The umbrella header exposes the Engine and the active, reusable language
+building blocks. The former compilation controller and backend infrastructure
+have been moved to a parked asset and are not part of this public header.
 
-Default compilation is optional
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Compilation asset is parked
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``CompilationController`` is a convenience recipe for the traditional
-source-to-AST-to-HIR-to-MIR path. It is not the definition of a NovaC compiler.
-A project can use the defaults, replace individual ``CompilationSteps``, or
-skip the controller and compose the lower-level components directly.
+The old ``CompilationController``, ``CompilationSession``, ``ArtifactStore``,
+``PassRegistry`` and backend registry have been extracted into
+``novac/assets/compilation/`` (including its ``backend/`` subdirectory).
+The asset is not compiled or linked into the
+NovaC library and are not exposed by ``NovaC.hpp`` while the compilation layer
+is being redesigned. Do not build TreeLang against this parked asset as an
+active API.
 
-That is useful for TreeLang because the language can reuse the standard source,
-lexer and parser infrastructure while choosing a different semantic or IR
-pipeline later without forking NovaC.
+TreeLang can still compose its own processing pipeline from the Engine's source,
+lexer, parser, AST and symbol primitives without a prescribed compiler
+controller.
 
 Extensible syntax and AST
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -78,10 +78,9 @@ its language constructs outside the NovaC core.
 Semantic passes, scopes and symbols
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``CompilationSession``, ``ArtifactStore`` and ``PassRegistry`` allow a compiler
-to introduce arbitrary analysis and transformation stages. ``ScopeGraph`` and
-``SymbolTable`` provide compiler-side lexical relationships independently from
-the runtime interpreter.
+The Engine's ``ScopeGraph`` and ``SymbolTable`` provide lexical relationships
+independently from its runtime interpreter. TreeLang can implement its own
+pass scheduling and artifact management while the compilation asset is parked.
 
 This means language-specific name resolution, ownership rules, lifetime
 analysis or other semantic checks can be implemented as TreeLang passes rather
@@ -90,9 +89,9 @@ than as special cases in NovaC.
 Two IR choices
 ^^^^^^^^^^^^^^
 
-NovaC keeps the classic HIR/MIR infrastructure for conventional CFG-oriented
-compilers. A language is not required to force every semantic concept into
-that representation, however. The generic IR infrastructure provides modules,
+Engine provides classic HIR/MIR infrastructure for CFG-oriented execution, analysis
+and compiler experiments. A language is not required to force every semantic
+concept into that representation, however. Engine generic IR provides modules,
 regions, blocks, operations, operands, results, successors and metadata that a
 language integration can specialize without adding language-specific opcodes
 to NovaC itself.
@@ -112,7 +111,7 @@ A TreeLang compiler can therefore use a pipeline such as:
       v
    TreeLang semantic passes
       |
-      +----> NovaC HIR/MIR, when useful
+      +----> Engine HIR/MIR, for interpretation or analysis
       |
       +----> custom semantic IR, when useful
       |
@@ -141,7 +140,7 @@ For a production TreeLang compiler, a clean separation is:
 
 .. code-block:: text
 
-   NovaC compiler infrastructure
+   NovaC Engine primitives
               |
               v
    TreeLang semantics and lowering
@@ -163,9 +162,9 @@ The following rule should be used when extending the integration.
 
 **Belongs in NovaC**
    A mechanism is generic enough to be useful to unrelated languages: lexer or
-   parser extension points, metadata, diagnostics, pass scheduling, symbol
-   infrastructure, generic IR facilities, backend interfaces, type/layout
-   infrastructure, and similar compiler machinery.
+   parser extension points, metadata, diagnostics, symbol infrastructure,
+   type/layout infrastructure and generic Engine IR. Pass scheduling and
+   backend interfaces can be revisited in the separate compilation asset.
 
 **Belongs in TreeLang**
    A concept exists because of TreeLang's syntax, semantic model, execution

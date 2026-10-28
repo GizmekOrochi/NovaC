@@ -1,9 +1,8 @@
 #pragma once
 
 // NovaC intentionally exposes one public umbrella header. Individual novac/...
-// headers remain available internally and for advanced builds, but consumers
-// can include only <NovaC.hpp> whether they use the default controllers or
-// assemble every compiler subsystem themselves.
+// headers remain available internally and for advanced builds. <NovaC.hpp> intentionally exposes only
+// the supported language engine and enabled assets.
 
 #include "novac/Version.hpp"
 
@@ -27,17 +26,17 @@
 #include "novac/engine/syntax/Node.hpp"
 #include "novac/engine/syntax/Parser.hpp"
 
-// Semantics and transformations
+// Semantics and language control flow
 #include "novac/engine/semantics/Symbols.hpp"
-#include "novac/engine/transformation/IR.hpp"
-#include "novac/engine/transformation/GenericIR.hpp"
 #include "novac/engine/controlflow/ControlFlow.hpp"
 
-// Generic compilation infrastructure and optional classic facade
-#include "novac/engine/compilation/Compilation.hpp"
-#include "novac/engine/backend/Backend.hpp"
+// Generic HIR/MIR/IR primitives can be used by interpreters and analyzers.
+// Compilation sessions and backends remain together in one inactive asset.
+#include "novac/engine/transformation/IR.hpp"
+#include "novac/engine/transformation/GenericIR.hpp"
+
+// Core engine: language-agnostic pipeline primitives.
 #include "novac/engine/EngineController.hpp"
-#include "novac/engine/compilation/CompilationController.hpp"
 
 // Optional runtime execution infrastructure
 #include "novac/engine/execution/Runtime.hpp"

@@ -10,7 +10,6 @@
 #include "syntax/Token.hpp"
 #include "source/SourceController.hpp"
 #include "source/PreprocessorController.hpp"
-#include "transformation/IR.hpp"
 
 #include <functional>
 #include <string>
@@ -123,7 +122,7 @@ public:
     /**
      * @brief Adds an installer callback.
      *
-     * Installers usually register lexer, parser, AST, runtime or lowering
+     * Installers usually register lexer, parser, AST or runtime
      * behavior through EngineController.
      *
      * Multiple installers are allowed and are executed in registration order.
@@ -217,7 +216,7 @@ struct EngineControllerOptions final {
  * EngineController is the high-level façade used to construct and operate a
  * NovaC language.
  *
- * It owns the lexer, AST, parser, runtime and lowering registries together with
+ * It owns the lexer, AST, parser and runtime registries together with
  * the diagnostic engine and installed feature metadata.
  *
  * Most registration functions simply forward to the appropriate subsystem,
@@ -229,8 +228,8 @@ public:
     /**
      * @brief Creates an engine controller.
      *
-     * The configured duplicate policy is applied to the AST, parser, runtime
-     * and lowering registries created by the controller.
+     * The configured duplicate policy is applied to the AST, parser and runtime
+     * registries created by the controller.
      *
      * @param options Initial controller options.
      */
@@ -264,6 +263,14 @@ public:
      * @throws std::runtime_error If symbol is empty or duplicate registration is rejected.
      */
     registry::RegisterStatus symbol(std::string symbol);
+
+    /** Explicit idempotent declarations for tokens shared between extensions.
+     * Unlike keyword()/symbol(), these methods intentionally reuse already
+     * registered tokens, regardless of the duplicate registration policy.
+     * They return Ignored if a matching token already exists.
+     */
+    registry::RegisterStatus ensureKeyword(std::string keyword);
+    registry::RegisterStatus ensureSymbol(std::string symbol);
 
     /**
      * @brief Registers an extensible preprocessor directive.
@@ -587,55 +594,6 @@ public:
     void setBinaryNodeKind(std::string kind);
 
     /**
-     * @brief Registers an AST-to-HIR lowerer.
-     *
-     * During AST lowering, the node kind is used to select this function.
-     *
-     * @param nodeKind AST node kind.
-     * @param lowerer Lowering function.
-     * @return Registration result.
-     *
-     * @throws std::runtime_error If arguments are invalid or duplicate registration is rejected.
-     */
-    registry::RegisterStatus hir(std::string nodeKind, ir::LoweringRegistry::HIRLowerer lowerer);
-
-    /**
-     * @brief Registers an AST-to-HIR lowerer using a typed node kind.
-     *
-     * @param nodeKind AST node kind.
-     * @param lowerer Lowering function.
-     * @return Registration result.
-     *
-     * @throws std::runtime_error If lowerer is empty or duplicate registration is rejected.
-     */
-    registry::RegisterStatus hir(const ids::NodeKind &nodeKind, ir::LoweringRegistry::HIRLowerer lowerer);
-
-    /**
-     * @brief Registers a HIR-to-MIR lowerer.
-     *
-     * The HIR instruction operation is used to select this function while
-     * lowering to MIR.
-     *
-     * @param instructionKind HIR instruction operation.
-     * @param lowerer Lowering function.
-     * @return Registration result.
-     *
-     * @throws std::runtime_error If arguments are invalid or duplicate registration is rejected.
-     */
-    registry::RegisterStatus mir(std::string instructionKind, ir::LoweringRegistry::MIRLowerer lowerer);
-
-    /**
-     * @brief Registers a HIR-to-MIR lowerer using a typed operation.
-     *
-     * @param instructionKind HIR instruction operation.
-     * @param lowerer Lowering function.
-     * @return Registration result.
-     *
-     * @throws std::runtime_error If lowerer is empty or duplicate registration is rejected.
-     */
-    registry::RegisterStatus mir(const ids::Operation &instructionKind, ir::LoweringRegistry::MIRLowerer lowerer);
-
-    /**
      * @brief Creates an AST node.
      *
      * This is a convenience wrapper around ast::Node::make().
@@ -789,45 +747,6 @@ public:
      * @throws std::runtime_error If no runtime handler is registered or execution fails.
      */
     void exec(const ast::Node &node) const;
-
-    /**
-     * @brief Lowers an AST node to HIR.
-     *
-     * A temporary ASTLoweringPass is created using the configured lowering
-     * registry.
-     *
-     * @param node AST node to lower.
-     * @return Produced HIR module.
-     *
-     * @throws std::runtime_error If required lowerers are missing.
-     */
-    ir::HIRModule lowerToHIR(const ast::Node &node) const;
-
-    /**
-     * @brief Lowers a HIR module to MIR.
-     *
-     * A temporary HIRLoweringPass is created using the configured lowering
-     * registry.
-     *
-     * @param hir HIR module to lower.
-     * @return Produced MIR module.
-     *
-     * @throws std::runtime_error If required lowerers are missing.
-     */
-    ir::MIRModule lowerToMIR(const ir::HIRModule &hir) const;
-
-    /**
-     * @brief Lowers an AST node directly to MIR.
-     *
-     * The AST is first lowered to HIR, then the produced HIR module is lowered
-     * to MIR.
-     *
-     * @param node AST node to lower.
-     * @return Produced MIR module.
-     *
-     * @throws std::runtime_error If required lowerers are missing.
-     */
-    ir::MIRModule lowerToMIR(const ast::Node &node) const;
 
     /**
      * @brief Installs a feature atomically.
@@ -999,20 +918,6 @@ public:
     /** @brief Returns the source preprocessor controller. */
     const source::PreprocessorController &preprocessor() const;
 
-    /**
-     * @brief Returns the lowering registry.
-     *
-     * @return Mutable lowering registry.
-     */
-    ir::LoweringRegistry &lowering();
-
-    /**
-     * @brief Returns the lowering registry.
-     *
-     * @return Lowering registry.
-     */
-    const ir::LoweringRegistry &lowering() const;
-
 private:
     /**
      * @brief Stored metadata for an installed feature.
@@ -1054,7 +959,6 @@ private:
     runtime::RuntimeRegistry runtime_;
     source::SourceController sources_;
     source::PreprocessorController preprocessor_;
-    ir::LoweringRegistry lowering_;
     mutable diagnostics::DiagnosticEngine diagnostics_;
     std::string startDomain_;
     std::vector<InstalledFeature> features_;

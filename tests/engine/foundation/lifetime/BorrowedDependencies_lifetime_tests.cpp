@@ -28,8 +28,6 @@ static_assert(safeOneDependency<parser::Parser, parser::ParserRegistry, std::str
 static_assert(safeOneDependency<parser::Parser, parser::ParserRegistry, const ids::ParseDomain &>);
 static_assert(safeOneDependency<runtime::Runtime, runtime::RuntimeRegistry>);
 static_assert(safeOneDependency<runtime::RuntimeContext, runtime::RuntimeRegistry>);
-static_assert(safeOneDependency<ir::ASTLoweringPass, ir::LoweringRegistry>);
-static_assert(safeOneDependency<ir::HIRLoweringPass, ir::LoweringRegistry>);
 static_assert(safeOneDependency<semantics::SymbolTable, semantics::ScopeGraph>);
 static_assert(safeOneDependency<assets::types::LayoutController, assets::types::TypeController>);
 static_assert(safeOneDependency<assets::types::LayoutResolutionSession, assets::types::TypeController>);

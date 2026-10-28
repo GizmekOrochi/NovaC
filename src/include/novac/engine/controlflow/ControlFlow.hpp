@@ -46,16 +46,13 @@ struct StatementSpec {
     /** Optional runtime statement handler. */
     std::optional<runtime::StmtHandler> runtime{};
 
-    /** Optional AST-to-HIR lowerer. */
-    std::optional<ir::LoweringRegistry::HIRLowerer> hir{};
 };
 
 /**
  * @brief Builds an EngineFeature installer from a control-flow statement spec.
  *
  * The returned installer performs the requested lexer registration, then
- * installs the AST schema, parser rule, optional runtime handler, and optional
- * HIR lowerer. Use it with EngineFeature::onInstall() so the complete statement
+ * installs the AST schema, parser rule, optional runtime handler, and optional runtime handler. Use it with EngineFeature::onInstall() so the complete statement
  * participates in normal transactional feature installation.
  *
  * @param spec Statement registrations to compose.

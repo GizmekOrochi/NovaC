@@ -25,8 +25,8 @@ void ReturnStatementsFeature::install(EssentialsController &controller) const {
     const FunctionSyntaxOptions options{controller.functions()};
     const bool enforce{controller.options().enforceChildTraits};
 
-    controller.engine().keyword(options.returnKeyword);
-    controller.engine().symbol(core.semicolonToken);
+    controller.engine().ensureKeyword(options.returnKeyword);
+    controller.engine().ensureSymbol(core.semicolonToken);
 
     controller.engine().node({
         options.returnNodeKind,

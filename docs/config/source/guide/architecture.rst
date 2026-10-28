@@ -4,7 +4,7 @@ Architecture
 NovaC separates **infrastructure** from **language semantics**.
 
 The Engine knows how to tokenize, dispatch parser rules, validate generic AST
-schemas, dispatch runtime handlers, and run lowering passes. It does not decide
+schemas, and dispatch runtime handlers. It does not decide
 that your language must have ``if``, ``+``, functions, or even executable
 semantics.
 
@@ -30,17 +30,11 @@ The complete picture
         |
         v
        AST  ---------------------------> Runtime evaluation
-        |
-        | optional lowering
-        v
-       HIR
-        |
-        | optional lowering
-        v
-       MIR
-        |
-        v
-   your backend / optimizer / analysis
+
+HIR/MIR/IR are optional **Engine infrastructure**, available for both
+interpreters and analysis. Compiler sessions, pass orchestration and backends
+remain together in the parked ``novac/assets/compilation`` asset (backend
+under ``compilation/backend``) and are not part of the installed library.
 
 There are therefore two common NovaC workflows.
 
@@ -59,10 +53,10 @@ Compiler / analysis workflow
 
 .. code-block:: text
 
-   source -> tokens -> AST -> HIR -> MIR -> your next stage
+   source -> tokens -> AST -> Engine HIR/MIR -> your interpreter or analyzer
 
-HIR/MIR are optional tools for projects that need normalized intermediate
-representations. They are explained from first principles in :doc:`ir`.
+HIR/MIR live in Engine. A separate compilation asset may consume them later.
+See :doc:`ir` for the distinction and future integration boundary.
 
 Registries are the extension mechanism
 --------------------------------------
@@ -74,8 +68,6 @@ into registries:
 * parser rules grouped by domains;
 * AST node schemas;
 * runtime handlers by node kind;
-* AST-to-HIR lowerers;
-* HIR-to-MIR lowerers;
 * generic type definitions, type-to-type conversions, operation signatures, and semantic rules.
 
 This is why independent language features can be composed without editing the
@@ -113,7 +105,7 @@ Choose the smallest layer you need
 
 A calculator may use only Engine + Atomic. A dynamically typed scripting language
 may use Engine + Atomic + Essentials without Types, while a statically typed
-language can add TypeController explicitly. A compiler experiment may use Engine and custom lowering rules
-without Essentials at all.
+language can add TypeController explicitly. Interpreters and compiler experiments can use the IR primitives
+independently of compiler orchestration.
 
 That ability to stop at the level you need is a central design goal of NovaC.

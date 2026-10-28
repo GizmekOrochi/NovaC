@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../syntax/Node.hpp"
-#include "../foundation/Ids.hpp"
-#include "../foundation/registry/Registry.hpp"
-#include "../foundation/registry/RegistryHelpers.hpp"
-#include "../foundation/Metadata.hpp"
+#include "novac/engine/syntax/Node.hpp"
+#include "novac/engine/foundation/Ids.hpp"
+#include "novac/engine/foundation/registry/Registry.hpp"
+#include "novac/engine/foundation/registry/RegistryHelpers.hpp"
+#include "novac/engine/foundation/Metadata.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -346,6 +346,21 @@ struct MIRModule {
     metadata::MetadataStore metadata{};
 };
 
+/** Validation settings for the generic HIR/MIR control-flow graph. */
+struct IRValidationOptions {
+    // Partial modules remain supported for incremental builders.
+    bool requireTerminators{false};
+};
+
+/**
+ * Rejects structurally invalid IR with a contextual std::runtime_error.
+ * Checks unique results, use-def dominance, block ids, valid successors,
+ * operation names, result/type consistency and (optionally) termination.
+ * Operation-specific operand types remain the responsibility of extensions.
+ */
+void validate(const HIRModule &module, IRValidationOptions options = {});
+void validate(const MIRModule &module, IRValidationOptions options = {});
+
 /**
  * @brief Builds a HIR module one block and instruction at a time.
  *
@@ -443,14 +458,14 @@ public:
      * @brief Terminates the current block.
      *
      * The terminator is stored separately from regular instructions and marks
-     * the block as complete. No new instruction can be emitted into the block
-     * after this call.
+     * the block as complete. All target blocks must exist at the time of this
+     * call. No new instruction can be emitted into the block afterwards.
      *
      * @param op Terminator operation name.
      * @param operands Terminator operands.
      * @param targets Target block identifiers.
      *
-     * @throws std::runtime_error If op is empty or the current block already has a terminator.
+     * @throws std::runtime_error If op is empty, a target is invalid, or the current block is terminated.
      */
     void terminate(std::string op, std::vector<Operand> operands = {}, std::vector<BlockId> targets = {});
 
@@ -468,7 +483,7 @@ public:
     /**
      * @brief Completes the module and transfers it out of the builder.
      *
-     * The internal module is moved out of the builder, so the returned value
+     * The module is validated before being moved out of the builder. The returned value
      * becomes the completed HIR representation.
      *
      * @return Built HIR module.
@@ -585,14 +600,14 @@ public:
      * @brief Terminates the current block.
      *
      * The terminator is stored separately from regular instructions and marks
-     * the block as complete. No new instruction can be emitted into the block
-     * after this call.
+     * the block as complete. All target blocks must exist at the time of this
+     * call. No new instruction can be emitted into the block afterwards.
      *
      * @param op Terminator operation name.
      * @param operands Terminator operands.
      * @param targets Target block identifiers.
      *
-     * @throws std::runtime_error If op is empty or the current block already has a terminator.
+     * @throws std::runtime_error If op is empty, a target is invalid, or the current block is terminated.
      */
     void terminate(std::string op, std::vector<Operand> operands = {}, std::vector<BlockId> targets = {});
 
@@ -610,7 +625,7 @@ public:
     /**
      * @brief Completes the module and transfers it out of the builder.
      *
-     * The internal module is moved out of the builder, so the returned value
+     * The module is validated before being moved out of the builder. The returned value
      * becomes the completed MIR representation.
      *
      * @return Built MIR module.

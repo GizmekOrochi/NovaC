@@ -56,7 +56,7 @@ void ForLoopsFeature::install(EssentialsController &controller) const {
     const ControlFlowSyntaxOptions options{controller.controlFlow()};
     const bool enforce{controller.options().enforceChildTraits};
 
-    controller.engine().keyword(options.forKeyword);
+    controller.engine().ensureKeyword(options.forKeyword);
 
     controller.engine().node({
         options.forNodeKind,

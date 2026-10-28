@@ -67,7 +67,7 @@ TEST(LexerRegistry, RegistersKeywords) {
 }
 
 TEST(LexerRegistry, IgnoresDuplicateKeywords) {
-    LexerRegistry registry{};
+    LexerRegistry registry{novac::registry::DuplicatePolicy::Ignore};
 
     CHECK(registry.keyword("if") == RegisterStatus::Inserted);
     CHECK(registry.keyword("if") == RegisterStatus::Ignored);
@@ -98,7 +98,7 @@ TEST(LexerRegistry, RegistersSymbolsWithLongestMatchFirst) {
 }
 
 TEST(LexerRegistry, IgnoresDuplicateSymbols) {
-    LexerRegistry registry{};
+    LexerRegistry registry{novac::registry::DuplicatePolicy::Ignore};
 
     CHECK(registry.symbol("+") == RegisterStatus::Inserted);
     CHECK(registry.symbol("+") == RegisterStatus::Ignored);

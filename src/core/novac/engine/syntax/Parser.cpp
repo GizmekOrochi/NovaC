@@ -5,6 +5,13 @@
 
 namespace novac::parser {
 
+namespace {
+[[noreturn]] void parseError(std::string code, std::string message, const token::Token &token) {
+    throw diagnostics::DiagnosticException({diagnostics::DiagnosticSeverity::Error,
+        std::move(message), token.span, std::move(code)});
+}
+} // namespace
+
 /**
  * @brief Constructs a `ParserRegistry` instance.
  *
@@ -324,7 +331,7 @@ ast::NodePtr ParserRegistry::parse(ParserContext &context, const std::string &do
         context.pos_ = fallbackStart;
     }
 
-    throw std::runtime_error("ParserRegistry::parse: no rule matched domain '" + domain + "' at line " + std::to_string(context.cur().line) + ", column " + std::to_string(context.cur().column));
+    parseError("parser.no-rule", "ParserRegistry::parse: no rule matched domain '" + domain + "' at line " + std::to_string(context.cur().line) + ", column " + std::to_string(context.cur().column), context.cur());
 }
 
 /**
@@ -553,7 +560,7 @@ const token::Token &ParserContext::advance() {
  */
 const token::Token &ParserContext::consume(const std::string &value) {
     if (!check(value)) {
-        throw std::runtime_error("ParserContext::consume: expected '" + value + "', got '" + cur().text + "' at line " + std::to_string(cur().line) + ", column " + std::to_string(cur().column));
+        parseError("parser.expected-token", "ParserContext::consume: expected '" + value + "', got '" + cur().text + "' at line " + std::to_string(cur().line) + ", column " + std::to_string(cur().column), cur());
     }
 
     return advance();
@@ -567,7 +574,7 @@ const token::Token &ParserContext::consume(const std::string &value) {
  */
 const token::Token &ParserContext::consumeKind(token::Kind kind) {
     if (cur().kind != kind) {
-        throw std::runtime_error("ParserContext::consumeKind: unexpected token '" + cur().text + "' at line " + std::to_string(cur().line) + ", column " + std::to_string(cur().column));
+        parseError("parser.unexpected-token", "ParserContext::consumeKind: unexpected token '" + cur().text + "' at line " + std::to_string(cur().line) + ", column " + std::to_string(cur().column), cur());
     }
 
     return advance();
@@ -628,7 +635,7 @@ ast::NodePtr Parser::parse(std::vector<token::Token> tokens) const {
     ast::NodePtr root{context.parse(startDomain_)};
 
     if (!context.end()) {
-        throw std::runtime_error("Parser::parse: unexpected token '" + context.cur().text + "' after complete parse");
+        parseError("parser.trailing-token", "Parser::parse: unexpected token '" + context.cur().text + "' after complete parse", context.cur());
     }
 
     return root;

@@ -37,11 +37,11 @@ void FunctionsFeature::install(EssentialsController &controller) const {
     const FunctionSyntaxOptions options{controller.functions()};
     const bool enforce{controller.options().enforceChildTraits};
 
-    controller.engine().keyword(options.functionKeyword);
+    controller.engine().ensureKeyword(options.functionKeyword);
 
-    controller.engine().symbol(core.leftParenToken);
-    controller.engine().symbol(core.rightParenToken);
-    controller.engine().symbol(core.commaToken);
+    controller.engine().ensureSymbol(core.leftParenToken);
+    controller.engine().ensureSymbol(core.rightParenToken);
+    controller.engine().ensureSymbol(core.commaToken);
 
     controller.engine().node({options.parameterNodeKind, {helpers::stringField(options.nameField, true)}, {}, "Function parameter."});
     controller.engine().node({

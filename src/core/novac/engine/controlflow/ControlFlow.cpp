@@ -43,9 +43,6 @@ controllers::EngineFeature::Installer statement(StatementSpec spec) {
         if (spec.runtime) {
             engine.statement(spec.schema.kind, *spec.runtime);
         }
-        if (spec.hir) {
-            engine.hir(spec.schema.kind, *spec.hir);
-        }
     };
 }
 

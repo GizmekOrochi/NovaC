@@ -83,7 +83,11 @@ registry::RegisterStatus LexerRegistry::keyword(std::string keyword) {
     const auto iter{keywords_.find(keyword)};
 
     if (iter != keywords_.end()) {
-        return registry::RegisterStatus::Ignored;
+        if (duplicatePolicy_ == registry::DuplicatePolicy::Error) {
+            throw std::runtime_error("LexerRegistry::keyword: duplicate keyword '" + keyword + "'");
+        }
+        return duplicatePolicy_ == registry::DuplicatePolicy::Replace
+            ? registry::RegisterStatus::Replaced : registry::RegisterStatus::Ignored;
     }
 
     keywords_.insert(std::move(keyword));
@@ -107,7 +111,11 @@ registry::RegisterStatus LexerRegistry::symbol(std::string symbol) {
     };
 
     if (iter != symbols_.end()) {
-        return registry::RegisterStatus::Ignored;
+        if (duplicatePolicy_ == registry::DuplicatePolicy::Error) {
+            throw std::runtime_error("LexerRegistry::symbol: duplicate symbol '" + symbol + "'");
+        }
+        return duplicatePolicy_ == registry::DuplicatePolicy::Replace
+            ? registry::RegisterStatus::Replaced : registry::RegisterStatus::Ignored;
     }
 
     symbols_.push_back(std::move(symbol));
@@ -352,6 +360,11 @@ std::vector<token::Token> Lexer::tokenize(
         }
     };
 
+    const auto fail{[&](std::string code, std::string message, diagnostics::SourceLocation begin) -> void {
+        throw diagnostics::DiagnosticException({diagnostics::DiagnosticSeverity::Error,
+            std::move(message), {std::move(begin), location()}, std::move(code)});
+    }};
+
     const auto readSuffix{[&]() {
         std::string suffix{};
 
@@ -360,7 +373,7 @@ std::vector<token::Token> Lexer::tokenize(
             advance();
 
             if (index >= source.size() || !registry_.isIdentifierStart(static_cast<unsigned char>(source[index]))) {
-                throw std::runtime_error("Lexer::tokenize: invalid literal suffix at line " + std::to_string(line) + ", column " + std::to_string(column));
+                fail("lexer.invalid-suffix", "Lexer::tokenize: invalid literal suffix at line " + std::to_string(line) + ", column " + std::to_string(column), location());
             }
 
             while (index < source.size() && registry_.isIdentifierContinue(static_cast<unsigned char>(source[index]))) {
@@ -400,7 +413,7 @@ std::vector<token::Token> Lexer::tokenize(
             }
 
             if (index >= source.size()) {
-                throw std::runtime_error("Lexer::tokenize: unterminated block comment at line " + std::to_string(begin.line)  + ", column " + std::to_string(begin.column));
+                fail("lexer.unterminated-comment", "Lexer::tokenize: unterminated block comment at line " + std::to_string(begin.line)  + ", column " + std::to_string(begin.column), begin);
             }
 
             for (std::size_t count{}; count < registry_.blockCommentEnd().size(); ++count) {
@@ -418,10 +431,10 @@ std::vector<token::Token> Lexer::tokenize(
                 continue;
             }
             if (match->length == 0 || match->length > remaining.size()) {
-                throw std::runtime_error("Lexer::tokenize: custom rule '" + entry.id + "' returned invalid length");
+                fail("lexer.invalid-rule-result", "Lexer::tokenize: custom rule '" + entry.id + "' returned invalid length", location());
             }
             if (match->kind == token::Kind::End) {
-                throw std::runtime_error("Lexer::tokenize: custom rule '" + entry.id + "' cannot emit End token");
+                fail("lexer.invalid-rule-result", "Lexer::tokenize: custom rule '" + entry.id + "' cannot emit End token", location());
             }
 
             const diagnostics::SourceLocation begin{location()};
@@ -493,14 +506,14 @@ std::vector<token::Token> Lexer::tokenize(
 
             while (index < source.size() && source[index] != '"') {
                 if (source[index] == '\n') {
-                    throw std::runtime_error("Lexer::tokenize: unterminated string literal at line " + std::to_string(tokenLine) + ", column " + std::to_string(tokenColumn));
+                    fail("lexer.unterminated-string", "Lexer::tokenize: unterminated string literal at line " + std::to_string(tokenLine) + ", column " + std::to_string(tokenColumn), begin);
                 }
 
                 if (source[index] == '\\') {
                     advance();
 
                     if (index >= source.size()) {
-                        throw std::runtime_error("Lexer::tokenize: unterminated escape sequence");
+                        fail("lexer.unterminated-escape", "Lexer::tokenize: unterminated escape sequence", location());
                     }
 
                     switch (source[index]) {
@@ -510,7 +523,7 @@ std::vector<token::Token> Lexer::tokenize(
                         case '"': text += '"'; break;
                         case '\\': text += '\\'; break;
                         default:
-                            throw std::runtime_error("Lexer::tokenize: unsupported escape sequence '\\" + escapeMessage(source[index]) + "'");
+                            fail("lexer.invalid-escape", "Lexer::tokenize: unsupported escape sequence '\\" + escapeMessage(source[index]) + "'", location());
                     }
 
                     advance();
@@ -522,7 +535,7 @@ std::vector<token::Token> Lexer::tokenize(
             }
 
             if (index >= source.size()) {
-                throw std::runtime_error("Lexer::tokenize: unterminated string literal at line " + std::to_string(tokenLine) + ", column " + std::to_string(tokenColumn));
+                fail("lexer.unterminated-string", "Lexer::tokenize: unterminated string literal at line " + std::to_string(tokenLine) + ", column " + std::to_string(tokenColumn), begin);
             }
 
             advance();
@@ -549,7 +562,7 @@ std::vector<token::Token> Lexer::tokenize(
         }
 
         if (!matched) {
-            throw std::runtime_error("Lexer::tokenize: unexpected character '" + escapeMessage(source[index]) + "' at line " + std::to_string(line) + ", column " + std::to_string(column));
+            fail("lexer.unexpected-character", "Lexer::tokenize: unexpected character '" + escapeMessage(source[index]) + "' at line " + std::to_string(line) + ", column " + std::to_string(column), location());
         }
     }
 

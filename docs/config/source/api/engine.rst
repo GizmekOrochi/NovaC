@@ -2,8 +2,7 @@ Engine API
 ==========
 
 This is the member-level reference for NovaC's language-agnostic Engine. For a
-conceptual introduction, read :doc:`../guide/engine`. For HIR/MIR concepts,
-read :doc:`../guide/ir` before the IR classes below.
+conceptual introduction, read :doc:`../guide/engine`.
 
 Controller
 ----------
@@ -77,29 +76,11 @@ Diagnostics
 .. doxygenstruct:: novac::diagnostics::Diagnostic
    :members:
 
+Generic HIR/MIR/IR are part of Engine and available through ``<NovaC.hpp>``.
+The optional compilation asset (including its backend) is not installed by the default package.
+
 Intermediate representations
 ----------------------------
-
-.. doxygenstruct:: novac::ir::ValueId
-   :members:
-
-.. doxygenstruct:: novac::ir::BlockId
-   :members:
-
-.. doxygenclass:: novac::ir::Literal
-   :members:
-
-.. doxygenclass:: novac::ir::Operand
-   :members:
-
-.. doxygenstruct:: novac::ir::Instruction
-   :members:
-
-.. doxygenstruct:: novac::ir::Terminator
-   :members:
-
-.. doxygenstruct:: novac::ir::BasicBlock
-   :members:
 
 .. doxygenstruct:: novac::ir::HIRModule
    :members:
@@ -111,16 +92,4 @@ Intermediate representations
    :members:
 
 .. doxygenclass:: novac::ir::MIRBuilder
-   :members:
-
-.. doxygenclass:: novac::ir::MIRLoweringContext
-   :members:
-
-.. doxygenclass:: novac::ir::LoweringRegistry
-   :members:
-
-.. doxygenclass:: novac::ir::ASTLoweringPass
-   :members:
-
-.. doxygenclass:: novac::ir::HIRLoweringPass
    :members:

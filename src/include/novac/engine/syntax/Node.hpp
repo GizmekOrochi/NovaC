@@ -232,7 +232,7 @@ public:
     /**
      * @brief Returns all fields stored in the node.
      *
-     * This is mainly useful for generic traversal, validation and lowering
+     * This is mainly useful for generic traversal, validation and analysis
      * code that does not know every field name in advance.
      *
      * @return Field map.

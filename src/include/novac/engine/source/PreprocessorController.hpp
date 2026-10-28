@@ -104,7 +104,7 @@ private:
 /**
  * @brief Extensible source preprocessing controller.
  *
- * Directive handlers are configuration; all per-compilation state lives in a
+ * Directive handlers are configuration; all per-processing state lives in a
  * PreprocessorContext created by process().
  */
 class PreprocessorController {

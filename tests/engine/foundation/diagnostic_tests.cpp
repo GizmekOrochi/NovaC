@@ -253,7 +253,7 @@ TEST(DiagnosticEngine, FormatsSourceLocationWhenPresent) {
 
     const std::string formatted{engine.format()};
 
-    CHECK(formatted.find("error: 12:34: boom") != std::string::npos);
+    CHECK(formatted.find("error: main.novac:12:34: boom") != std::string::npos);
 }
 
 TEST(DiagnosticEngine, DoesNotFormatLocationWhenLineOrColumnIsZero) {

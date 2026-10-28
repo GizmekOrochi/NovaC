@@ -33,8 +33,8 @@ void IfStatementsFeature::install(EssentialsController &controller) const {
     const ControlFlowSyntaxOptions options{controller.controlFlow()};
     const bool enforce{controller.options().enforceChildTraits};
 
-    controller.engine().keyword(options.ifKeyword);
-    controller.engine().keyword(options.elseKeyword);
+    controller.engine().ensureKeyword(options.ifKeyword);
+    controller.engine().ensureKeyword(options.elseKeyword);
 
     controller.engine().node({
         options.ifNodeKind,

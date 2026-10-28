@@ -27,13 +27,12 @@ A useful mental model is:
    +-----------+-----------+
                |
    +-----------v-----------+
-   |         Engine        |  lexer, parser, AST, runtime, optional IR
+   |         Engine        |  lexer, parser, AST, runtime
    +-----------------------+
 
 If you only need expressions, you can stop at Engine + Atomic. If you are
-building a complete imperative language, add Essentials. If you want to build
-custom compiler passes, the Engine also exposes optional HIR and MIR
-infrastructure.
+building a complete imperative language, add Essentials. HIR/MIR/IR and generic lowering are part of Engine and may be used by interpreters.
+Compilation orchestration and backend form a single, **unlinked** compilation asset pending redesign.
 
 Where should I start?
 ---------------------

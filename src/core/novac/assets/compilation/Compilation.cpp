@@ -1,4 +1,4 @@
-#include "novac/engine/compilation/Compilation.hpp"
+#include "novac/assets/compilation/Compilation.hpp"
 
 #include <algorithm>
 #include <queue>

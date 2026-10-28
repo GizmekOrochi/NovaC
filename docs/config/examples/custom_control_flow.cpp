@@ -43,32 +43,6 @@ EngineFeature makeUnlessFeature() {
                 if (!context.eval(*node.child("condition")).truthy()) {
                     context.exec(*node.child("body"));
                 }
-            }},
-        .hir = novac::ir::LoweringRegistry::HIRLowerer{
-            [](const Node &node,
-               novac::ir::HIRBuilder &out,
-               const novac::ir::LoweringRegistry &lowering) {
-                const auto condition{lowering.lowerHIR(*node.child("condition"), out)};
-                if (!condition) {
-                    throw std::runtime_error("unless condition did not produce a HIR value");
-                }
-
-                const auto body{out.createBlock("unless.body")};
-                const auto exit{out.createBlock("unless.exit")};
-
-                out.terminate(
-                    "branch.false",
-                    {novac::ir::Operand::fromValue(*condition)},
-                    {body, exit});
-
-                out.setCurrentBlock(body);
-                lowering.lowerHIR(*node.child("body"), out);
-                if (!out.currentBlockTerminated()) {
-                    out.terminate("jump", {}, {exit});
-                }
-
-                out.setCurrentBlock(exit);
-                return novac::ir::LoweringRegistry::LoweredValue{};
             }}
     }));
 
@@ -104,22 +78,6 @@ int main() {
         ++hits;
     });
 
-    engine.hir("Bool", [](const Node &node,
-                          novac::ir::HIRBuilder &out,
-                          const novac::ir::LoweringRegistry &) {
-        return novac::ir::LoweringRegistry::LoweredValue{
-            out.emitValue(
-                "const.bool",
-                {novac::ir::Operand::fromLiteral(std::get<bool>(node.field("value")))},
-                novac::ir::ValueType::Bool)};
-    });
-    engine.hir("Hit", [](const Node &,
-                         novac::ir::HIRBuilder &out,
-                         const novac::ir::LoweringRegistry &) {
-        out.emit("hit");
-        return novac::ir::LoweringRegistry::LoweredValue{};
-    });
-
     // The custom feature uses only Engine APIs; Essentials is not installed.
     engine.install(makeUnlessFeature());
 
@@ -127,12 +85,5 @@ int main() {
     const NodePtr program{engine.parse(source)};
     engine.validate(*program);
     engine.exec(*program);
-
-    const novac::ir::HIRModule hir{engine.lowerToHIR(*program)};
-
     std::cout << "runtime hits=" << hits << '\n';
-    std::cout << "hir blocks=" << hir.blocks.size() << '\n';
-    std::cout << hir.blocks[0].name << " -> " << hir.blocks[0].terminator->op << '\n';
-    std::cout << hir.blocks[1].name << " -> " << hir.blocks[1].terminator->op << '\n';
-    std::cout << hir.blocks[2].name << " -> open\n";
 }

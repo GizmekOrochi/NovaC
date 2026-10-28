@@ -26,8 +26,8 @@ void ScopedBlocksFeature::install(EssentialsController &controller) const {
     const CoreSyntaxOptions options{controller.core()};
     const bool enforce{controller.options().enforceChildTraits};
 
-    controller.engine().symbol(options.leftBraceToken);
-    controller.engine().symbol(options.rightBraceToken);
+    controller.engine().ensureSymbol(options.leftBraceToken);
+    controller.engine().ensureSymbol(options.rightBraceToken);
 
     controller.engine().node({
         options.blockNodeKind,

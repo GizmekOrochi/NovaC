@@ -1,9 +1,15 @@
 HIR and MIR: what they are and when to use them
 ================================================
 
-If you are building an interpreter with ``engine.eval()``, you **do not need
-HIR or MIR**. They are optional infrastructure for languages that need compiler
-passes, normalization, analysis, optimization, or a custom backend.
+.. note::
+
+   **Status:** HIR, MIR and generic IR are available through Engine and
+   ``<NovaC.hpp>``. They are generic representations usable by interpreters,
+   analysis tools and custom pipelines. Compilation sessions and backends are
+   one parked compilation asset and are not linked into NovaC.
+
+An interpreter can evaluate AST nodes directly or choose to execute HIR/MIR.
+IR is optional and does not force a compiler or code generation step.
 
 Start with the term "IR"
 ------------------------
@@ -17,8 +23,7 @@ syntax structure. An IR is usually designed to make program analysis and
 transformation easier.
 
 For general background, see `Intermediate representation on Wikipedia
-<https://en.wikipedia.org/wiki/Intermediate_representation>`_. NovaC's HIR and
-MIR are its own extensible representations; the external article explains the
+<https://en.wikipedia.org/wiki/Intermediate_representation>`_. NovaC Engine's HIR and MIR are extensible representations; the external article explains the
 general compiler concept, not NovaC's exact API.
 
 AST vs IR
@@ -53,7 +58,7 @@ or translation to another backend.
 Why two levels?
 ---------------
 
-NovaC provides two optional stages:
+The **Engine** provides two optional generic stages:
 
 ``HIR`` — High-Level Intermediate Representation
    The first normalized representation after the AST. It is a good place to
@@ -63,7 +68,7 @@ NovaC provides two optional stages:
    A later representation where operations may be simplified, normalized, or
    adapted toward backend-oriented processing.
 
-NovaC deliberately does **not** prescribe what operations your HIR and MIR must
+The Engine does **not** prescribe what operations your HIR and MIR must
 contain. The operation strings and lowering rules belong to your language.
 
 .. code-block:: text
@@ -84,10 +89,10 @@ contain. The operation strings and lowering rules belong to your language.
       v
    your optimizer / VM / bytecode generator / native backend / analyzer
 
-What NovaC provides
--------------------
+What the Engine IR contains
+------------------------------------------
 
-The IR subsystem provides reusable structure:
+The Engine IR subsystem provides reusable structure:
 
 * ``HIRModule`` and ``MIRModule``;
 * basic blocks;
@@ -107,8 +112,8 @@ It does **not** provide a predefined instruction set or final backend.
 A concrete HIRBuilder example
 -----------------------------
 
-The following tested example manually builds the instruction sequence shown
-above:
+The following runnable example manually builds the instruction sequence shown
+above using the public NovaC package:
 
 .. literalinclude:: ../../examples/ir_builder.cpp
    :language: cpp

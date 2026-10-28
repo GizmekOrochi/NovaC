@@ -1,10 +1,152 @@
 #include "novac/engine/transformation/IR.hpp"
 
+#include <limits>
 #include <stdexcept>
 #include <utility>
 #include <variant>
 
 namespace novac::ir {
+
+namespace {
+
+struct ValueDefinition {
+    std::size_t block{};
+    std::size_t instruction{};
+};
+
+void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRValidationOptions options) {
+    const std::string prefix{std::string(kind) + " validation: "};
+    if (blocks.empty()) throw std::runtime_error(prefix + "module has no entry block");
+    if (blocks.size() > std::numeric_limits<std::uint32_t>::max()) {
+        throw std::runtime_error(prefix + "too many blocks");
+    }
+
+    std::unordered_map<std::uint32_t, ValueDefinition> definitions;
+    std::vector<std::vector<std::size_t>> successors(blocks.size());
+    std::vector<std::vector<std::size_t>> predecessors(blocks.size());
+
+    for (std::size_t b = 0; b < blocks.size(); ++b) {
+        const BasicBlock &block = blocks[b];
+        const std::string where{prefix + "block " + std::to_string(b) + ": "};
+        if (block.id.value != b) throw std::runtime_error(where + "block ID does not match its index");
+        if (options.requireTerminators && !block.terminator) {
+            throw std::runtime_error(where + "missing terminator");
+        }
+        for (std::size_t i = 0; i < block.instructions.size(); ++i) {
+            const Instruction &instruction = block.instructions[i];
+            if (instruction.op.empty()) {
+                throw std::runtime_error(where + "instruction " + std::to_string(i) + " has empty operation");
+            }
+            if (instruction.result && instruction.type == ValueType::Void) {
+                throw std::runtime_error(where + "value-producing instruction has void type");
+            }
+            if (!instruction.result && instruction.type != ValueType::Void) {
+                throw std::runtime_error(where + "instruction without result must have void type");
+            }
+            if (instruction.result && !definitions.emplace(instruction.result->value, ValueDefinition{b, i}).second) {
+                throw std::runtime_error(where + "duplicate value v" + std::to_string(instruction.result->value));
+            }
+        }
+        if (!block.terminator) continue;
+        const Terminator &term = *block.terminator;
+        if (term.op.empty()) throw std::runtime_error(where + "empty terminator operation");
+        // These operations have engine-defined CFG semantics; extension-defined
+        // terminators retain their own operation-specific successor contracts.
+        if ((term.op == "jump" && term.targets.size() != 1) ||
+            (term.op == "branch" && term.targets.size() != 2) ||
+            (term.op == "return" && !term.targets.empty())) {
+            throw std::runtime_error(where + "invalid successor count for '" + term.op + "'");
+        }
+        for (BlockId target : term.targets) {
+            if (target.value >= blocks.size()) {
+                throw std::runtime_error(where + "invalid target block " + std::to_string(target.value));
+            }
+            successors[b].push_back(target.value);
+            predecessors[target.value].push_back(b);
+        }
+    }
+
+    // Reachable CFG and iterative dominators. Non-reachable blocks may still
+    // contain local definitions, but may not consume values from other blocks.
+    std::vector<bool> reachable(blocks.size(), false);
+    reachable[0] = true;
+    std::vector<std::size_t> worklist{0};
+    for (std::size_t cursor = 0; cursor < worklist.size(); ++cursor) {
+        for (const auto to : successors[worklist[cursor]]) {
+            if (!reachable[to]) { reachable[to] = true; worklist.push_back(to); }
+        }
+    }
+    std::vector<std::vector<bool>> dom(blocks.size(), std::vector<bool>(blocks.size(), false));
+    for (std::size_t b = 0; b < blocks.size(); ++b) {
+        if (reachable[b]) {
+            for (std::size_t d = 0; d < blocks.size(); ++d) dom[b][d] = reachable[d];
+        }
+    }
+    dom[0].assign(blocks.size(), false);
+    dom[0][0] = true;
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (std::size_t b = 1; b < blocks.size(); ++b) {
+            if (!reachable[b]) continue;
+            std::vector<bool> next(blocks.size(), true);
+            for (std::size_t pred : predecessors[b]) {
+                if (!reachable[pred]) continue;
+                for (std::size_t d = 0; d < blocks.size(); ++d) next[d] = next[d] && dom[pred][d];
+            }
+            next[b] = true;
+            if (next != dom[b]) { dom[b] = std::move(next); changed = true; }
+        }
+    }
+
+    const auto checkOperands = [&](const std::vector<Operand> &operands, std::size_t block, std::size_t instruction, const std::string &where) {
+        for (const Operand &operand : operands) {
+            if (!operand.isValue()) continue; // Literal/symbol types are language-defined.
+            const std::uint32_t v = operand.asValue().value;
+            const auto it = definitions.find(v);
+            if (it == definitions.end()) throw std::runtime_error(where + "undefined value v" + std::to_string(v));
+            const ValueDefinition def = it->second;
+            if (def.block == block) {
+                if (def.instruction >= instruction) {
+                    throw std::runtime_error(where + "use of v" + std::to_string(v) + " before its definition");
+                }
+            } else if (!reachable[block] || !dom[block][def.block]) {
+                throw std::runtime_error(where + "definition of v" + std::to_string(v) + " does not dominate its use");
+            }
+        }
+    };
+    for (std::size_t b = 0; b < blocks.size(); ++b) {
+        const BasicBlock &block = blocks[b];
+        for (std::size_t i = 0; i < block.instructions.size(); ++i) {
+            checkOperands(block.instructions[i].operands, b, i,
+                prefix + "block " + std::to_string(b) + " instruction " + std::to_string(i) + ": ");
+        }
+        if (block.terminator) {
+            checkOperands(block.terminator->operands, b, block.instructions.size(),
+                prefix + "block " + std::to_string(b) + " terminator: ");
+        }
+    }
+}
+
+void checkTargets(const std::vector<BlockId> &targets, std::size_t size, const char *owner) {
+    for (BlockId target : targets) {
+        if (target.value >= size) {
+            throw std::runtime_error(std::string(owner) + ": invalid target block " + std::to_string(target.value));
+        }
+    }
+}
+
+} // namespace
+
+void validate(const HIRModule &module, IRValidationOptions options) {
+    validateBlocks(module.blocks, "HIR", options);
+}
+
+void validate(const MIRModule &module, IRValidationOptions options) {
+    validateBlocks(module.blocks, "MIR", options);
+}
+
+
 
 /**
  * @brief Constructs a `Literal` instance.
@@ -234,6 +376,9 @@ HIRBuilder::HIRBuilder()
  * @return Value produced by the operation.
  */
 BlockId HIRBuilder::createBlock(std::string name) {
+    if (module_.blocks.size() >= std::numeric_limits<std::uint32_t>::max()) {
+        throw std::runtime_error("HIRBuilder::createBlock: block ID overflow");
+    }
     const BlockId id{static_cast<std::uint32_t>(module_.blocks.size())};
 
     module_.blocks.push_back(BasicBlock{id, std::move(name), {}, {}});
@@ -281,6 +426,12 @@ bool HIRBuilder::currentBlockTerminated() const {
  * @return Value produced by the operation.
  */
 ValueId HIRBuilder::emitValue(std::string op, std::vector<Operand> operands, ValueType type) {
+    if (op.empty() || type == ValueType::Void) {
+        throw std::runtime_error("HIRBuilder::emitValue: operation must be non-empty and result type non-void");
+    }
+    if (nextValue_ == std::numeric_limits<std::uint32_t>::max()) {
+        throw std::runtime_error("HIRBuilder::emitValue: value ID overflow");
+    }
     if (currentBlock().terminator.has_value()) {
         throw std::runtime_error("HIRBuilder::emitValue: cannot emit instruction after terminator");
     }
@@ -311,6 +462,7 @@ ValueId HIRBuilder::emitValue(const ids::Operation &op, std::vector<Operand> ope
  * @param operands Value supplied for `operands`.
  */
 void HIRBuilder::emit(std::string op, std::vector<Operand> operands) {
+    if (op.empty()) throw std::runtime_error("HIRBuilder::emit: empty operation");
     if (currentBlock().terminator.has_value()) {
         throw std::runtime_error("HIRBuilder::emit: cannot emit instruction after terminator");
     }
@@ -343,6 +495,7 @@ void HIRBuilder::terminate(std::string op, std::vector<Operand> operands, std::v
     if (currentBlock().terminator.has_value()) {
         throw std::runtime_error("HIRBuilder::terminate: block already has a terminator");
     }
+    checkTargets(targets, module_.blocks.size(), "HIRBuilder::terminate");
 
     currentBlock().terminator = Terminator{std::move(op), std::move(operands), std::move(targets)};
 }
@@ -364,6 +517,7 @@ void HIRBuilder::terminate(const ids::Operation &op, std::vector<Operand> operan
  * @return Value produced by the operation.
  */
 HIRModule HIRBuilder::finish() {
+    validate(module_);
     return std::move(module_);
 }
 
@@ -408,6 +562,9 @@ MIRBuilder::MIRBuilder()
  * @return Value produced by the operation.
  */
 BlockId MIRBuilder::createBlock(std::string name) {
+    if (module_.blocks.size() >= std::numeric_limits<std::uint32_t>::max()) {
+        throw std::runtime_error("MIRBuilder::createBlock: block ID overflow");
+    }
     const BlockId id{static_cast<std::uint32_t>(module_.blocks.size())};
 
     module_.blocks.push_back(BasicBlock{id, std::move(name), {}, {}});
@@ -437,6 +594,12 @@ void MIRBuilder::setCurrentBlock(BlockId block) {
  * @return Value produced by the operation.
  */
 ValueId MIRBuilder::emitValue(std::string op, std::vector<Operand> operands, ValueType type) {
+    if (op.empty() || type == ValueType::Void) {
+        throw std::runtime_error("MIRBuilder::emitValue: operation must be non-empty and result type non-void");
+    }
+    if (nextValue_ == std::numeric_limits<std::uint32_t>::max()) {
+        throw std::runtime_error("MIRBuilder::emitValue: value ID overflow");
+    }
     if (currentBlock().terminator.has_value()) {
         throw std::runtime_error("MIRBuilder::emitValue: cannot emit instruction after terminator");
     }
@@ -467,6 +630,7 @@ ValueId MIRBuilder::emitValue(const ids::Operation &op, std::vector<Operand> ope
  * @param operands Value supplied for `operands`.
  */
 void MIRBuilder::emit(std::string op, std::vector<Operand> operands) {
+    if (op.empty()) throw std::runtime_error("MIRBuilder::emit: empty operation");
     if (currentBlock().terminator.has_value()) {
         throw std::runtime_error("MIRBuilder::emit: cannot emit instruction after terminator");
     }
@@ -499,6 +663,7 @@ void MIRBuilder::terminate(std::string op, std::vector<Operand> operands, std::v
     if (currentBlock().terminator.has_value()) {
         throw std::runtime_error("MIRBuilder::terminate: block already has a terminator");
     }
+    checkTargets(targets, module_.blocks.size(), "MIRBuilder::terminate");
 
     currentBlock().terminator = Terminator{std::move(op), std::move(operands), std::move(targets)};
 }
@@ -520,6 +685,7 @@ void MIRBuilder::terminate(const ids::Operation &op, std::vector<Operand> operan
  * @return Value produced by the operation.
  */
 MIRModule MIRBuilder::finish() {
+    validate(module_);
     return std::move(module_);
 }
 
@@ -862,14 +1028,15 @@ HIRLoweringPass::HIRLoweringPass(const LoweringRegistry &registry)
  * @return Value produced by the operation.
  */
 MIRModule HIRLoweringPass::lower(const HIRModule &hir) const {
+    validate(hir);
     MIRBuilder builder{};
     MIRLoweringContext context{};
 
+    // Register all blocks up front: a terminator may branch forward.
+    for (std::size_t i = 1; i < hir.blocks.size(); ++i) {
+        builder.createBlock(hir.blocks[i].name);
+    }
     for (const BasicBlock &block : hir.blocks) {
-        if (block.id.value != 0) {
-            builder.createBlock(block.name);
-        }
-
         builder.setCurrentBlock(block.id);
 
         for (const Instruction &instruction : block.instructions) {

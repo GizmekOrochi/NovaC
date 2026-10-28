@@ -103,12 +103,13 @@ The diagnostics subsystem provides common source locations, spans, severities,
 notes, warnings, and errors. Keeping diagnostics independent from a specific
 language makes them reusable by custom lexer/parser/features.
 
-Optional lowering
------------------
+IR and compilation boundary
+---------------------------
 
-The Engine can also lower AST nodes into HIR and HIR into MIR. This path is not
-required for normal AST interpretation. See :doc:`ir` before using the lowering
-API.
+The Engine provides generic HIR, MIR, IR, builders, validators and opt-in
+lowering mechanisms. Interpreters may use them without a compiler.
+Compilation sessions, pass scheduling and backend interfaces remain parked
+in one optional ``assets/compilation`` asset, not linked or installed by default.
 
 
 Optional asset controllers

@@ -1,4 +1,4 @@
-#include "novac/engine/compilation/CompilationController.hpp"
+#include "novac/assets/compilation/CompilationController.hpp"
 
 #include <iterator>
 #include <stdexcept>
@@ -99,14 +99,13 @@ CompilationSteps classicCompilationSteps(EngineController &engine) {
         engine.nodes().validate(root);
     };
 
-    steps.lowerHIR = [&engine](const ast::Node &root, compilation::CompilationSession &) {
-        ir::ASTLoweringPass lowerer{engine.lowering()};
-        return lowerer.lower(root);
+    // Engine provides generic IR/lowering primitives; the parked compilation asset owns this adapter.
+    steps.lowering = std::make_shared<ir::LoweringRegistry>();
+    steps.lowerHIR = [registry = steps.lowering](const ast::Node &root, compilation::CompilationSession &) {
+        return ir::ASTLoweringPass{*registry}.lower(root);
     };
-
-    steps.lowerMIR = [&engine](const ir::HIRModule &hir, compilation::CompilationSession &) {
-        ir::HIRLoweringPass lowerer{engine.lowering()};
-        return lowerer.lower(hir);
+    steps.lowerMIR = [registry = steps.lowering](const ir::HIRModule &hir, compilation::CompilationSession &) {
+        return ir::HIRLoweringPass{*registry}.lower(hir);
     };
 
     steps.defaultStartDomain = [&engine] {

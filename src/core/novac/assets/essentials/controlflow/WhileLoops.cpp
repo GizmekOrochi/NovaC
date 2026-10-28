@@ -35,7 +35,7 @@ void WhileLoopsFeature::install(EssentialsController &controller) const {
     const ControlFlowSyntaxOptions options{controller.controlFlow()};
     const bool enforce{controller.options().enforceChildTraits};
 
-    controller.engine().keyword(options.whileKeyword);
+    controller.engine().ensureKeyword(options.whileKeyword);
 
     controller.engine().node({
         options.whileNodeKind,

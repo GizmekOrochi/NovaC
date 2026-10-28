@@ -11,9 +11,13 @@ CXXFLAGS ?= -Wall -Wextra -std=c++20
 LDFLAGS ?=
 LDLIBS ?=
 
-LIB_SRC := $(shell find src/core -name '*.cpp' | sort)
+# The compilation asset is parked for a future redesign: it must not be
+# compiled into or linked with the core NovaC library.
+LIB_SRC := $(filter-out src/core/novac/assets/compilation/% src/core/novac/engine/compilation/% src/core/novac/engine/backend/%,$(shell find src/core -name '*.cpp' | sort))
 LIB_OBJ := $(patsubst src/%.cpp,build/obj/%.o,$(LIB_SRC))
-TEST_SRC := $(shell find tests -name '*.cpp' ! -path 'tests/package/*' | sort)
+LIB_SOURCE_DIRS := $(shell find src/core -type d | sort)
+# The parked compilation tests are retained but must not be built/linked.
+TEST_SRC := $(shell find tests -name '*.cpp' ! -path 'tests/package/*' ! -path 'tests/assets/compilation/*' | sort)
 TEST_OBJ := $(patsubst tests/%.cpp,build/test-obj/%.o,$(TEST_SRC))
 ASAN_LIB_OBJ := $(patsubst src/%.cpp,build/asan/lib/%.o,$(LIB_SRC))
 ASAN_TEST_OBJ := $(patsubst tests/%.cpp,build/asan/tests/%.o,$(TEST_SRC))
@@ -64,7 +68,7 @@ DIST_DIR := dist
 DIST_NAME := NovaC-$(VERSION)
 DIST_ZIP := $(DIST_DIR)/$(DIST_NAME).zip
 
-all: $(LIB)
+all: check-compilation-isolation
 
 check-version:
 	@test -n "$(VERSION)" || { echo "Error: missing NOVAC_VERSION_STRING in Version.hpp"; exit 1; }
@@ -73,9 +77,12 @@ check-version:
 		exit 1; \
 	}
 
-$(LIB): $(LIB_OBJ)
+# Directory mtimes track added/removed .cpp files. Recreate the archive
+# when the source set changes so stale ar members cannot survive a refactor.
+$(LIB): $(LIB_OBJ) $(LIB_SOURCE_DIRS) | check-compilation-source
 	@mkdir -p $(dir $@)
-	$(AR) rcs $@ $^
+	@rm -f $@
+	$(AR) rcs $@ $(LIB_OBJ)
 	$(RANLIB) $@
 
 build/obj/%.o: src/%.cpp
@@ -83,6 +90,13 @@ build/obj/%.o: src/%.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 -include $(LIB_OBJ:.o=.d)
+
+# Fail closed if the old compilation code is reintroduced, linked, or installed.
+check-compilation-source:
+	@$(PYTHON) tests/hardening/check_compilation_isolation.py
+
+check-compilation-isolation: $(LIB)
+	@$(PYTHON) tests/hardening/check_compilation_isolation.py --library "$(LIB)"
 
 check-public-api:
 	@if [ -e src/include/NovaCCompiler.hpp ]; then \
@@ -98,7 +112,7 @@ check-public-api:
 		exit 1; \
 	fi
 
-tests: check-public-api $(TEST_BIN)
+tests: check-public-api check-compilation-isolation $(TEST_BIN)
 
 $(TEST_BIN): $(LIB) $(TEST_OBJ)
 	@mkdir -p $(dir $@)
@@ -110,7 +124,7 @@ build/test-obj/%.o: tests/%.cpp
 
 -include $(TEST_OBJ:.o=.d)
 
-test: check-public-api check-version $(TEST_BIN)
+test: check-public-api check-version check-compilation-isolation $(TEST_BIN)
 	./$(TEST_BIN)
 
 build/asan/lib/%.o: src/%.cpp
@@ -137,10 +151,10 @@ $(UBSAN_TEST_BIN): $(UBSAN_LIB_OBJ) $(UBSAN_TEST_OBJ)
 	@mkdir -p $(dir $@)
 	$(CXX) $(UBSAN_FLAGS) $^ $(LDFLAGS) $(LDLIBS) -o $@
 
-test-asan: $(ASAN_TEST_BIN)
+test-asan: check-compilation-isolation $(ASAN_TEST_BIN)
 	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./$(ASAN_TEST_BIN)
 
-test-ubsan: $(UBSAN_TEST_BIN)
+test-ubsan: check-compilation-isolation $(UBSAN_TEST_BIN)
 	UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ./$(UBSAN_TEST_BIN)
 
 package-config: $(PACKAGE_CONFIG) $(PACKAGE_VERSION) $(PACKAGE_TARGETS)
@@ -157,9 +171,20 @@ $(PACKAGE_TARGETS): cmake/NovaCTargets.cmake
 	@mkdir -p $(dir $@)
 	cp $< $@
 
-install: $(LIB) package-config
+install: check-compilation-isolation package-config
 	$(INSTALL) -d $(DESTDIR)$(INCLUDEDIR)
-	cp -R src/include/. $(DESTDIR)$(INCLUDEDIR)/
+	@# Clean stale headers left by older NovaC installs.
+	rm -rf "$(DESTDIR)$(INCLUDEDIR)/novac/engine/backend" \
+	       "$(DESTDIR)$(INCLUDEDIR)/novac/engine/compilation" \
+	       "$(DESTDIR)$(INCLUDEDIR)/novac/assets/compilation" \
+	       "$(DESTDIR)$(INCLUDEDIR)/novac/assets/backend"
+	@# Install only supported headers, never the parked compilation asset.
+	@find src/include -type f ! -path 'src/include/novac/assets/compilation/*' -print | \
+	  while IFS= read -r file; do \
+	    relative=$${file#src/include/}; \
+	    $(INSTALL) -d "$(DESTDIR)$(INCLUDEDIR)/$$(dirname "$$relative")"; \
+	    $(INSTALL) -m 0644 "$$file" "$(DESTDIR)$(INCLUDEDIR)/$$relative"; \
+	  done
 	$(INSTALL) -d $(DESTDIR)$(LIBDIR)
 	$(INSTALL) -m 0644 $(LIB) $(DESTDIR)$(LIBDIR)/$(LIB_NAME)
 	$(INSTALL) -d $(DESTDIR)$(CMAKEDIR)
@@ -173,10 +198,12 @@ uninstall:
 	rm -rf $(DESTDIR)$(INCLUDEDIR)/novac
 	rm -rf $(DESTDIR)$(CMAKEDIR)
 
-package-smoke: check-version $(LIB) package-config
+package-smoke: check-version check-compilation-isolation package-config
 	@echo "[NovaC package] Validating installed CMake package..."
 	@rm -rf $(PACKAGE_SMOKE_BUILD)
 	@$(MAKE) install DESTDIR="$(abspath $(PACKAGE_SMOKE_STAGE))" PREFIX=/usr CXX="$(CXX)"
+	@$(PYTHON) tests/hardening/check_compilation_isolation.py --library "$(LIB)" \
+	  --installed "$(abspath $(PACKAGE_SMOKE_STAGE))/usr/include"
 	@$(CMAKE) -S $(PACKAGE_SMOKE_DIR) -B $(PACKAGE_SMOKE_CMAKE_BUILD) \
 		-DCMAKE_PREFIX_PATH="$(abspath $(PACKAGE_SMOKE_STAGE))/usr" \
 		-DCMAKE_CXX_COMPILER="$(CXX)"
@@ -253,4 +280,4 @@ clean:
 	rm -rf bin lib build
 	rm -rf $(DOC_OUTPUT) $(DOC_BUILD)
 
-.PHONY: all check-public-api check-version tests test test-asan test-ubsan package-config install uninstall package-smoke doc-check doc doc-examples doc-strict release-check dist-source dist doc-clean doc-clean-all clean
+.PHONY: all check-compilation-source check-compilation-isolation check-public-api check-version tests test test-asan test-ubsan package-config install uninstall package-smoke doc-check doc doc-examples doc-strict release-check dist-source dist doc-clean doc-clean-all clean

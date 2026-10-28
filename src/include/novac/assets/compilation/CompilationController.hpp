@@ -1,11 +1,13 @@
 #pragma once
 
 #include "novac/engine/EngineController.hpp"
-#include "novac/engine/backend/Backend.hpp"
-#include "novac/engine/compilation/Compilation.hpp"
+#include "novac/assets/compilation/backend/Backend.hpp"
+#include "novac/assets/compilation/Compilation.hpp"
+#include "novac/engine/transformation/IR.hpp"
 
 #include <functional>
 #include <optional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -99,8 +101,9 @@ struct CompilationControllerOptions {
  *
  * CompilationController is intentionally a recipe, not a compiler core. Every
  * operation that gives the classic recipe its meaning lives in this structure.
- * The EngineController constructor fills it with NovaC's standard lexer,
- * parser, AST validation and HIR/MIR lowering behavior. Users can replace one
+ * The EngineController adapter fills it with source, lexer, parser and AST
+ * validation behavior. HIR/MIR lowering uses an asset-owned registry,
+ * accessible through CompilationSteps::lowering. Users can replace one
  * callback, provide all callbacks themselves, or bypass CompilationController
  * entirely and compose the low-level APIs exposed by <NovaC.hpp>.
  */
@@ -122,6 +125,9 @@ struct CompilationSteps {
     LowerHIRFn lowerHIR{};
     LowerMIRFn lowerMIR{};
     DefaultStartDomainFn defaultStartDomain{};
+
+    // Owned by the compilation asset; never stored on EngineController.
+    std::shared_ptr<ir::LoweringRegistry> lowering{};
 };
 
 /**
@@ -146,6 +152,11 @@ CompilationSteps classicCompilationSteps(EngineController &engine);
  * auto session = compiler.compile(sourceText);
  * @endcode
  *
+ * IR lowerers are registered on the compilation asset, for example:
+ * @code
+ * compiler.steps().lowering->hir("Integer", myHIRLowerer);
+ * @endcode
+ *
  * Partial replacement:
  * @code
  * auto steps = classicCompilationSteps(engine);
@@ -154,15 +165,15 @@ CompilationSteps classicCompilationSteps(EngineController &engine);
  * @endcode
  *
  * Fully custom compiler architectures do not need this class at all: use the
- * source/syntax/semantic/pass/IR/backend primitives from <NovaC.hpp> directly.
+ * core source/syntax primitives and this asset’s opt-in headers.
  */
 class CompilationController final {
 public:
     /**
      * @brief Creates the classic controller wired to an EngineController.
      *
-     * All classic operations receive standard implementations. No extra header
-     * is required: <NovaC.hpp> exposes this controller and all low-level pieces.
+     * Standard source/syntax operations are provided; HIR/MIR lowering lives
+     * entirely in this optional compilation asset.
      */
     explicit CompilationController(EngineController &engine, CompilationControllerOptions options = {});
 

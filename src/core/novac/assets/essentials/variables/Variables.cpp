@@ -29,9 +29,9 @@ void VariablesFeature::install(EssentialsController &controller) const {
     const VariableSyntaxOptions options{controller.variables()};
     const bool enforce{controller.options().enforceChildTraits};
 
-    controller.engine().keyword(options.letKeyword);
-    controller.engine().symbol(options.assignToken);
-    controller.engine().symbol(core.semicolonToken);
+    controller.engine().ensureKeyword(options.letKeyword);
+    controller.engine().ensureSymbol(options.assignToken);
+    controller.engine().ensureSymbol(core.semicolonToken);
 
     controller.engine().node({
         options.declarationNodeKind,

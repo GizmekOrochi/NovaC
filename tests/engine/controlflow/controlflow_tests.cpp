@@ -39,17 +39,6 @@ EngineController makeMinimalEngine(int &hits) {
     engine.statement("Hit", [&hits](const Node &, novac::runtime::RuntimeContext &) {
         ++hits;
     });
-    engine.hir("Bool", [](const Node &node, novac::ir::HIRBuilder &out, const novac::ir::LoweringRegistry &) {
-        return novac::ir::LoweringRegistry::LoweredValue{
-            out.emitValue(
-                "const.bool",
-                {novac::ir::Operand::fromLiteral(std::get<bool>(node.field("value")))},
-                novac::ir::ValueType::Bool)};
-    });
-    engine.hir("Hit", [](const Node &, novac::ir::HIRBuilder &out, const novac::ir::LoweringRegistry &) {
-        out.emit("hit");
-        return novac::ir::LoweringRegistry::LoweredValue{};
-    });
 
     return engine;
 }
@@ -83,29 +72,6 @@ EngineFeature unlessFeature() {
                 if (!context.eval(*node.child("condition")).truthy()) {
                     context.exec(*node.child("body"));
                 }
-            }},
-        .hir = novac::ir::LoweringRegistry::HIRLowerer{
-            [](const Node &node, novac::ir::HIRBuilder &out, const novac::ir::LoweringRegistry &lowering) {
-                const auto condition{lowering.lowerHIR(*node.child("condition"), out)};
-                if (!condition) {
-                    throw std::runtime_error("unless lowerer: condition did not produce a value");
-                }
-
-                const novac::ir::BlockId body{out.createBlock("unless.body")};
-                const novac::ir::BlockId exit{out.createBlock("unless.exit")};
-                out.terminate(
-                    "branch.false",
-                    {novac::ir::Operand::fromValue(*condition)},
-                    {body, exit});
-
-                out.setCurrentBlock(body);
-                lowering.lowerHIR(*node.child("body"), out);
-                if (!out.currentBlockTerminated()) {
-                    out.terminate("jump", {}, {exit});
-                }
-
-                out.setCurrentBlock(exit);
-                return novac::ir::LoweringRegistry::LoweredValue{};
             }}
     }));
     return feature;
@@ -124,26 +90,6 @@ TEST(ControlFlow, CustomStatementUsesRegularEngineFeaturePipeline) {
 
     engine.exec(*root);
     CHECK_EQ(hits, 1);
-
-    const novac::ir::HIRModule hir{engine.lowerToHIR(*root)};
-    CHECK_EQ(hir.blocks.size(), std::size_t{3});
-    CHECK_EQ(hir.blocks[0].instructions.size(), std::size_t{1});
-    CHECK(hir.blocks[0].instructions[0].op == "const.bool");
-    CHECK(hir.blocks[0].terminator.has_value());
-    CHECK(hir.blocks[0].terminator->op == "branch.false");
-    CHECK_EQ(hir.blocks[0].terminator->targets.size(), std::size_t{2});
-    CHECK_EQ(hir.blocks[0].terminator->targets[0].value, hir.blocks[1].id.value);
-    CHECK_EQ(hir.blocks[0].terminator->targets[1].value, hir.blocks[2].id.value);
-
-    CHECK(hir.blocks[1].name == "unless.body");
-    CHECK_EQ(hir.blocks[1].instructions.size(), std::size_t{1});
-    CHECK(hir.blocks[1].instructions[0].op == "hit");
-    CHECK(hir.blocks[1].terminator.has_value());
-    CHECK(hir.blocks[1].terminator->op == "jump");
-    CHECK_EQ(hir.blocks[1].terminator->targets[0].value, hir.blocks[2].id.value);
-
-    CHECK(hir.blocks[2].name == "unless.exit");
-    CHECK(!hir.blocks[2].terminator.has_value());
 }
 
 TEST(ControlFlow, LoopGuardEnforcesMaximum) {

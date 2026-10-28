@@ -24,7 +24,7 @@ void ExpressionStatementsFeature::install(EssentialsController &controller) cons
     const CoreSyntaxOptions options{controller.core()};
     const bool enforce{controller.options().enforceChildTraits};
 
-    controller.engine().symbol(options.semicolonToken);
+    controller.engine().ensureSymbol(options.semicolonToken);
 
     controller.engine().node({
         options.expressionStatementNodeKind,

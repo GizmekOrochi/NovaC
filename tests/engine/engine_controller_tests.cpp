@@ -17,14 +17,6 @@ using novac::ast::NodeSchema;
 using novac::controllers::EngineController;
 using novac::controllers::EngineControllerOptions;
 using novac::controllers::EngineFeature;
-using novac::ir::HIRBuilder;
-using novac::ir::Instruction;
-using novac::ir::Literal;
-using novac::ir::LoweringRegistry;
-using novac::ir::MIRBuilder;
-using novac::ir::MIRLoweringContext;
-using novac::ir::Operand;
-using novac::ir::ValueType;
 using novac::parser::Associativity;
 using novac::parser::ParserContext;
 using novac::registry::DuplicatePolicy;
@@ -84,19 +76,6 @@ void installIntegerRuntime(EngineController &engine) {
     });
 }
 
-void installSimpleHIRLowering(EngineController &engine) {
-    engine.hir("IntegerLiteral", [](const Node &node, HIRBuilder &out, const LoweringRegistry &) {
-        return out.emitValue("const.i32", {Operand::fromLiteral(node.integer("value"))}, ValueType::Int);
-    });
-}
-
-void installSimpleMIRLowering(EngineController &engine) {
-    engine.mir("const.i32", [](const Instruction &instruction, MIRBuilder &out, MIRLoweringContext &context, const LoweringRegistry &) {
-        std::vector<Operand> operands{context.remapOperands(instruction.operands)};
-        return out.emitValue("mov.i32", std::move(operands), instruction.type);
-    });
-}
-
 
 
 } // namespace
@@ -138,7 +117,6 @@ TEST(EngineController, ExposesSubsystemRegistries) {
     CHECK(&engine.nodes() == &engine.nodes());
     CHECK(&engine.parser() == &engine.parser());
     CHECK(&engine.runtime() == &engine.runtime());
-    CHECK(&engine.lowering() == &engine.lowering());
 }
 
 TEST(EngineController, RegistersKeywordsAndSymbols) {
@@ -455,57 +433,6 @@ TEST(EngineController, SetsBinaryNodeKind) {
     engine.setBinaryNodeKind("BinaryExpression");
 
     CHECK(engine.runtime().binaryNodeKind() == "BinaryExpression");
-}
-
-TEST(EngineController, LowersAstToHIR) {
-    EngineController engine{};
-    installSimpleHIRLowering(engine);
-
-    Node node{"IntegerLiteral"};
-    node.set("value", 42);
-
-    auto hir{engine.lowerToHIR(node)};
-
-    CHECK(hir.blocks.size() == 1);
-    CHECK(hir.blocks[0].instructions.size() == 1);
-    CHECK(hir.blocks[0].instructions[0].op == "const.i32");
-    CHECK(hir.blocks[0].instructions[0].type == ValueType::Int);
-}
-
-TEST(EngineController, LowersHIRToMIR) {
-    EngineController engine{};
-    installSimpleMIRLowering(engine);
-
-    novac::ir::HIRModule hir{};
-    hir.blocks.push_back(novac::ir::BasicBlock{novac::ir::BlockId{0}, "entry", {}, {}});
-    hir.blocks[0].instructions.push_back(novac::ir::Instruction{
-        "const.i32",
-        novac::ir::ValueId{0},
-        {Operand::fromLiteral(42)},
-        ValueType::Int
-    });
-
-    auto mir{engine.lowerToMIR(hir)};
-
-    CHECK(mir.blocks.size() == 1);
-    CHECK(mir.blocks[0].instructions.size() == 1);
-    CHECK(mir.blocks[0].instructions[0].op == "mov.i32");
-    CHECK(mir.blocks[0].instructions[0].result.has_value());
-}
-
-TEST(EngineController, LowersAstDirectlyToMIR) {
-    EngineController engine{};
-    installSimpleHIRLowering(engine);
-    installSimpleMIRLowering(engine);
-
-    Node node{"IntegerLiteral"};
-    node.set("value", 42);
-
-    auto mir{engine.lowerToMIR(node)};
-
-    CHECK(mir.blocks.size() == 1);
-    CHECK(mir.blocks[0].instructions.size() == 1);
-    CHECK(mir.blocks[0].instructions[0].op == "mov.i32");
 }
 
 TEST(EngineController, ReportsTokenizeErrorsToDiagnostics) {
