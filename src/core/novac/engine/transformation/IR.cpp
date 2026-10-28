@@ -299,6 +299,13 @@ Literal Literal::integer(int value) {
  * @param value Value supplied for `value`.
  * @return Value produced by the operation.
  */
+Literal Literal::signedInteger64(std::int64_t value) {
+    return Literal{Data{std::in_place_type<std::int64_t>, value}};
+}
+Literal Literal::unsignedInteger64(std::uint64_t value) {
+    return Literal{Data{std::in_place_type<std::uint64_t>, value}};
+}
+
 Literal Literal::floating(double value) {
     return Literal{value};
 }
@@ -337,6 +344,12 @@ std::string Literal::toString() const {
         return std::to_string(*value);
     }
 
+    if (const auto *value{std::get_if<std::int64_t>(&data_)}) {
+        return std::to_string(*value);
+    }
+    if (const auto *value{std::get_if<std::uint64_t>(&data_)}) {
+        return std::to_string(*value);
+    }
     if (const auto *value{std::get_if<double>(&data_)}) {
         return std::to_string(*value);
     }

@@ -2,6 +2,8 @@
 #include "../../tester.hpp"
 #include "novac/assets/compilation/ModularCompilationController.hpp"
 #include "novac/assets/compilation/backend/CSourceBackend.hpp"
+#include "novac/assets/compilation/backend/X86_64Backend.hpp"
+#include <vector>
 
 #include <memory>
 #include <stdexcept>
@@ -282,4 +284,81 @@ TEST(ModularCompilation, TwoBackendsCanConsumeTheSamePortableContributions) {
     const auto b = compiler.compile(*root, resolve, "c");
     CHECK(a.artifacts().require<std::string>("text-output") == "mir-instructions=3");
     CHECK(b.artifacts().require<std::string>("c-source").find("v0 + v1") != std::string::npos);
+}
+
+TEST(ModularCompilation, NativeTargetResolvedByArchitectureOSABIAndFormat) {
+    Comp compiler; installCore(compiler);
+    compiler.targets().add("linux-x64",backend::makeX86_64LinuxTarget());
+    auto root=program(binary("+",literal(40),literal(2)));
+    const auto target=compilation::target::linuxX86_64();
+    const auto session=compiler.compileForTarget(*root,resolve,target);
+    CHECK(session.artifacts().has("mir"));
+    CHECK(session.artifacts().has("x86-64-elf-executable"));
+    const auto &elf=session.artifacts().require<std::vector<std::uint8_t>>("x86-64-elf-executable");
+    CHECK(elf.size()>4096 && elf[18]==62);
+    auto unsupported=target;unsupported.operatingSystem="macos";unsupported.objectFormat="mach-o";
+    unsupported.abi="apple-arm64";
+    CHECK(errorOf([&]{compiler.compileForTarget(*root,resolve,unsupported);}).find("unsupported target")!=std::string::npos);
+}
+
+TEST(ModularCompilation, RegistrySelectedNativeBackendRunsThroughController) {
+    Comp compiler;
+    installCore(compiler);
+    compiler.targets().add("linux-x86-64", backend::makeX86_64LinuxTarget());
+    auto root = program(binary("+", literal(40), literal(2)));
+    auto session = compiler.compileForTarget(*root, resolve, compilation::target::linuxX86_64());
+    CHECK(session.artifacts().has("hir"));
+    CHECK(session.artifacts().has("mir"));
+    CHECK(session.artifacts().has("x86-64-machine-code"));
+    const auto &elf = session.artifacts().require<std::vector<std::uint8_t>>("x86-64-elf-executable");
+    CHECK(elf.size() > 4096);
+    CHECK(elf[0] == 0x7F && elf[1] == 'E' && elf[2] == 'L' && elf[3] == 'F');
+    auto unsupported = compilation::target::linuxX86_64();
+    unsupported.operatingSystem = "windows";
+    unsupported.abi = "win64";
+    unsupported.objectFormat = "coff";
+    CHECK(errorOf([&] { compiler.compileForTarget(*root, resolve, unsupported); })
+              .find("unsupported target") != std::string::npos);
+}
+
+TEST(ModularCompilation, ExplicitProviderSelectionWithOptionsIsSupported) {
+    Comp compiler;
+    installCore(compiler);
+    compiler.targets().add("standard",backend::makeX86_64LinuxTarget());
+    compiler.targets().add("alternate",backend::makeX86_64LinuxTarget());
+    auto root=program(binary("+",literal(40),literal(2)));
+    const auto spec=compilation::target::linuxX86_64();
+    CHECK(errorOf([&]{ (void)compiler.compileForTarget(*root,resolve,spec); }).find("ambiguous target") != std::string::npos);
+    const auto result=compiler.compileForTarget(*root,resolve,spec,
+       compilation::CompilationOptions{compilation::machine::OptimizationGoal::Size},"alternate");
+    CHECK(result.artifacts().has("x86-64-elf-executable"));
+}
+
+namespace {
+class GoalAwareX86Target final : public backend::LinuxX86_64Target {
+public:
+    mutable std::vector<compilation::machine::OptimizationGoal> seenGoals;
+protected:
+    backend::NativeBuild generateForTarget(const ir::MIRModule &mir,
+                         const compilation::machine::MachineTarget &target) const override {
+        seenGoals.push_back(target.goal);
+        return backend::LinuxX86_64Target::generateForTarget(mir, target);
+    }
+};
+}
+TEST(ModularCompilation, TargetProviderInheritanceReceivesOptionsFromController) {
+    Comp compiler;
+    installCore(compiler);
+    auto native = std::make_shared<GoalAwareX86Target>();
+    compiler.targets().add("derived", native);
+    auto root = program(binary("+", literal(40), literal(2)));
+    for (const auto goal : {compilation::machine::OptimizationGoal::Debug,
+                            compilation::machine::OptimizationGoal::Size,
+                            compilation::machine::OptimizationGoal::Speed}) {
+        const auto session = compiler.compileForTarget(*root, resolve,
+            compilation::target::linuxX86_64(), compilation::CompilationOptions{goal}, "derived");
+        CHECK(session.artifacts().has("x86-64-elf-executable"));
+        CHECK(native->seenGoals.back() == goal);
+    }
+    CHECK(native->seenGoals.size() == 3);
 }

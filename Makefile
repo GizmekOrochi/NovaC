@@ -11,12 +11,13 @@ CXXFLAGS ?= -Wall -Wextra -std=c++20
 LDFLAGS ?=
 LDLIBS ?=
 
-# The compilation asset is parked for a future redesign: it must not be
+# The Compilation asset is experimental and opt-in: it must not be
 # compiled into or linked with the core NovaC library.
 LIB_SRC := $(filter-out src/core/novac/assets/compilation/% src/core/novac/engine/compilation/% src/core/novac/engine/backend/%,$(shell find src/core -name '*.cpp' ! -path '*/assets/*/compilation/*' | sort))
 LIB_OBJ := $(patsubst src/%.cpp,build/obj/%.o,$(LIB_SRC))
 LIB_SOURCE_DIRS := $(shell find src/core -type d | sort)
-# The parked compilation tests are retained but must not be built/linked.
+# Historical precompilation tests are archived as text under tests/legacy.
+# The active IR tests live in tests/engine/transformation/.
 TEST_SRC := $(shell find tests -name '*.cpp' ! -path 'tests/package/*' ! -path 'tests/assets/compilation/*' | sort)
 TEST_OBJ := $(patsubst tests/%.cpp,build/test-obj/%.o,$(TEST_SRC))
 ASAN_LIB_OBJ := $(patsubst src/%.cpp,build/asan/lib/%.o,$(LIB_SRC))
@@ -32,7 +33,8 @@ COMPILATION_TEST_SRC := tests/main.cpp \
     tests/assets/compilation/ModularCompilation_prototype_tests.cpp \
     tests/assets/compilation/X86_64_backend_tests.cpp \
     tests/assets/compilation/MachineRecipe_tests.cpp \
-    tests/assets/compilation/MachineLayout_tests.cpp
+    tests/assets/compilation/MachineLayout_tests.cpp \
+    tests/assets/compilation/NativeBackend_target_tests.cpp
 COMPILATION_OBJ := $(patsubst src/%.cpp,build/compilation/obj/%.o,$(COMPILATION_SRC))
 COMPILATION_TEST_OBJ := $(patsubst tests/%.cpp,build/compilation/test-obj/%.o,$(COMPILATION_TEST_SRC))
 COMPILATION_TEST_BIN := bin/tests-compilation
@@ -378,3 +380,21 @@ doc-clean-all: doc-clean
 clean:
 	rm -rf bin lib build
 	rm -rf $(DOC_OUTPUT) $(DOC_BUILD)
+# Release gate for the opt-in compiler. Independent from the interpreter-only
+# release gate; never turns Compilation into a dependency of Core.
+release-check-compilation: test-compilation test-compilation-ubsan test-compilation-asan package-compilation-smoke
+	@echo "[NovaC native] Optional Compilation checks passed."
+
+# Optional end-to-end sanitizer runs. Unlike the faster Compilation-only
+# targets, these instrument BOTH the Core Engine and the Compilation asset.
+# Do not run both variants concurrently against a shared working build tree.
+bin/tests-compilation-asan-full: $(ASAN_LIB_OBJ) $(COMPILATION_ASAN_OBJ) $(COMPILATION_ASAN_TEST_OBJ)
+	@mkdir -p $(dir $@)
+	$(CXX) $(ASAN_FLAGS) $(COMPILATION_ASAN_TEST_OBJ) $(COMPILATION_ASAN_OBJ) $(ASAN_LIB_OBJ) $(LDFLAGS) $(LDLIBS) -o $@
+bin/tests-compilation-ubsan-full: $(UBSAN_LIB_OBJ) $(COMPILATION_UBSAN_OBJ) $(COMPILATION_UBSAN_TEST_OBJ)
+	@mkdir -p $(dir $@)
+	$(CXX) $(UBSAN_FLAGS) $(COMPILATION_UBSAN_TEST_OBJ) $(COMPILATION_UBSAN_OBJ) $(UBSAN_LIB_OBJ) $(LDFLAGS) $(LDLIBS) -o $@
+test-compilation-asan-full: check-compilation-source bin/tests-compilation-asan-full
+	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./bin/tests-compilation-asan-full
+test-compilation-ubsan-full: check-compilation-source bin/tests-compilation-ubsan-full
+	UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ./bin/tests-compilation-ubsan-full

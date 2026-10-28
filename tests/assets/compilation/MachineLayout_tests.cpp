@@ -6,6 +6,7 @@
 #include "novac/assets/types/compilation/TypeMachineRecipes.hpp"
 
 #include <cstdint>
+#include <limits>
 #include <cstdio>
 #include <cstdlib>
 #include <stdexcept>
@@ -268,7 +269,13 @@ TEST(MachineLayout, FreezesRecipeRegistryAndPreflightsTypedOperations) {
     auto x=b.emitValue("novac.i32.const",{O::fromLiteral(42)},I32);
     b.emitValue("only.u16",{O::fromValue(x)},U16);
     b.terminate("return",{O::fromValue(x)});
-    CHECK(errorText([&]{backend.preflight(b.finish());}).find("no compatible recipe")!=std::string::npos);
+    // Structural preflight does not call user predicates. Recipe selection and
+    // verification are performed once inside the per-generation plan.
+    auto program = b.finish();
+    CHECK(errorText([&]{backend.preflight(program);}).empty());
+    compilation::CompilationSession session;
+    session.artifacts().insert<ir::MIRModule>("mir",program);
+    CHECK(errorText([&]{backend.run(session);}).find("no compatible recipe")!=std::string::npos);
 }
 
 TEST(MachineLayout, LanguageWordAliasU16CompilesWithTypesAdapter) {
@@ -354,4 +361,97 @@ TEST(MachineLayout, CustomLanguageBooleanTypeCanBeUsedByScalarComparisonRecipes)
 #else
     CHECK(session.artifacts().has("x86-64-elf-executable"));
 #endif
+}
+
+TEST(MachineLayout, CustomRecipeImmediateRangeIsIndependentOfOperationName) {
+    Support s;
+    auto install=[&](const std::string &op, ir::TypeRef type,
+                     std::function<void(const ir::Instruction&,MachineBuilder&)> emit) {
+        MachineRecipe recipe;
+        recipe.id="custom."+op; recipe.owner="external.asset";
+        recipe.operation=op; recipe.resultType=type;
+        recipe.tier=RecipeTier::Override;
+        recipe.emit=std::move(emit);
+        s.recipes.add(std::move(recipe));
+    };
+    install("u8.make",U8,[](const ir::Instruction&, MachineBuilder &builder){builder.loadIntegerLiteral();});
+    install("i8.make",I8,[](const ir::Instruction&, MachineBuilder &builder){builder.loadIntegerLiteral();});
+    install("u16.make",U16,[](const ir::Instruction&, MachineBuilder &builder){builder.loadIntegerLiteral();});
+    for (const auto &[op, type, value]: std::vector<std::tuple<std::string,ir::TypeRef,int>> {
+        {"u8.make",U8,256},{"u8.make",U8,-1},{"i8.make",I8,128},
+        {"i8.make",I8,-129},{"u16.make",U16,-1}}) {
+        ir::MIRBuilder builder;
+        const auto v=builder.emitValue(op,{O::fromLiteral(value)},type);
+        builder.terminate("return",{O::fromValue(v)});
+        CHECK(errorText([&]{s.compile(builder.finish());}).find("out of range")!=std::string::npos);
+    }
+    ir::MIRBuilder valid;
+    const auto v=valid.emitValue("u8.make",{O::fromLiteral(42)},U8);
+    valid.terminate("return",{O::fromValue(v)});
+#if defined(__linux__) && defined(__x86_64__)
+    CHECK(runMachine(s.executable(valid.finish()))==42);
+#else
+    CHECK(!s.compile(valid.finish()).text.empty());
+#endif
+}
+
+TEST(MachineLayout, ExplicitSignedImmediateRejectsUnsignedAndUnsignedRejectsSignedOverflow) {
+    Support s;
+    MachineRecipe signedRecipe;
+    signedRecipe.id="negative64";
+    signedRecipe.operation="u64.custom";
+    signedRecipe.resultType=U64;
+    signedRecipe.emit=[](const ir::Instruction&, MachineBuilder& builder) {
+        builder.loadSignedImmediate(-1);
+    };
+    s.recipes.add(signedRecipe);
+    ir::MIRBuilder builder;
+    const auto v=builder.emitValue("u64.custom",{},U64);
+    builder.terminate("return",{O::fromValue(v)});
+    CHECK(errorText([&]{s.compile(builder.finish());}).find("out of range")!=std::string::npos);
+}
+
+TEST(MachineLayout, SixtyFourBitLiteralBoundariesKeepSignedness) {
+    Support s;
+    const ir::TypeRef I64{"i64","m2.tests"};
+    s.types.layouts.add(I64,{64,ScalarKind::SignedInteger,8});
+    backend::x86_64::installScalarRecipes(s.recipes,I64,{64,ScalarKind::SignedInteger,8},"i64");
+    auto makeLiteral=[](ir::MIRBuilder &builder, const std::string& op,
+                        ir::TypeRef type, ir::Literal value) {
+        return builder.emitValue(op,{O::fromLiteral(std::move(value))},type);
+    };
+    ir::MIRBuilder signedCase;
+    auto smallest=makeLiteral(signedCase,"novac.i64.const",I64,
+                             ir::Literal::signedInteger64(std::numeric_limits<std::int64_t>::min()));
+    auto zero=makeLiteral(signedCase,"novac.i64.const",I64,ir::Literal::signedInteger64(0));
+    auto compare=signedCase.emitValue("novac.i64.lt",{O::fromValue(smallest),O::fromValue(zero)},Bool);
+    auto yes=signedCase.createBlock("yes"), no=signedCase.createBlock("no");
+    auto a=constant(signedCase,"u8",U8,42),b=constant(signedCase,"u8",U8,24);
+    signedCase.terminateWithSuccessors("branch",{O::fromValue(compare)},{{yes,{}},{no,{}}});
+    signedCase.setCurrentBlock(yes);signedCase.terminate("return",{O::fromValue(a)});
+    signedCase.setCurrentBlock(no);signedCase.terminate("return",{O::fromValue(b)});
+#if defined(__linux__) && defined(__x86_64__)
+    CHECK(runMachine(s.executable(signedCase.finish()))==42);
+#else
+    CHECK(!s.compile(signedCase.finish()).text.empty());
+#endif
+    ir::MIRBuilder unsignedCase;
+    auto maximum=makeLiteral(unsignedCase,"novac.u64.const",U64,
+                             ir::Literal::unsignedInteger64(std::numeric_limits<std::uint64_t>::max()));
+    auto one=makeLiteral(unsignedCase,"novac.u64.const",U64,ir::Literal::unsignedInteger64(1));
+    auto less=unsignedCase.emitValue("novac.u64.lt",{O::fromValue(maximum),O::fromValue(one)},Bool);
+    auto trueBlock=unsignedCase.createBlock("incorrect"),falseBlock=unsignedCase.createBlock("correct");
+    auto wrong=constant(unsignedCase,"u8",U8,24),correct=constant(unsignedCase,"u8",U8,42);
+    unsignedCase.terminateWithSuccessors("branch",{O::fromValue(less)},{{trueBlock,{}},{falseBlock,{}}});
+    unsignedCase.setCurrentBlock(trueBlock);unsignedCase.terminate("return",{O::fromValue(wrong)});
+    unsignedCase.setCurrentBlock(falseBlock);unsignedCase.terminate("return",{O::fromValue(correct)});
+#if defined(__linux__) && defined(__x86_64__)
+    CHECK(runMachine(s.executable(unsignedCase.finish()))==42);
+#else
+    CHECK(!s.compile(unsignedCase.finish()).text.empty());
+#endif
+    ir::MIRBuilder bad;
+    auto badValue=makeLiteral(bad,"novac.u64.const",U64,ir::Literal::signedInteger64(-1));
+    bad.terminate("return",{O::fromValue(badValue)});
+    CHECK(errorText([&]{s.compile(bad.finish());}).find("out of range")!=std::string::npos);
 }

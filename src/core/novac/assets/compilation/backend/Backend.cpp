@@ -99,7 +99,7 @@ void BackendRegistry::runChecked(const std::string &id, compilation::Compilation
         }
     }
     selected.preflight(mir);
-    selected.run(session);
+    selected.runPrevalidated(session);
     if (!session.artifacts().has(caps->outputArtifact)) {
         throw std::runtime_error("BackendRegistry: backend '" + id + "' failed to produce '" + caps->outputArtifact + "'");
     }

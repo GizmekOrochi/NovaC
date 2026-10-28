@@ -1,5 +1,7 @@
 # NovaC
 
+**Backend modularity:** see [BACKEND_MODULARITY_FIXES.md](BACKEND_MODULARITY_FIXES.md) and [BACKEND_FINAL_FIXES.md](BACKEND_FINAL_FIXES.md) for the native backend contracts, migration and verification.
+
 NovaC is a modular C++20 framework for building programming languages. Its engine provides extensible logical-source preprocessing, tokenization, Pratt parsing, AST/runtime execution, generic control-flow signals, diagnostics, while optional assets add typed semantics, memory, and reusable language behavior through installable features instead of hard-coding one language into the core.
 
 ## Quick start
@@ -69,10 +71,6 @@ Remove an installation made with the same prefix using:
 sudo make uninstall PREFIX=/usr/local
 ```
 
-**Compilation M2 (opt-in)** : voir [COMPILATION_M2.md](COMPILATION_M2.md)
-pour les types machine 8/16/32/64 bits, l'installation séparée, les tests
-et les limites actuelles du backend natif.
-
 ## Tests and reliability
 
 Run the normal test suite:
@@ -120,7 +118,11 @@ make release-check
 
 This requires the normal tests, ASan, UBSan, the installed-package smoke test, and strict documentation validation to pass.
 
-The [continuous integration workflow](.github/workflows/ci.yml) runs normal tests with GCC and Clang, sanitizer jobs, the installed CMake package smoke test, and strict documentation on clean Linux runners whenever changes are pushed or proposed as pull requests.
+The [core integration workflow](.github/workflows/ci.yml) checks GCC core tests,
+optional Compilation tests/UBSan and CMake installation. The separate
+[optional native workflow](.github/workflows/ci-compilation.yml) additionally
+runs the Compilation ASan/UBSan release gate on Linux. Clang and strict
+Doxygen/Sphinx documentation remain local checks unless separately configured.
 
 ## Release
 
@@ -164,3 +166,9 @@ make -j4 test-compilation
 
 Les tests de Compilation vivent exclusivement sous `tests/assets/compilation/`.
 L'asset et ses tests restent exclus de la bibliothèque de base.
+
+
+### Latest backend audit fixes
+
+See [BACKEND_AUDIT_FIXES_220619.md](BACKEND_AUDIT_FIXES_220619.md) for
+the recipe-selection, inherited-target, immediate-range and 64-bit literal fixes.

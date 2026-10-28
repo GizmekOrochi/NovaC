@@ -19,4 +19,22 @@ CompilationSession ModularCompilationController::compile(const ast::Node &root,
     return session;
 }
 
+CompilationSession ModularCompilationController::compileForTarget(const ast::Node &root,
+        const SemanticResolver &semantics, const target::TargetSpec &requested) const {
+    return compileForTarget(root, semantics, requested, {});
+}
+
+CompilationSession ModularCompilationController::compileForTarget(const ast::Node &root,
+        const SemanticResolver &semantics, const target::TargetSpec &requested,
+        const CompilationOptions &options, const std::string &providerId) const {
+    // Resolve before touching the AST: an unsupported/ambiguous target fails early.
+    auto provider = providerId.empty() ? targets_.resolveShared(requested)
+                                       : targets_.resolveShared(requested, providerId);
+    auto session = compile(root, semantics);
+    backend::BackendRegistry selected;
+    selected.add("selected-native", std::make_shared<backend::NativeBackend>(std::move(provider), options));
+    selected.runChecked("selected-native", session);
+    return session;
+}
+
 } // namespace novac::compilation

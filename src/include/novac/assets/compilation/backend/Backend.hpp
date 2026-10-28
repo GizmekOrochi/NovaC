@@ -5,6 +5,7 @@
 #include "novac/engine/transformation/TypeIdentity.hpp"
 
 #include <memory>
+#include <cstdint>
 #include <optional>
 #include <vector>
 #include <string>
@@ -13,6 +14,9 @@
 namespace novac::ir { struct MIRModule; }
 namespace novac::backend {
 
+/** Typed native output contract, independent of the concrete binary format. */
+enum class BackendArtifactKind : std::uint8_t { Opaque, MachineCode, ObjectFile, Executable };
+
 /** Auditable backend contract for the modular path. The old run-only backend
  * remains usable by the classic facade, but cannot be run through runChecked. */
 struct BackendCapabilities {
@@ -20,6 +24,8 @@ struct BackendCapabilities {
     std::string outputArtifact{};
     std::vector<std::string> instructions{};
     std::vector<std::string> terminators{};
+    /** Optional required kind of the declared output. Legacy backends omit it. */
+    std::optional<BackendArtifactKind> outputKind{};
 };
 
 /** Backend contract with no prescribed output format or execution model. */
@@ -35,6 +41,9 @@ public:
      * @param session Value supplied for `session`.
      */
     virtual void run(compilation::CompilationSession &session) const = 0;
+    /** Called only after BackendRegistry::runChecked has performed preflight.
+     * Legacy backends retain their original behavior. */
+    virtual void runPrevalidated(compilation::CompilationSession &session) const { run(session); }
     /** Explicit operation coverage for preflight; no implicit fallback. */
     virtual std::optional<BackendCapabilities> capabilities() const { return std::nullopt; }
     /** Optional target-aware MIR preflight. Default for legacy backends. */

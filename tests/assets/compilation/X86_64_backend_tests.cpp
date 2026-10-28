@@ -3,6 +3,7 @@
 #include "novac/assets/compilation/backend/X86_64Backend.hpp"
 #include "novac/assets/compilation/backend/x86_64/Codegen.hpp"
 #include "novac/assets/compilation/backend/x86_64/Elf64Writer.hpp"
+#include "novac/assets/compilation/backend/x86_64/StandardRecipes.hpp"
 #include "novac/engine/transformation/IR.hpp"
 
 #include <cstdint>
@@ -219,7 +220,7 @@ TEST(X86_64Backend, DoesNotAcceptMalformedOrUnsupportedMIR) {
         ir::MIRBuilder b;
         auto v=b.emitValue("novac.i32.const",{O::fromLiteral(4.5)},I32);
         b.terminate("return",{O::fromValue(v)});
-        CHECK(errorOf([&] { compile(b.finish()); }).find("must be int") != std::string::npos);
+        CHECK(errorOf([&] { compile(b.finish()); }).find("integer literal") != std::string::npos);
     }
     {
         ir::MIRBuilder b;
@@ -282,4 +283,34 @@ TEST(X86_64Backend, RejectsConflictingTypeMapsAndOutputCollisions) {
     CHECK(errorOf([&] { good.run(session); }).find("output artifact already exists") != std::string::npos);
     CHECK(!session.artifacts().has("x86-64-elf-object"));
     CHECK(!session.artifacts().has("x86-64-elf-executable"));
+}
+
+TEST(X86_64Backend, Signed64NegativeLiteralPreservesSignForNativeComparison) {
+    const ir::TypeRef i64{"i64", "signed64.test"};
+    backend::x86_64::ValueTypes types;
+    types.layouts.add(i64, {64, compilation::machine::ScalarKind::SignedInteger, 8});
+    compilation::machine::MachineRecipeRegistry recipes;
+    backend::x86_64::installScalarRecipes(recipes, i64,
+        {64, compilation::machine::ScalarKind::SignedInteger, 8}, "i64");
+    for (const int negative : {-1, -2147483647-1}) {
+        ir::MIRBuilder b;
+        const auto left=b.emitValue("novac.i64.const",{O::fromLiteral(negative)},i64);
+        const auto right=b.emitValue("novac.i64.const",{O::fromLiteral(0)},i64);
+        const auto cond=b.emitValue("novac.i64.lt",{O::fromValue(left),O::fromValue(right)},ir::ValueType::Bool);
+        const auto accepted=integer(b,42), rejected=integer(b,24);
+        auto yes=b.createBlock("yes"), no=b.createBlock("no");
+        b.terminateWithSuccessors("branch", {O::fromValue(cond)}, {{yes,{}},{no,{}}});
+        b.setCurrentBlock(yes);b.terminate("return",{O::fromValue(accepted)});
+        b.setCurrentBlock(no);b.terminate("return",{O::fromValue(rejected)});
+        backend::X86_64Backend native{types,recipes};
+        compilation::CompilationSession session;
+        session.artifacts().insert<ir::MIRModule>("mir",b.finish());
+        native.run(session);
+        const auto &image=session.artifacts().require<std::vector<std::uint8_t>>("x86-64-elf-executable");
+#if defined(__linux__) && defined(__x86_64__)
+        CHECK(runElf(image)==42);
+#else
+        CHECK(!image.empty());
+#endif
+    }
 }

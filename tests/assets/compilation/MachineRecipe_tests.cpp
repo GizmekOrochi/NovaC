@@ -363,3 +363,136 @@ TEST(MachineRecipes, RejectsNoncanonicalBooleanMachineValueWithContext) {
     CHECK(message.find("block 0")!=std::string::npos);
     CHECK(message.find("novac.bool.const")!=std::string::npos);
 }
+
+TEST(MachineRecipes, PrefersSpecificOperandShapeRegardlessOfRegistrationOrder) {
+    const auto mir=single("custom.shape",I32,0);
+    const auto &inst=mir.blocks[0].instructions[0];
+    auto generic=makeRule("generic-shape","custom.shape",I32);
+    generic.operandPatterns=std::vector<OperandPattern>{{OperandKind::Any,{}}};
+    auto specialized=makeRule("integer-shape","custom.shape",I32);
+    specialized.operandPatterns=std::vector<OperandPattern>{{OperandKind::IntegerLiteral,{}}};
+    for (int n=0;n<2;++n) {
+        MachineRecipeRegistry registry;
+        if(n==0) {registry.add(generic);registry.add(specialized);}
+        else {registry.add(specialized);registry.add(generic);}
+        CHECK(registry.select(inst,{}).id=="integer-shape");
+    }
+    auto boolean=single("custom.shape",I32,0).blocks[0].instructions[0];
+    boolean.operands={O::fromLiteral(true)};
+    MachineRecipeRegistry registry;registry.add(generic);registry.add(specialized);
+    CHECK(registry.select(boolean,{}).id=="generic-shape");
+}
+TEST(MachineRecipes, ExactSSATypesWinOverUntypedSSAShape) {
+    auto mir=arithmetic("custom.ssa",1,2);
+    const auto &inst=mir.blocks[0].instructions[2];
+    auto generic=makeRule("untyped-ssa","custom.ssa",I32);
+    generic.operandPatterns=std::vector<OperandPattern>{{OperandKind::SSAValue,{}},{OperandKind::SSAValue,{}}};
+    auto typed=makeRule("typed-ssa","custom.ssa",I32);
+    typed.operandTypes=std::vector<ir::TypeRef>{I32,I32};
+    MachineRecipeRegistry registry;registry.add(generic);registry.add(typed);
+    CHECK(registry.select(inst,{},[&](ir::ValueId){return std::optional<ir::TypeRef>{I32};}).id=="typed-ssa");
+    CHECK(registry.select(inst,{}).id=="untyped-ssa");
+}
+TEST(MachineRecipes, EquallyPreciseShapesStillReportAmbiguity) {
+    MachineRecipeRegistry recipes;
+    auto first=makeRule("left-specific","custom.two",I32);
+    first.operandPatterns=std::vector<OperandPattern>{{OperandKind::SSAValue,{}},{OperandKind::Any,{}}};
+    auto second=makeRule("right-specific","custom.two",I32);
+    second.operandPatterns=std::vector<OperandPattern>{{OperandKind::Any,{}},{OperandKind::SSAValue,{}}};
+    recipes.add(first);recipes.add(second);
+    auto mir=arithmetic("custom.two",1,2);
+    CHECK(failure([&]{ (void)recipes.select(mir.blocks[0].instructions[2],{}); }).find("ambiguous recipes")!=std::string::npos);
+}
+TEST(MachineRecipes, RejectsContradictorySSAAndLiteralMatchers) {
+    MachineRecipeRegistry recipes;
+    auto wrong=makeRule("bad-pattern","custom.match",I32);
+    wrong.operandTypes=std::vector<ir::TypeRef>{I32};
+    wrong.operandPatterns=std::vector<OperandPattern>{{OperandKind::IntegerLiteral,{}}};
+    CHECK(failure([&]{ recipes.add(wrong); }).find("cannot match literal")!=std::string::npos);
+}
+
+TEST(MachineRecipes, CompilationOptionsChangeMachineOutputPerSessionWithoutMutatingProvider) {
+    MachineRecipeRegistry variants;
+    auto speed=makeRule("speed.constant", "novac.i32.const", I32);
+    speed.tier=RecipeTier::Override;
+    speed.cost={1,10};
+    speed.emit=[](const ir::Instruction &,MachineBuilder &b){ b.loadImmediate(42); };
+    variants.add(speed);
+    auto size=makeRule("small.constant", "novac.i32.const", I32);
+    size.tier=RecipeTier::Override;
+    size.cost={10,1};
+    size.emit=[](const ir::Instruction &,MachineBuilder &b){ b.loadImmediate(24); };
+    variants.add(size);
+    auto provider=backend::makeX86_64LinuxTarget({},variants);
+    const auto mir=single("novac.i32.const",I32,0);
+    auto build=[&](OptimizationGoal optimization) {
+        compilation::CompilationSession session;
+        session.artifacts().insert<ir::MIRModule>("mir",mir);
+        backend::NativeBackend backend{provider, compilation::CompilationOptions{optimization}};
+        backend.run(session);
+        return session.artifacts().require<std::vector<std::uint8_t>>("x86-64-elf-executable");
+    };
+    const auto fast=build(OptimizationGoal::Speed);
+    const auto small=build(OptimizationGoal::Size);
+    CHECK(fast != small);
+#if defined(__linux__) && defined(__x86_64__)
+    CHECK(runNative(fast)==42);
+    CHECK(runNative(small)==24);
+#endif
+    CHECK(build(OptimizationGoal::Speed)==fast);
+}
+
+TEST(MachineRecipe, StatefulPredicateEvaluatedOncePerCompilation) {
+    using namespace novac;
+    using namespace novac::compilation::machine;
+    using novac::ir::Operand;
+    int calls=0;
+    MachineRecipeRegistry custom;
+    MachineRecipe customized;
+    customized.id="custom.only-once";
+    customized.owner="external.asset";
+    customized.operation="novac.i32.const";
+    customized.resultType=ir::TypeRef{"i32","novac.prototype"};
+    customized.tier=RecipeTier::Override;
+    customized.matches=[&](const ir::Instruction &){ return ++calls==1; };
+    customized.emit=[](const ir::Instruction &,MachineBuilder &b){ b.loadSignedImmediate(42); };
+    custom.add(std::move(customized));
+    backend::X86_64Backend target{{},custom};
+    ir::MIRBuilder builder;
+    const auto v=builder.emitValue("novac.i32.const",{Operand::fromLiteral(42)},
+                                    ir::TypeRef{"i32","novac.prototype"});
+    builder.terminate("return",{Operand::fromValue(v)});
+    compilation::CompilationSession session;
+    session.artifacts().insert<ir::MIRModule>("mir",builder.finish());
+    target.run(session);
+    CHECK(calls==1);
+    CHECK(session.artifacts().has("x86-64-elf-executable"));
+}
+
+TEST(MachineRecipe, CheckedBackendUsesSamePerGenerationSelectionPlan) {
+    using namespace novac;
+    using namespace novac::compilation::machine;
+    int checks=0;
+    MachineRecipeRegistry customization;
+    MachineRecipe rule;
+    rule.id="checked.one-shot";
+    rule.owner="external.asset";
+    rule.operation="novac.i32.const";
+    rule.resultType=ir::TypeRef{"i32","novac.prototype"};
+    rule.tier=RecipeTier::Override;
+    rule.matches=[&](const ir::Instruction &) { ++checks; return checks==1; };
+    rule.emit=[](const ir::Instruction &,MachineBuilder &b) { b.loadSignedImmediate(42); };
+    customization.add(std::move(rule));
+    backend::BackendRegistry providers;
+    providers.add("native",std::make_shared<backend::X86_64Backend>(
+        backend::x86_64::ValueTypes{},customization));
+    ir::MIRBuilder builder;
+    auto value=builder.emitValue("novac.i32.const",{ir::Operand::fromLiteral(42)},
+                                 ir::TypeRef{"i32","novac.prototype"});
+    builder.terminate("return",{ir::Operand::fromValue(value)});
+    compilation::CompilationSession session;
+    session.artifacts().insert<ir::MIRModule>("mir",builder.finish());
+    providers.runChecked("native",session);
+    CHECK(checks==1);
+    CHECK(session.artifacts().has("x86-64-elf-executable"));
+}

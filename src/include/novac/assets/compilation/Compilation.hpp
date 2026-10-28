@@ -5,6 +5,8 @@
 #include "novac/engine/foundation/registry/Registry.hpp"
 
 #include <cstddef>
+#include <cstdint>
+#include <set>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -19,6 +21,15 @@ namespace novac::compilation {
 /** Type-safe, named storage for arbitrary compilation artifacts. */
 class ArtifactStore final {
 public:
+    struct Descriptor {
+        std::string kind;
+        std::string target;
+    };
+    /** Native artifact metadata, if the producer supplied it. */
+    const Descriptor *describe(const std::string &name) const noexcept {
+        const auto it = descriptors_.find(name);
+        return it == descriptors_.end() ? nullptr : &it->second;
+    }
     /**
      * @brief Sets the value handled by `set`.
      *
@@ -31,7 +42,31 @@ public:
             throw std::runtime_error("ArtifactStore::set: artifact name cannot be empty");
         }
         Entry entry{std::type_index(typeid(T)), std::make_shared<T>(std::move(value))};
-        artifacts_.insert_or_assign(std::move(name), std::move(entry));
+        artifacts_.insert_or_assign(name, std::move(entry));
+        descriptors_.erase(name);
+    }
+
+    /** All-or-nothing insertion of native byte artifacts. Existing artifact
+     * entries remain unchanged if a name or allocation fails. */
+    void insertByteBatch(std::vector<std::pair<std::string, std::vector<std::uint8_t>>> batch,
+                         std::vector<Descriptor> descriptions = {}) {
+        if (!descriptions.empty() && descriptions.size() != batch.size())
+            throw std::runtime_error("ArtifactStore::insertByteBatch: descriptor count mismatch");
+        std::set<std::string> names;
+        auto candidate = artifacts_; // shared_ptr-owned values: cheap, no deep copies
+        auto described = descriptors_;
+        std::size_t index = 0;
+        for (auto &item : batch) {
+            if (item.first.empty() || !names.insert(item.first).second || candidate.contains(item.first))
+                throw std::runtime_error("ArtifactStore::insertByteBatch: empty or duplicate artifact '" + item.first + "'");
+            Entry entry{std::type_index(typeid(std::vector<std::uint8_t>)),
+                        std::make_shared<std::vector<std::uint8_t>>(std::move(item.second))};
+            if (!descriptions.empty()) described.emplace(item.first, std::move(descriptions[index]));
+            candidate.emplace(std::move(item.first), std::move(entry));
+            ++index;
+        }
+        artifacts_.swap(candidate); // noexcept commit
+        descriptors_.swap(described);
     }
 
     /** Insert exactly once; a stage may not silently overwrite another stage's artifact. */
@@ -58,7 +93,8 @@ public:
         auto value{std::make_shared<T>(std::forward<Args>(args)...)};
         T &reference{*value};
         Entry entry{std::type_index(typeid(T)), std::move(value)};
-        artifacts_.insert_or_assign(std::move(name), std::move(entry));
+        artifacts_.insert_or_assign(name, std::move(entry));
+        descriptors_.erase(name);
         return reference;
     }
 
@@ -137,11 +173,11 @@ public:
      *
      * @param name Value supplied for `name`.
      */
-    void erase(const std::string &name) { artifacts_.erase(name); }
+    void erase(const std::string &name) { artifacts_.erase(name); descriptors_.erase(name); }
     /**
      * @brief Resets state through `clear`.
      */
-    void clear() noexcept { artifacts_.clear(); }
+    void clear() noexcept { artifacts_.clear(); descriptors_.clear(); }
     /**
      * @brief Performs the `size` operation.
      *
@@ -156,6 +192,7 @@ private:
     };
 
     std::unordered_map<std::string, Entry> artifacts_{};
+    std::unordered_map<std::string, Descriptor> descriptors_{};
 };
 
 /** Per-compilation state shared by passes and backends. */

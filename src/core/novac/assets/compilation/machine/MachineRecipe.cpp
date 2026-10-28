@@ -1,16 +1,17 @@
 #include "novac/assets/compilation/machine/MachineRecipe.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <limits>
 #include <tuple>
 #include <utility>
 
 namespace novac::compilation::machine {
-void MachineBuilder::append(MachineOpcode op, std::uint64_t imm, std::optional<ir::ValueId> src) {
+void MachineBuilder::append(MachineOpcode op, std::uint64_t imm, std::optional<ir::ValueId> src, bool signedImmediate) {
     if (op != MachineOpcode::LoadImmediate && op != MachineOpcode::LoadSSA && op != MachineOpcode::ConvertSSA && op != MachineOpcode::Nop && op != MachineOpcode::Trap && !accumulatorReady_)
         throw std::runtime_error("MachineIR: first instruction must define the accumulator");
     if (op == MachineOpcode::LoadImmediate || op == MachineOpcode::LoadSSA || op == MachineOpcode::ConvertSSA) accumulatorReady_ = true;
-    instructions_.instructions.push_back({op,imm,src});
+    instructions_.instructions.push_back({op,imm,src,signedImmediate});
 }
 ir::ValueId MachineBuilder::requireInput(std::size_t index) const {
     if (index >= source_.operands.size() || !source_.operands[index].isValue())
@@ -19,13 +20,23 @@ ir::ValueId MachineBuilder::requireInput(std::size_t index) const {
 }
 void MachineBuilder::loadImmediate(std::uint32_t imm) { append(MachineOpcode::LoadImmediate,imm); }
 void MachineBuilder::loadImmediate64(std::uint64_t imm) { append(MachineOpcode::LoadImmediate,imm); }
+void MachineBuilder::loadSignedImmediate(std::int64_t imm) {
+    append(MachineOpcode::LoadImmediate,std::bit_cast<std::uint64_t>(imm),std::nullopt,true);
+}
 void MachineBuilder::convertInput(std::size_t i) { append(MachineOpcode::ConvertSSA,0,requireInput(i)); }
 void MachineBuilder::loadIntegerLiteral() {
     if (source_.operands.size() != 1) throw std::runtime_error("MachineIR: integer literal requires one operand");
     const auto *literal=std::get_if<ir::Literal>(&source_.operands[0].data());
-    const auto *integer=literal ? std::get_if<int>(&literal->data()) : nullptr;
-    if (!integer) throw std::runtime_error("MachineIR: i32 constant must be int");
-    loadImmediate(static_cast<std::uint32_t>(*integer));
+    if (!literal) throw std::runtime_error("MachineIR: expected integer literal");
+    if (const auto *number=std::get_if<int>(&literal->data())) {
+        loadSignedImmediate(static_cast<std::int64_t>(*number));
+    } else if (const auto *number=std::get_if<std::int64_t>(&literal->data())) {
+        loadSignedImmediate(*number);
+    } else if (const auto *number=std::get_if<std::uint64_t>(&literal->data())) {
+        loadImmediate64(*number);
+    } else {
+        throw std::runtime_error("MachineIR: expected integer literal");
+    }
 }
 void MachineBuilder::loadBooleanLiteral() {
     if (source_.operands.size() != 1) throw std::runtime_error("MachineIR: boolean literal requires one operand");
@@ -65,7 +76,12 @@ void MachineRecipeRegistry::add(MachineRecipe recipe) {
     if (recipe.operandPatterns) {
         if (recipe.operandTypes && recipe.operandPatterns->size() != recipe.operandTypes->size())
             throw std::runtime_error("MachineRecipeRegistry: conflicting operand arities");
-        for (const auto &operand : *recipe.operandPatterns) {
+        for (std::size_t i = 0; i < recipe.operandPatterns->size(); ++i) {
+            const auto &operand = recipe.operandPatterns->at(i);
+            if (recipe.operandTypes && operand.kind != OperandKind::SSAValue && operand.kind != OperandKind::Any)
+                throw std::runtime_error("MachineRecipeRegistry: typed SSA operands cannot match literal shapes");
+            if (recipe.operandTypes && operand.type && *operand.type != recipe.operandTypes->at(i))
+                throw std::runtime_error("MachineRecipeRegistry: conflicting SSA type patterns");
             if (operand.type && (operand.kind != OperandKind::SSAValue ||
                                  !operand.type->valid() || operand.type->isVoid() || operand.type->unresolved()))
                 throw std::runtime_error("MachineRecipeRegistry: invalid typed operand pattern");
@@ -109,7 +125,9 @@ bool matchesOperands(const MachineRecipe &recipe, const ir::Instruction &instruc
                     break;
                 case OperandKind::IntegerLiteral: {
                     const auto *lit = std::get_if<ir::Literal>(&operand.data());
-                    if (!lit || !std::get_if<int>(&lit->data())) return false;
+                    if (!lit || (!std::get_if<int>(&lit->data()) &&
+                                 !std::get_if<std::int64_t>(&lit->data()) &&
+                                 !std::get_if<std::uint64_t>(&lit->data()))) return false;
                     break;
                 }
                 case OperandKind::BooleanLiteral: {
@@ -136,7 +154,10 @@ const MachineRecipe &MachineRecipeRegistry::select(const ir::Instruction &instru
     const ir::TypeRef &type = instruction.type;
     const MachineRecipe *winner = nullptr;
     const MachineRecipe *tie = nullptr;
-    using Rank = std::tuple<unsigned,unsigned,unsigned,unsigned,unsigned>;
+    // Specificity is distinct from cost: matching an exact SSA type is
+    // stronger than a shape constraint, which is stronger than Any. Matching
+    // across different operands at the same specificity remains ambiguous.
+    using Rank = std::tuple<unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned>;
     Rank best{};
     for (const auto &recipe : recipes_) {
         if (recipe.operation != operation || recipe.target != target.architecture ||
@@ -151,9 +172,20 @@ const MachineRecipe &MachineRecipeRegistry::select(const ir::Instruction &instru
         const unsigned secondaryCost = target.goal == OptimizationGoal::Size ? recipe.cost.latency : recipe.cost.bytes;
         // Debug prefers unambiguous, generic stable recipes over optimizing for
         // latency; cost is ignored, so equal debug variants need explicit resolution.
+        unsigned exactTypes = 0;
+        unsigned preciseShapes = 0;
+        if (recipe.operandTypes) exactTypes += static_cast<unsigned>(recipe.operandTypes->size());
+        if (recipe.operandPatterns) {
+            for (const auto &pattern : *recipe.operandPatterns) {
+                if (pattern.type && !recipe.operandTypes) ++exactTypes;
+                if (pattern.kind != OperandKind::Any) ++preciseShapes;
+            }
+        }
         const Rank rank{
             static_cast<unsigned>(recipe.tier),
             recipe.resultType ? 1U : 0U,
+            exactTypes,
+            preciseShapes,
             (recipe.operandTypes || recipe.operandPatterns) ? 1U : 0U,
             target.goal == OptimizationGoal::Debug ? 0U : std::numeric_limits<unsigned>::max() - primaryCost,
             target.goal == OptimizationGoal::Debug ? 0U : std::numeric_limits<unsigned>::max() - secondaryCost

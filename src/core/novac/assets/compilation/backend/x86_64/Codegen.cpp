@@ -1,9 +1,12 @@
 #include "novac/assets/compilation/backend/x86_64/Codegen.hpp"
 #include "novac/assets/compilation/backend/x86_64/StandardRecipes.hpp"
+#include "novac/assets/compilation/machine/NativeFramePlan.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -74,7 +77,7 @@ public:
         byte(0x05); u32(static_cast<std::uint32_t>(value));
     }
 };
-struct Slot { std::uint32_t offset; ir::TypeRef type; MachineLayout layout; };
+using Slot = compilation::machine::ValueSlot;
 struct Fixup { std::size_t at; std::size_t block; };
 
 class Selector {
@@ -87,26 +90,29 @@ public:
             types_.i32.isVoid() || types_.boolean.isVoid() ||
             types_.i32.unresolved() || types_.boolean.unresolved())
             fail("invalid or ambiguous target type mapping");
-        layouts_.add(types_.i32, {32,ScalarKind::SignedInteger,4});
-        layouts_.add(types_.boolean, {8,ScalarKind::Boolean,1});
-        for (const auto &[type,layout] : types_.layouts.entries()) layouts_.add(type,layout);
-        ir::validate(mir_, {.requireTerminators=true,.requireResolvedTypes=true,
-                            .branchBooleanType=types_.boolean});
-        if (mir_.blocks.empty() || !mir_.blocks.front().arguments.empty())
-            fail("entry must exist without external parameters");
-        for (const auto &block : mir_.blocks) {
-            for (const auto &arg : block.arguments) declare(arg.value,arg.type);
-            for (const auto &inst : block.instructions) {
-                if (inst.result) declare(*inst.result,inst.type);
-            }
-            maxEdgeArgs_=std::max(maxEdgeArgs_,block.arguments.size());
-        }
-        const std::uint64_t total=usedBytes_+static_cast<std::uint64_t>(maxEdgeArgs_)*8;
-        if (total > static_cast<std::uint64_t>(std::numeric_limits<std::int32_t>::max()-15))
-            fail("stack frame exceeds supported disp32 range");
-        scratchStart_=usedBytes_;
-        frameBytes_=static_cast<std::uint32_t>((total+15)&~std::uint64_t{15});
+        frame_ = std::make_unique<compilation::machine::NativeFramePlan>(mir_, makeLayouts(types_));
         labels_.resize(mir_.blocks.size());
+        // Per-compilation immutable selection plan. Callbacks and matches are
+        // evaluated once, so stateful predicates cannot change the selected
+        // recipe between preflight and native code emission.
+        selected_.reserve(mir_.blocks.size());
+        for (std::size_t b = 0; b < mir_.blocks.size(); ++b) {
+            std::vector<const compilation::machine::MachineRecipe *> blockRecipes;
+            blockRecipes.reserve(mir_.blocks[b].instructions.size());
+            for (std::size_t i = 0; i < mir_.blocks[b].instructions.size(); ++i) {
+                const auto &inst = mir_.blocks[b].instructions[i];
+                try {
+                    blockRecipes.push_back(&recipes_.select(inst, target_, [this](ir::ValueId v)->std::optional<ir::TypeRef> {
+                        const auto it = frame_->slots().find(v.value);
+                        return it == frame_->slots().end() ? std::nullopt : std::optional<ir::TypeRef>{it->second.type};
+                    }));
+                } catch (const std::exception &e) {
+                    fail("selection, block " + std::to_string(b) + " instruction " + std::to_string(i) +
+                         " ('" + inst.op + "'): " + e.what());
+                }
+            }
+            selected_.push_back(std::move(blockRecipes));
+        }
     }
     MachineImage generate() {
         const auto call=encoder_.rel32({0xE8});
@@ -116,13 +122,13 @@ public:
         const auto mainOffset=encoder_.code.size();
         encoder_.patch32(call,mainOffset);
         encoder_.bytes({0x55,0x48,0x89,0xE5});
-        if (frameBytes_) { encoder_.bytes({0x48,0x81,0xEC}); encoder_.u32(frameBytes_); }
+        if (frame_->frameBytes()) { encoder_.bytes({0x48,0x81,0xEC}); encoder_.u32(frame_->frameBytes()); }
         for(std::size_t b=0;b<mir_.blocks.size();++b) {
             labels_[b]=encoder_.code.size();
             const auto &block=mir_.blocks[b];
             for(std::size_t i=0;i<block.instructions.size();++i) {
                 const auto &inst=block.instructions[i];
-                try { emitInstruction(inst); }
+                try { emitInstruction(inst, *selected_[b][i]); }
                 catch (const std::exception &e) {
                     fail("block "+std::to_string(b)+" ('"+block.name+"'), instruction "+std::to_string(i)+
                          " ('"+inst.op+"'): "+e.what());
@@ -142,56 +148,67 @@ private:
     const ValueTypes &types_;
     const compilation::machine::MachineRecipeRegistry &recipes_;
     const compilation::machine::MachineTarget &target_;
-    compilation::machine::MachineLayoutRegistry layouts_{};
+    std::unique_ptr<compilation::machine::NativeFramePlan> frame_{};
     Encoder encoder_{};
-    std::unordered_map<std::uint32_t,Slot> slots_{};
     std::vector<std::size_t> labels_{};
     std::vector<Fixup> fixups_{};
-    std::uint64_t usedBytes_{0},scratchStart_{0};
-    std::size_t maxEdgeArgs_{0};
-    std::uint32_t frameBytes_{0};
+    std::vector<std::vector<const compilation::machine::MachineRecipe *>> selected_{};
+    static compilation::machine::MachineLayoutRegistry makeLayouts(const ValueTypes& types) {
+        compilation::machine::MachineLayoutRegistry layouts;
+        layouts.add(types.i32, {32,ScalarKind::SignedInteger,4});
+        layouts.add(types.boolean, {8,ScalarKind::Boolean,1});
+        for (const auto &[type, layout] : types.layouts.entries()) layouts.add(type,layout);
+        return layouts;
+    }
     [[noreturn]] static void fail(const std::string &message) {
         throw std::runtime_error("X86_64Backend: "+message);
     }
-    void declare(ir::ValueId value, const ir::TypeRef &type) {
-        if (!layouts_.has(type))
-            fail("unsupported SSA type '"+type.display()+"' (no machine layout)");
-        const MachineLayout layout=layouts_.require(type);
-        usedBytes_=(usedBytes_+layout.bytes()+layout.alignment-1)&~std::uint64_t(layout.alignment-1);
-        if (usedBytes_>std::numeric_limits<std::int32_t>::max()) fail("SSA stack slot exceeds disp32 range");
-        if (!slots_.emplace(value.value,Slot{static_cast<std::uint32_t>(usedBytes_),type,layout}).second)
-            fail("duplicate SSA value");
-    }
     const Slot &slot(const ir::Operand &operand, const ir::TypeRef &type) const {
         if (!operand.isValue()) fail("expected SSA value operand");
-        const auto it=slots_.find(operand.asValue().value);
-        if (it==slots_.end()) fail("undefined SSA value");
+        const auto it=frame_->slots().find(operand.asValue().value);
+        if (it==frame_->slots().end()) fail("undefined SSA value");
         if (it->second.type!=type) fail("operand type mismatch");
         return it->second;
     }
-    void verifyLiteralRange(const ir::Instruction &inst, const MachineLayout &layout) const {
-        if (inst.operands.size()!=1 || inst.op.find("const")==std::string::npos) return;
-        const auto *literal=std::get_if<ir::Literal>(&inst.operands[0].data());
-        const auto *n=literal ? std::get_if<int>(&literal->data()) : nullptr;
-        if (!n) return;
-        const std::int64_t number=*n;
-        if (layout.kind==ScalarKind::UnsignedInteger) {
-            const auto maximum=layout.bits==64 ? std::numeric_limits<std::uint64_t>::max()
-                : (std::uint64_t{1}<<layout.bits)-1;
-            if (number<0 || static_cast<std::uint64_t>(number)>maximum)
-                fail("integer constant out of range for unsigned "+std::to_string(layout.bits)+"-bit type");
-        } else if (layout.kind==ScalarKind::SignedInteger && layout.bits<32) {
-            const auto bound=std::int64_t{1}<<(layout.bits-1);
-            if (number< -bound || number>=bound)
-                fail("integer constant out of range for signed "+std::to_string(layout.bits)+"-bit type");
+    static void verifyImmediate(const compilation::machine::MachineInstruction &m,
+                                const MachineLayout &layout, const std::string &recipe) {
+        if (m.opcode != MachineOpcode::LoadImmediate) return;
+        if (layout.kind == ScalarKind::Boolean) {
+            if (m.immediate > 1) fail("recipe '" + recipe + "': noncanonical boolean immediate");
+            return;
+        }
+        // A constant must fit its destination *exactly*. Truncation requires
+        // an explicit conversion operation, never an implicit 8/16-bit store.
+        if (layout.bits == 64) {
+            if (layout.kind == ScalarKind::UnsignedInteger && m.signedImmediate &&
+                std::bit_cast<std::int64_t>(m.immediate) < 0)
+                fail("recipe '" + recipe + "': negative constant out of range for unsigned 64-bit type");
+            if (layout.kind == ScalarKind::SignedInteger && !m.signedImmediate &&
+                m.immediate > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
+                fail("recipe '" + recipe + "': unsigned constant out of range for signed 64-bit type");
+            return;
+        }
+        if (layout.kind == ScalarKind::UnsignedInteger) {
+            if ((m.signedImmediate && std::bit_cast<std::int64_t>(m.immediate) < 0) ||
+                m.immediate > ((std::uint64_t{1} << layout.bits) - 1))
+                fail("recipe '" + recipe + "': integer constant out of range for unsigned " +
+                     std::to_string(layout.bits) + "-bit type");
+        } else if (layout.kind == ScalarKind::SignedInteger) {
+            const auto max = (std::uint64_t{1} << (layout.bits - 1)) - 1;
+            const auto min = -static_cast<std::int64_t>(std::uint64_t{1} << (layout.bits - 1));
+            if (m.signedImmediate) {
+                const auto number = std::bit_cast<std::int64_t>(m.immediate);
+                if (number < min || number > static_cast<std::int64_t>(max))
+                    fail("recipe '" + recipe + "': integer constant out of range for signed " +
+                         std::to_string(layout.bits) + "-bit type");
+            } else if (m.immediate > max) {
+                fail("recipe '" + recipe + "': unsigned constant out of range for signed " +
+                     std::to_string(layout.bits) + "-bit type");
+            }
         }
     }
-    void emitInstruction(const ir::Instruction &inst) {
+    void emitInstruction(const ir::Instruction &inst, const compilation::machine::MachineRecipe &recipe) {
         if (!inst.result) {
-            const auto &recipe=recipes_.select(inst,target_,[this](ir::ValueId v)->std::optional<ir::TypeRef>{
-                const auto it=slots_.find(v.value);
-                return it==slots_.end()?std::nullopt:std::optional<ir::TypeRef>{it->second.type};
-            });
             compilation::machine::MachineBuilder builder{inst};
             try { recipe.emit(inst,builder); }
             catch (const std::exception &e) {
@@ -207,12 +224,7 @@ private:
             }
             return;
         }
-        const auto &dest=slots_.at(inst.result->value);
-        verifyLiteralRange(inst,dest.layout);
-        const auto &recipe=recipes_.select(inst,target_,[this](ir::ValueId v)->std::optional<ir::TypeRef>{
-            const auto it=slots_.find(v.value);
-            return it==slots_.end() ? std::nullopt : std::optional<ir::TypeRef>{it->second.type};
-        });
+        const auto &dest=frame_->require(ir::ValueId{inst.result->value});
         compilation::machine::MachineIR code;
         try {
             compilation::machine::MachineBuilder builder{inst};
@@ -225,13 +237,12 @@ private:
         for(const auto &m : code.instructions) {
             switch(m.opcode) {
                 case MachineOpcode::LoadImmediate:
-                    if (dest.layout.kind==ScalarKind::Boolean && m.immediate>1)
-                        fail("recipe '"+recipe.id+"': noncanonical boolean immediate");
+                    verifyImmediate(m, dest.layout, recipe.id);
                     accumulator=dest.type; break;
                 case MachineOpcode::LoadSSA:
                 case MachineOpcode::ConvertSSA: {
-                    if (!m.source || !slots_.contains(m.source->value)) fail("recipe references undefined SSA value");
-                    const auto &source=slots_.at(m.source->value);
+                    if (!m.source || !frame_->slots().contains(m.source->value)) fail("recipe references undefined SSA value");
+                    const auto &source=frame_->require(ir::ValueId{m.source->value});
                     if (m.opcode==MachineOpcode::ConvertSSA) {
                         if (source.layout.kind==ScalarKind::Boolean || dest.layout.kind==ScalarKind::Boolean)
                             fail("integer conversion cannot silently convert boolean");
@@ -241,12 +252,12 @@ private:
                 }
                 case MachineOpcode::AddSSA: case MachineOpcode::SubSSA: case MachineOpcode::MulSSA:
                 case MachineOpcode::LessThanSSA: case MachineOpcode::UnsignedLessThanSSA: {
-                    if (!m.source || !slots_.contains(m.source->value) ||
-                        slots_.at(m.source->value).type!=accumulator ||
-                        accumulator==types_.boolean || !layouts_.has(accumulator) ||
-                        layouts_.require(accumulator).kind==ScalarKind::Boolean)
+                    if (!m.source || !frame_->slots().contains(m.source->value) ||
+                        frame_->require(ir::ValueId{m.source->value}).type!=accumulator ||
+                        accumulator==types_.boolean || !frame_->layouts().has(accumulator) ||
+                        frame_->layouts().require(accumulator).kind==ScalarKind::Boolean)
                         fail("recipe '"+recipe.id+"': incompatible arithmetic operand types");
-                    const auto kind=layouts_.require(accumulator).kind;
+                    const auto kind=frame_->layouts().require(accumulator).kind;
                     if ((m.opcode==MachineOpcode::LessThanSSA && kind!=ScalarKind::SignedInteger) ||
                         (m.opcode==MachineOpcode::UnsignedLessThanSSA && kind!=ScalarKind::UnsignedInteger))
                         fail("recipe '"+recipe.id+"': comparison signedness mismatch");
@@ -257,7 +268,7 @@ private:
                 case MachineOpcode::Nop: case MachineOpcode::Trap:
                     fail("value-producing recipe contains effect-only machine operation");
                 case MachineOpcode::AddImmediate:
-                    if (!layouts_.has(accumulator) || layouts_.require(accumulator).kind==ScalarKind::Boolean)
+                    if (!frame_->layouts().has(accumulator) || frame_->layouts().require(accumulator).kind==ScalarKind::Boolean)
                         fail("recipe '"+recipe.id+"': add immediate requires integer accumulator");
                     break;
             }
@@ -273,16 +284,16 @@ private:
                     current=dest.type;
                     break;
                 case MachineOpcode::LoadSSA: case MachineOpcode::ConvertSSA:
-                    encoder_.load(slots_.at(m.source->value).offset, slots_.at(m.source->value).layout);
+                    encoder_.load(frame_->require(ir::ValueId{m.source->value}).offset, frame_->require(ir::ValueId{m.source->value}).layout);
                     if (m.opcode==MachineOpcode::ConvertSSA && dest.layout.bits==64 &&
-                        slots_.at(m.source->value).layout.bits<64 &&
-                        slots_.at(m.source->value).layout.kind==ScalarKind::SignedInteger)
+                        frame_->require(ir::ValueId{m.source->value}).layout.bits<64 &&
+                        frame_->require(ir::ValueId{m.source->value}).layout.kind==ScalarKind::SignedInteger)
                         encoder_.signExtendEaxToRax();
-                    current=m.opcode==MachineOpcode::ConvertSSA ? dest.type : slots_.at(m.source->value).type;
+                    current=m.opcode==MachineOpcode::ConvertSSA ? dest.type : frame_->require(ir::ValueId{m.source->value}).type;
                     break;
                 case MachineOpcode::AddSSA: case MachineOpcode::SubSSA: case MachineOpcode::MulSSA:
                 case MachineOpcode::LessThanSSA: case MachineOpcode::UnsignedLessThanSSA: {
-                    const auto &source=slots_.at(m.source->value);
+                    const auto &source=frame_->require(ir::ValueId{m.source->value});
                     encoder_.load(source.offset,source.layout,true);
                     const bool wide=source.layout.bits==64;
                     switch(m.opcode) {
@@ -299,7 +310,7 @@ private:
                 case MachineOpcode::Nop: case MachineOpcode::Trap:
                     fail("effect-only machine operation within value recipe");
                 case MachineOpcode::AddImmediate:
-                    encoder_.addImmediate(m.immediate,layouts_.require(current).bits==64); break;
+                    encoder_.addImmediate(m.immediate,frame_->layouts().require(current).bits==64); break;
             }
         }
         encoder_.store(dest.offset,dest.layout);
@@ -314,11 +325,11 @@ private:
             const auto &param=target.arguments[i];
             const auto &src=slot(edge.arguments[i],param.type);
             encoder_.load(src.offset,src.layout);
-            encoder_.store(static_cast<std::uint32_t>(scratchStart_+(i+1)*8),{64,ScalarKind::UnsignedInteger,8});
+            encoder_.store(static_cast<std::uint32_t>(frame_->scratchStart()+(i+1)*8),{64,ScalarKind::UnsignedInteger,8});
         }
         for(std::size_t i=0;i<edge.arguments.size();++i) {
-            encoder_.load(static_cast<std::uint32_t>(scratchStart_+(i+1)*8),{64,ScalarKind::UnsignedInteger,8});
-            const auto &dst=slots_.at(target.arguments[i].value.value);
+            encoder_.load(static_cast<std::uint32_t>(frame_->scratchStart()+(i+1)*8),{64,ScalarKind::UnsignedInteger,8});
+            const auto &dst=frame_->require(ir::ValueId{target.arguments[i].value.value});
             encoder_.store(dst.offset,dst.layout);
         }
         jump(edge.target.value);
@@ -327,8 +338,8 @@ private:
         if (term.op=="return") {
             if (!term.successors.empty() || term.operands.size()!=1) fail("return requires one SSA value");
             if (!term.operands[0].isValue()) fail("return requires SSA value");
-            const auto it=slots_.find(term.operands[0].asValue().value);
-            if (it==slots_.end() || it->second.layout.kind==ScalarKind::Boolean)
+            const auto it=frame_->slots().find(term.operands[0].asValue().value);
+            if (it==frame_->slots().end() || it->second.layout.kind==ScalarKind::Boolean)
                 fail("return operand type mismatch: requires integer SSA value");
             encoder_.load(it->second.offset,it->second.layout);
             encoder_.bytes({0xC9,0xC3});

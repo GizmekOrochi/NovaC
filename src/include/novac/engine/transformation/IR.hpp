@@ -51,7 +51,8 @@ struct BlockId {
  */
 class Literal {
 public:
-    using Data = std::variant<std::monostate, int, double, bool, std::string>;
+    using Data = std::variant<std::monostate, int, double, bool, std::string,
+                              std::int64_t, std::uint64_t>;
 
     /**
      * @brief Creates an empty literal.
@@ -72,6 +73,9 @@ public:
      * @return Literal containing the value.
      */
     static Literal integer(int value);
+    /** Lossless signed and unsigned 64-bit literal payloads. */
+    static Literal signedInteger64(std::int64_t value);
+    static Literal unsignedInteger64(std::uint64_t value);
 
     /**
      * @brief Creates a floating-point literal.

@@ -22,6 +22,8 @@ struct MachineInstruction {
     MachineOpcode opcode{};
     std::uint64_t immediate{};
     std::optional<ir::ValueId> source{};
+    /** Explicit source interpretation, independent of operation spelling. */
+    bool signedImmediate{false};
 };
 struct MachineIR {
     std::vector<MachineInstruction> instructions{};
@@ -34,6 +36,7 @@ public:
     explicit MachineBuilder(const ir::Instruction &source) : source_{source} {}
     void loadImmediate(std::uint32_t value);
     void loadImmediate64(std::uint64_t value);
+    void loadSignedImmediate(std::int64_t value);
     void convertInput(std::size_t index);
     void loadIntegerLiteral();
     void loadBooleanLiteral();
@@ -54,7 +57,7 @@ private:
     bool accumulatorReady_{false};
     ir::ValueId requireInput(std::size_t index) const;
     void append(MachineOpcode op, std::uint64_t immediate = 0,
-                std::optional<ir::ValueId> source = std::nullopt);
+                std::optional<ir::ValueId> source = std::nullopt, bool signedImmediate = false);
 };
 
 using RecipeEmitter = std::function<void(const ir::Instruction &, MachineBuilder &)>;

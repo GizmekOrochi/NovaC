@@ -1,39 +1,52 @@
 #pragma once
-#include "novac/assets/compilation/backend/Backend.hpp"
+#include "novac/assets/compilation/backend/NativeBackend.hpp"
 #include "novac/assets/compilation/backend/x86_64/Codegen.hpp"
-
-#include <utility>
-#include <algorithm>
+#include "novac/assets/compilation/machine/MachineRecipe.hpp"
 
 namespace novac::backend {
-
-/** Experimental direct Linux x86-64 backend. No C, GCC, LLVM or assembler.
- * Generates byte-encoded machine code, ET_REL .o, and runnable ET_EXEC ELF64.
- * The baseline uses a private stack slot per SSA value and per block parameter.
- * Return type is i32; OS exit status is its low eight bits. */
-class X86_64Backend final : public Backend {
+/** Linux x86-64 target provider. Subclasses customize generateForTarget(),
+ * the canonical hook invoked for ALL session configurations. Overrides of the
+ * legacy generate(mir) alone do not customize session-aware compilation;
+ * migrate these overrides to generateForTarget() to receive the correct goal.
+ * The inherited interface is independent of CompilationController. */
+class LinuxX86_64Target : public NativeTarget {
 public:
-    /** Copy recipe packs at construction. No mutation during compilation. */
-    explicit X86_64Backend(x86_64::ValueTypes types = {},
+    explicit LinuxX86_64Target(x86_64::ValueTypes types = {},
         compilation::machine::MachineRecipeRegistry custom = {},
         compilation::machine::MachineTarget target = {});
-    std::optional<BackendCapabilities> capabilities() const override {
-        BackendCapabilities result{"mir", "x86-64-elf-executable", {}, {"return", "jump", "branch"}};
-        for (const auto &recipe : recipes_.recipes()) {
-            if (recipe.target != target_.architecture ||
-                !std::includes(target_.cpuFeatures.begin(),target_.cpuFeatures.end(),
-                               recipe.requiredCpuFeatures.begin(),recipe.requiredCpuFeatures.end())) continue;
-            if (std::find(result.instructions.begin(), result.instructions.end(), recipe.operation)==result.instructions.end())
-                result.instructions.push_back(recipe.operation);
-        }
-        return result;
-    }
-    std::optional<ir::TypeRef> branchBooleanType() const override { return types_.boolean; }
+    const compilation::target::TargetSpec& specification() const noexcept override;
+    BackendCapabilities capabilities() const override;
+    std::optional<ir::TypeRef> branchBooleanType() const override;
     void preflight(const ir::MIRModule &mir) const override;
-    void run(compilation::CompilationSession &session) const override;
+    NativeBuild generate(const ir::MIRModule &mir) const override;
+    NativeBuild generate(const ir::MIRModule &mir, const compilation::CompilationOptions &options) const override;
+protected:
+    /** Extension point for downstream native targets, called through the
+     * options-aware public API with the effective goal for this session. */
+    virtual NativeBuild generateForTarget(const ir::MIRModule &mir,
+        const compilation::machine::MachineTarget &target) const;
+    const x86_64::ValueTypes& valueTypes() const noexcept { return types_; }
+    const compilation::machine::MachineRecipeRegistry& recipes() const noexcept { return recipes_; }
+    const compilation::machine::MachineTarget& machineTarget() const noexcept { return machineTarget_; }
 private:
     x86_64::ValueTypes types_;
     compilation::machine::MachineRecipeRegistry recipes_;
-    compilation::machine::MachineTarget target_;
+    compilation::machine::MachineTarget machineTarget_;
+    compilation::target::TargetSpec spec_;
 };
+
+/** Compatibility facade for the first supported native target. The shared
+ * lifecycle and output checks live in NativeBackend, not this class. */
+class X86_64Backend : public NativeBackend {
+public:
+    explicit X86_64Backend(x86_64::ValueTypes types = {},
+        compilation::machine::MachineRecipeRegistry custom = {},
+        compilation::machine::MachineTarget target = {});
+};
+/** Plugin-style constructor, usable by TargetRegistry without requiring the
+ * general CompilationController or Engine to know the x86-64 architecture. */
+std::shared_ptr<const NativeTarget> makeX86_64LinuxTarget(
+    x86_64::ValueTypes types = {},
+    compilation::machine::MachineRecipeRegistry custom = {},
+    compilation::machine::MachineTarget target = {});
 } // namespace novac::backend
