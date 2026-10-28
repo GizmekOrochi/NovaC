@@ -130,7 +130,12 @@ TEST(HIRToMIR, RequiresExplicitConversionForTypeChanges) {
     good.mir("change", [](const Input &, MIRBuilder &out, const Ctx &, const Registry &) -> Result {
         return Result::converted(out.emitValue("changed", {}, ValueType::Bool));
     });
-    CHECK(HIRLoweringPass(good).lower(hir).blocks[0].instructions[0].type == ValueType::Bool);
+    CHECK(failure([&] { HIRLoweringPass(good).lower(hir); }).find("conversion not authorized") != std::string::npos);
+    HIRLoweringOptions options;
+    options.allowsConversion = [](const TypeRef &from, const TypeRef &to) {
+        return from == ValueType::Int && to == ValueType::Bool;
+    };
+    CHECK(HIRLoweringPass(good).lower(hir, options).blocks[0].instructions[0].type == ValueType::Bool);
 }
 
 TEST(HIRToMIR, ElisionMustBeExplicitAndCannotLeaveLiveUses) {

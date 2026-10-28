@@ -5,6 +5,7 @@
 #include "novac/engine/foundation/registry/Registry.hpp"
 #include "novac/engine/foundation/registry/RegistryHelpers.hpp"
 #include "novac/engine/foundation/Metadata.hpp"
+#include "novac/engine/transformation/TypeIdentity.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -40,44 +41,6 @@ struct BlockId {
     std::uint32_t value{};
 };
 
-/**
- * @brief Describes the basic type of a value produced by an IR instruction.
- *
- * These types are intentionally small and generic. They give later passes
- * enough information to understand common values without defining a full
- * language-specific type system here.
- */
-enum class ValueType {
-    /**
-     * @brief Value type has not been inferred or specified.
-     */
-    Unknown,
-
-    /**
-     * @brief Instruction does not produce a usable value.
-     */
-    Void,
-
-    /**
-     * @brief Integer value.
-     */
-    Int,
-
-    /**
-     * @brief Boolean value.
-     */
-    Bool,
-
-    /**
-     * @brief Floating-point value.
-     */
-    Float,
-
-    /**
-     * @brief String value.
-     */
-    String
-};
 
 /**
  * @brief Literal constant stored directly in an IR operand.
@@ -272,7 +235,7 @@ struct Instruction {
     std::vector<Operand> operands{};
 
     /** Type of the produced value. */
-    ValueType type{ValueType::Unknown};
+    TypeRef type{ValueType::Unknown};
 
     /** Extension-defined information attached to this instruction. */
     metadata::MetadataStore metadata{};
@@ -281,7 +244,7 @@ struct Instruction {
 /** A value defined at the start of a basic block; shares the module's ValueId namespace. */
 struct BlockArgument {
     ValueId value{};
-    ValueType type{ValueType::Unknown};
+    TypeRef type{ValueType::Unknown};
     metadata::MetadataStore metadata{};
 };
 
@@ -349,6 +312,8 @@ struct MIRModule {
 struct IRValidationOptions {
     // Partial modules remain supported for incremental builders.
     bool requireTerminators{false};
+    bool requireResolvedTypes{false};
+    const TypeSpace *types{nullptr}; // optional strict scope validation
 };
 
 /**
@@ -387,9 +352,11 @@ public:
 
     /** Create a block and declare its arguments using the shared ValueId allocator. */
     BlockId createBlock(std::string name, const std::vector<ValueType> &argumentTypes);
+    BlockId createTypedBlock(std::string name, const std::vector<TypeRef> &argumentTypes);
 
     /** Declare one block parameter before any incoming terminator is built. */
     ValueId addBlockArgument(BlockId block, ValueType type);
+    ValueId addBlockArgument(BlockId block, TypeRef type);
 
     /** Encode per-edge arguments; distinct from the old no-payload terminate(). */
     void terminateWithSuccessors(std::string op, std::vector<Operand> operands,
@@ -429,6 +396,7 @@ public:
      * @throws std::runtime_error If the current block already has a terminator.
      */
     ValueId emitValue(std::string op, std::vector<Operand> operands = {}, ValueType type = ValueType::Unknown);
+    ValueId emitValue(std::string op, std::vector<Operand> operands, TypeRef type);
 
     /**
      * @brief Emits an instruction that produces a value.
@@ -441,6 +409,7 @@ public:
      * @throws std::runtime_error If the current block already has a terminator.
      */
     ValueId emitValue(const ids::Operation &op, std::vector<Operand> operands = {}, ValueType type = ValueType::Unknown);
+    ValueId emitValue(const ids::Operation &op, std::vector<Operand> operands, TypeRef type);
 
     /**
      * @brief Emits an instruction with no result value.
@@ -544,7 +513,7 @@ public:
     /** Changes to the insertion point, even if later restored. */
     std::size_t insertionChanges() const noexcept { return insertionChanges_; }
     /** Constant-time lookup of parameter and instruction result types. */
-    std::optional<ValueType> valueType(ValueId id) const noexcept {
+    std::optional<TypeRef> valueType(ValueId id) const noexcept {
         const auto it = valueTypes_.find(id.value);
         if (it == valueTypes_.end()) return std::nullopt;
         return it->second;
@@ -560,9 +529,11 @@ public:
 
     /** Create a block and declare its arguments using the shared ValueId allocator. */
     BlockId createBlock(std::string name, const std::vector<ValueType> &argumentTypes);
+    BlockId createTypedBlock(std::string name, const std::vector<TypeRef> &argumentTypes);
 
     /** Declare one block parameter before any incoming terminator is built. */
     ValueId addBlockArgument(BlockId block, ValueType type);
+    ValueId addBlockArgument(BlockId block, TypeRef type);
 
     /** Encode per-edge arguments; distinct from the old no-payload terminate(). */
     void terminateWithSuccessors(std::string op, std::vector<Operand> operands,
@@ -596,6 +567,7 @@ public:
      * @throws std::runtime_error If the current block already has a terminator.
      */
     ValueId emitValue(std::string op, std::vector<Operand> operands = {}, ValueType type = ValueType::Unknown);
+    ValueId emitValue(std::string op, std::vector<Operand> operands, TypeRef type);
 
     /**
      * @brief Emits an instruction that produces a value.
@@ -608,6 +580,7 @@ public:
      * @throws std::runtime_error If the current block already has a terminator.
      */
     ValueId emitValue(const ids::Operation &op, std::vector<Operand> operands = {}, ValueType type = ValueType::Unknown);
+    ValueId emitValue(const ids::Operation &op, std::vector<Operand> operands, TypeRef type);
 
     /**
      * @brief Emits an instruction with no result value.
@@ -686,7 +659,7 @@ private:
     BlockId currentBlock_;
     std::uint32_t nextValue_;
     std::size_t insertionChanges_{0};
-    std::unordered_map<std::uint32_t, ValueType> valueTypes_{};
+    std::unordered_map<std::uint32_t, TypeRef> valueTypes_{};
 };
 
 /**
@@ -804,6 +777,9 @@ struct HIRLoweringOptions {
     // Opaque metadata is copied, including frozen status. Language-specific
     // HIR references inside metadata need explicit rewriting by their owners.
     bool propagateMetadata{true};
+    // A conversion declaration is not proof of semantic legality. Languages
+    // supply this policy for every actual identity-changing conversion.
+    std::function<bool(const TypeRef &, const TypeRef &)> allowsConversion{};
 };
 
 class LoweringRegistry {
@@ -924,7 +900,8 @@ public:
      *
      * @throws std::runtime_error If no MIR lowerer is registered for the instruction operation.
      */
-    MIRLoweringResult lowerMIR(const Instruction &instruction, MIRBuilder &out, MIRLoweringContext &context) const;
+    MIRLoweringResult lowerMIR(const Instruction &instruction, MIRBuilder &out, MIRLoweringContext &context,
+        const std::function<bool(const TypeRef &, const TypeRef &)> &allowsConversion = {}) const;
 
     /**
      * @brief Lowers all child nodes directly stored in a node.
@@ -1038,5 +1015,6 @@ private:
  * @return Textual type name.
  */
 std::string valueTypeName(ValueType type);
+std::string valueTypeName(const TypeRef &type);
 
 } // namespace novac::ir

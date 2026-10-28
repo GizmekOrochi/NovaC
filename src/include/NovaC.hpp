@@ -32,6 +32,7 @@
 
 // Generic HIR/MIR/IR primitives can be used by interpreters and analyzers.
 // Compilation sessions and backends remain together in one inactive asset.
+#include "novac/engine/transformation/TypeIdentity.hpp"
 #include "novac/engine/transformation/IR.hpp"
 #include "novac/engine/transformation/GenericIR.hpp"
 
@@ -50,6 +51,7 @@
 #include "novac/assets/types/model/Storage.hpp"
 #include "novac/assets/types/semantics/TypeSemantics.hpp"
 #include "novac/assets/types/TypeController.hpp"
+#include "novac/assets/types/IRTypeAdapter.hpp"
 #include "novac/assets/types/LayoutController.hpp"
 #include "novac/assets/types/StorageController.hpp"
 #include "novac/assets/types/aggregate/StructType.hpp"

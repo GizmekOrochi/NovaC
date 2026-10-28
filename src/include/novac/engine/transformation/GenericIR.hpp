@@ -2,6 +2,7 @@
 
 #include "novac/engine/foundation/Metadata.hpp"
 #include "novac/engine/foundation/registry/Registry.hpp"
+#include "novac/engine/transformation/TypeIdentity.hpp"
 
 #include <cstdint>
 #include <limits>
@@ -25,16 +26,8 @@ struct BlockId {
     friend bool operator==(const BlockId &, const BlockId &) = default;
 };
 
-/** Opaque type identity. Empty means unspecified. */
-struct TypeRef {
-    std::string id{};
-    /**
-     * @brief Performs the `valid` operation.
-     *
-     * @return Value produced by the operation.
-     */
-    bool valid() const noexcept { return !id.empty(); }
-};
+/** Shared scoped identity used by HIR, MIR and GenericIR. */
+using TypeRef = ::novac::ir::TypeRef;
 
 struct Region;
 
@@ -152,8 +145,12 @@ public:
         if (operation.results.size() < schema->minResults || operation.results.size() > schema->maxResults) {
             throw std::runtime_error("OperationRegistry::validate: invalid result count for '" + operation.name + "'");
         }
-        if (!operation.resultTypes.empty() && operation.resultTypes.size() != operation.results.size()) {
+        if (operation.resultTypes.size() != operation.results.size()) {
             throw std::runtime_error("OperationRegistry::validate: result type count does not match result count for '" + operation.name + "'");
+        }
+        for (const TypeRef &type : operation.resultTypes) {
+            if (!type.valid() || type.isVoid())
+                throw std::runtime_error("OperationRegistry::validate: invalid result type for '" + operation.name + "'");
         }
     }
 

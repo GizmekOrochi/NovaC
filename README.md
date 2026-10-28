@@ -60,7 +60,7 @@ The public umbrella header and version API are available after installation:
 #include <NovaC.hpp>
 
 static_assert(NOVAC_VERSION_MAJOR == 1);
-static_assert(novac::Version == "1.4.1");
+static_assert(novac::Version == "1.4.2");
 ```
 
 Remove an installation made with the same prefix using:
@@ -68,10 +68,6 @@ Remove an installation made with the same prefix using:
 ```bash
 sudo make uninstall PREFIX=/usr/local
 ```
-
-**HIR → MIR lowering stabilization:** see [LOWERING_FIXES.md](LOWERING_FIXES.md)
-for the new callback contract, migration notes, correctness fixes, and known
-limits. The compilation asset remains parked.
 
 ## Tests and reliability
 
@@ -124,7 +120,7 @@ The [continuous integration workflow](.github/workflows/ci.yml) runs normal test
 
 ## Release
 
-This source tree targets **NovaC 1.4.1**. Publication of the corresponding Git tag or GitHub release is a separate maintainer step. Changes are documented in [`CHANGELOG.md`](CHANGELOG.md).
+This source tree targets **NovaC 1.4.2**. Publication of the corresponding Git tag or GitHub release is a separate maintainer step. Changes are documented in [`CHANGELOG.md`](CHANGELOG.md).
 
 After committing all release changes and obtaining a green release gate, create a clean source archive from the committed `HEAD` with:
 
@@ -132,7 +128,7 @@ After committing all release changes and obtaining a green release gate, create 
 make dist
 ```
 
-`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.4.1.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded. Its release checks include tests, sanitizers, package installation, and strict documentation. GitHub Actions runs the equivalent checks as separate jobs, then invokes `make dist-source` to create the same clean archive without rerunning them.
+`make dist` refuses to package a dirty or untracked working tree and writes `dist/NovaC-1.4.2.zip` using `git archive`, so local build products, virtual environments, and `.git` metadata are excluded. Its release checks include tests, sanitizers, package installation, and strict documentation. GitHub Actions runs the equivalent checks as separate jobs, then invokes `make dist-source` to create the same clean archive without rerunning them.
 
 ## License
 

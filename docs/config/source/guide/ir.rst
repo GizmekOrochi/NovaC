@@ -247,3 +247,22 @@ Use HIR/MIR when you need one or more of these:
 
 Do not add IR merely because compilers often have one. If direct AST execution
 fits your language, the shorter pipeline is simpler and fully supported.
+
+Scoped types in HIR/MIR
+-----------------------
+
+HIR, MIR and GenericIR share a qualified ``novac::ir::TypeRef`` identity
+(``space`` plus ``id``). The Engine does not require the Types asset. Primitive
+``ValueType`` parameters remain available for compatibility; typed builders
+accept ``TypeRef`` and ``createTypedBlock(name, types)`` creates a block with
+custom type identities. ``TypeSpace`` registers identities without defining
+their layout or semantic conversions.
+
+``IRValidationOptions`` can reject unresolved ``unknown`` values and validate
+all custom types against a supplied ``TypeSpace``. HIR → MIR lowering preserves
+these qualified identities. A type-changing lowering must return
+``MIRLoweringResult::converted(value)`` **and** provide an authorizing language
+policy in ``HIRLoweringOptions::allowsConversion``.
+
+See the root ``TYPE_IDENTITY.md`` for API examples, imports between modules,
+serialization, the optional Types adapter and migration details.

@@ -14,7 +14,7 @@ namespace {
 struct ValueDefinition {
     std::size_t block{};
     std::size_t instruction{};
-    ValueType type{ValueType::Unknown};
+    TypeRef type{ValueType::Unknown};
     bool parameter{false};
 };
 
@@ -25,6 +25,14 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
         throw std::runtime_error(prefix + "too many blocks");
     }
 
+    const auto checkType = [&](const TypeRef &type, const std::string &where, bool permitVoid) {
+        if (!type.valid() || (!permitVoid && type.isVoid()))
+            throw std::runtime_error(where + "invalid or void type reference");
+        if (options.requireResolvedTypes && type.unresolved())
+            throw std::runtime_error(where + "unresolved type reference");
+        if (options.types && !type.builtin() && !options.types->contains(type))
+            throw std::runtime_error(where + "unregistered or foreign type reference: " + type.display());
+    };
     std::unordered_map<std::uint32_t, ValueDefinition> definitions;
     std::vector<std::vector<std::size_t>> successors(blocks.size());
     std::vector<std::vector<std::size_t>> predecessors(blocks.size());
@@ -41,7 +49,7 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
         }
         for (std::size_t i = 0; i < block.arguments.size(); ++i) {
             const BlockArgument &arg = block.arguments[i];
-            if (arg.type == ValueType::Void) throw std::runtime_error(where + "void block parameter");
+            checkType(arg.type, where + "block parameter: ", false);
             if (!definitions.emplace(arg.value.value, ValueDefinition{b, 0, arg.type, true}).second) {
                 throw std::runtime_error(where + "duplicate value v" + std::to_string(arg.value.value));
             }
@@ -51,6 +59,8 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
             if (instruction.op.empty()) {
                 throw std::runtime_error(where + "instruction " + std::to_string(i) + " has empty operation");
             }
+            if (instruction.result) checkType(instruction.type, where + "instruction result: ", false);
+            else checkType(instruction.type, where + "void instruction: ", true);
             if (instruction.result && instruction.type == ValueType::Void) {
                 throw std::runtime_error(where + "value-producing instruction has void type");
             }
@@ -202,8 +212,9 @@ void validateBlocks(const std::vector<BasicBlock> &blocks, const char *kind, IRV
             if (block.terminator->op == "branch" && !block.terminator->operands.empty()) {
                 const Operand &cond = block.terminator->operands.front();
                 if (cond.isValue()) {
-                    const ValueType type = definitions.at(cond.asValue().value).type;
-                    if (type != ValueType::Bool && type != ValueType::Unknown)
+                    const TypeRef type = definitions.at(cond.asValue().value).type;
+                    if (type != ValueType::Bool && type != ValueType::Unknown &&
+                        type != TypeRef{"dynamic", "novac.builtin"})
                         throw std::runtime_error(prefix + "block " + std::to_string(b) + ": branch condition must be bool or unknown");
                 } else if (const auto *literal = std::get_if<Literal>(&cond.data())) {
                     if (!std::holds_alternative<bool>(literal->data()))
@@ -496,20 +507,31 @@ BlockId HIRBuilder::createBlock(std::string name) {
 }
 
 BlockId HIRBuilder::createBlock(std::string name, const std::vector<ValueType> &types) {
+    std::vector<TypeRef> refs;
+    refs.reserve(types.size());
+    for (ValueType t : types) refs.emplace_back(t);
+    return createTypedBlock(std::move(name), refs);
+}
+
+BlockId HIRBuilder::createTypedBlock(std::string name, const std::vector<TypeRef> &types) {
     // Validate before adding the block so a bad parameter list doesn't mutate the builder.
-    for (const auto type : types) if (type == ValueType::Void)
+    for (const auto &type : types) if (!type.valid() || type.isVoid())
         throw std::runtime_error("HIRBuilder::createBlock: void block parameter");
     if (types.size() > std::numeric_limits<std::uint32_t>::max() - nextValue_)
         throw std::runtime_error("HIRBuilder::createBlock: value ID overflow");
     BlockId id = createBlock(std::move(name));
-    for (ValueType type : types) addBlockArgument(id, type);
+    for (const TypeRef &type : types) addBlockArgument(id, type);
     return id;
 }
 
 ValueId HIRBuilder::addBlockArgument(BlockId block, ValueType type) {
+    return addBlockArgument(block, TypeRef{type});
+}
+
+ValueId HIRBuilder::addBlockArgument(BlockId block, TypeRef type) {
     if (block.value >= module_.blocks.size() || block.value == 0)
         throw std::runtime_error("HIRBuilder::addBlockArgument: invalid block or entry signature");
-    if (type == ValueType::Void || nextValue_ == std::numeric_limits<std::uint32_t>::max())
+    if (!type.valid() || type.isVoid() || nextValue_ == std::numeric_limits<std::uint32_t>::max())
         throw std::runtime_error("HIRBuilder::addBlockArgument: void type or value ID overflow");
     if (module_.blocks[block.value].terminator || !module_.blocks[block.value].instructions.empty())
         throw std::runtime_error("HIRBuilder::addBlockArgument: cannot append to populated block");
@@ -565,7 +587,11 @@ bool HIRBuilder::currentBlockTerminated() const {
  * @return Value produced by the operation.
  */
 ValueId HIRBuilder::emitValue(std::string op, std::vector<Operand> operands, ValueType type) {
-    if (op.empty() || type == ValueType::Void) {
+    return emitValue(std::move(op), std::move(operands), TypeRef{type});
+}
+
+ValueId HIRBuilder::emitValue(std::string op, std::vector<Operand> operands, TypeRef type) {
+    if (op.empty() || !type.valid() || type.isVoid()) {
         throw std::runtime_error("HIRBuilder::emitValue: operation must be non-empty and result type non-void");
     }
     if (nextValue_ == std::numeric_limits<std::uint32_t>::max()) {
@@ -591,6 +617,10 @@ ValueId HIRBuilder::emitValue(std::string op, std::vector<Operand> operands, Val
  * @return Value produced by the operation.
  */
 ValueId HIRBuilder::emitValue(const ids::Operation &op, std::vector<Operand> operands, ValueType type) {
+    return emitValue(op.value, std::move(operands), TypeRef{type});
+}
+
+ValueId HIRBuilder::emitValue(const ids::Operation &op, std::vector<Operand> operands, TypeRef type) {
     return emitValue(op.value, std::move(operands), type);
 }
 
@@ -720,20 +750,31 @@ BlockId MIRBuilder::createBlock(std::string name) {
 }
 
 BlockId MIRBuilder::createBlock(std::string name, const std::vector<ValueType> &types) {
+    std::vector<TypeRef> refs;
+    refs.reserve(types.size());
+    for (ValueType t : types) refs.emplace_back(t);
+    return createTypedBlock(std::move(name), refs);
+}
+
+BlockId MIRBuilder::createTypedBlock(std::string name, const std::vector<TypeRef> &types) {
     // Validate before adding the block so a bad parameter list doesn't mutate the builder.
-    for (const auto type : types) if (type == ValueType::Void)
+    for (const auto &type : types) if (!type.valid() || type.isVoid())
         throw std::runtime_error("MIRBuilder::createBlock: void block parameter");
     if (types.size() > std::numeric_limits<std::uint32_t>::max() - nextValue_)
         throw std::runtime_error("MIRBuilder::createBlock: value ID overflow");
     BlockId id = createBlock(std::move(name));
-    for (ValueType type : types) addBlockArgument(id, type);
+    for (const TypeRef &type : types) addBlockArgument(id, type);
     return id;
 }
 
 ValueId MIRBuilder::addBlockArgument(BlockId block, ValueType type) {
+    return addBlockArgument(block, TypeRef{type});
+}
+
+ValueId MIRBuilder::addBlockArgument(BlockId block, TypeRef type) {
     if (block.value >= module_.blocks.size() || block.value == 0)
         throw std::runtime_error("MIRBuilder::addBlockArgument: invalid block or entry signature");
-    if (type == ValueType::Void || nextValue_ == std::numeric_limits<std::uint32_t>::max())
+    if (!type.valid() || type.isVoid() || nextValue_ == std::numeric_limits<std::uint32_t>::max())
         throw std::runtime_error("MIRBuilder::addBlockArgument: void type or value ID overflow");
     if (module_.blocks[block.value].terminator || !module_.blocks[block.value].instructions.empty())
         throw std::runtime_error("MIRBuilder::addBlockArgument: cannot append to populated block");
@@ -773,7 +814,11 @@ void MIRBuilder::setCurrentBlock(BlockId block) {
  * @return Value produced by the operation.
  */
 ValueId MIRBuilder::emitValue(std::string op, std::vector<Operand> operands, ValueType type) {
-    if (op.empty() || type == ValueType::Void) {
+    return emitValue(std::move(op), std::move(operands), TypeRef{type});
+}
+
+ValueId MIRBuilder::emitValue(std::string op, std::vector<Operand> operands, TypeRef type) {
+    if (op.empty() || !type.valid() || type.isVoid()) {
         throw std::runtime_error("MIRBuilder::emitValue: operation must be non-empty and result type non-void");
     }
     if (nextValue_ == std::numeric_limits<std::uint32_t>::max()) {
@@ -800,6 +845,10 @@ ValueId MIRBuilder::emitValue(std::string op, std::vector<Operand> operands, Val
  * @return Value produced by the operation.
  */
 ValueId MIRBuilder::emitValue(const ids::Operation &op, std::vector<Operand> operands, ValueType type) {
+    return emitValue(op.value, std::move(operands), TypeRef{type});
+}
+
+ValueId MIRBuilder::emitValue(const ids::Operation &op, std::vector<Operand> operands, TypeRef type) {
     return emitValue(op.value, std::move(operands), type);
 }
 
@@ -1105,7 +1154,8 @@ LoweringRegistry::LoweredValue LoweringRegistry::lowerHIR(const ast::Node &node,
  * @param context Value supplied for `context`.
  * @return Value produced by the operation.
  */
-MIRLoweringResult LoweringRegistry::lowerMIR(const Instruction &instruction, MIRBuilder &out, MIRLoweringContext &context) const {
+MIRLoweringResult LoweringRegistry::lowerMIR(const Instruction &instruction, MIRBuilder &out, MIRLoweringContext &context,
+    const std::function<bool(const TypeRef &, const TypeRef &)> &allowsConversion) const {
     const auto iter{mir_.find(instruction.op)};
     if (iter == mir_.end()) {
         throw std::runtime_error("LoweringRegistry::lowerMIR: missing MIR lowerer for HIR instruction '" + instruction.op + "'");
@@ -1155,15 +1205,20 @@ MIRLoweringResult LoweringRegistry::lowerMIR(const Instruction &instruction, MIR
     if (lowered.value) {
         const auto mapped = out.valueType(*lowered.value);
         const bool defined = mapped.has_value();
-        const ValueType mappedType = mapped.value_or(ValueType::Unknown);
+        const TypeRef mappedType = mapped.value_or(TypeRef{ValueType::Unknown});
         if (!defined) {
             throw std::runtime_error("LoweringRegistry::lowerMIR: lowerer returned undefined MIR value v" +
                                      std::to_string(lowered.value->value));
         }
-        if (!lowered.declaredConversion && instruction.type != mappedType) {
-            throw std::runtime_error("LoweringRegistry::lowerMIR: value type changed from " +
-                                     valueTypeName(instruction.type) + " to " + valueTypeName(mappedType) +
-                                     " without declared conversion");
+        if (instruction.type != mappedType) {
+            if (!lowered.declaredConversion) {
+                throw std::runtime_error("LoweringRegistry::lowerMIR: value type changed from " +
+                                         valueTypeName(instruction.type) + " to " + valueTypeName(mappedType) +
+                                         " without declared conversion");
+            }
+            if (!allowsConversion || !allowsConversion(instruction.type, mappedType)) {
+                throw std::runtime_error("LoweringRegistry::lowerMIR: conversion not authorized by language type policy");
+            }
         }
         context.bind(*instruction.result, *lowered.value);
     }
@@ -1328,7 +1383,7 @@ MIRModule HIRLoweringPass::lower(const HIRModule &hir, HIRLoweringOptions option
             const Instruction &instruction = block.instructions[i];
             const std::size_t begin = builder.inspect().blocks[b].instructions.size();
             try {
-                MIRLoweringResult mapped = registry_.lowerMIR(instruction, builder, context);
+                MIRLoweringResult mapped = registry_.lowerMIR(instruction, builder, context, options.allowsConversion);
                 if (mapped.value) {
                     boundUses.push_back({b, builder.inspect().blocks[b].instructions.size(), *mapped.value});
                 }
@@ -1420,6 +1475,8 @@ MIRModule HIRLoweringPass::lower(const HIRModule &hir, HIRLoweringOptions option
  * @param type Value supplied for `type`.
  * @return Value produced by the operation.
  */
+std::string valueTypeName(const TypeRef &type) { return type.display(); }
+
 std::string valueTypeName(ValueType type) {
     switch (type) {
         case ValueType::Unknown: return "unknown";
