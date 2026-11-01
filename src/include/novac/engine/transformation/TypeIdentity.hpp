@@ -96,7 +96,7 @@ struct TypeRefHash {
     }
 };
 
-/** Explicit scoped registry. Never depends on asset Types. */
+/** Explicit scoped registry. Independent of external type registries. */
 class TypeSpace final {
 public:
     explicit TypeSpace(std::string scope) : scope_{std::move(scope)} {

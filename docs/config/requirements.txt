@@ -1,5 +1,0 @@
-# Pinned for reproducible release documentation builds.
-sphinx==8.2.3
-breathe==4.36.0
-furo==2025.12.19
-sphinx-copybutton==0.5.2

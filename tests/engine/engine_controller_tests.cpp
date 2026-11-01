@@ -93,9 +93,9 @@ TEST(EngineController, DefaultConstruction) {
 TEST(EngineController, RegistersStandaloneCapability) {
     EngineController engine{};
 
-    engine.registerCapability("asset.expression");
+    engine.registerCapability("expression");
 
-    CHECK(engine.hasCapability("asset.expression"));
+    CHECK(engine.hasCapability("expression"));
 }
 
 TEST(EngineController, RejectsEmptyStandaloneCapability) {

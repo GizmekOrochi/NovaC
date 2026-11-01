@@ -806,7 +806,7 @@ public:
     /**
      * @brief Publishes a capability on this engine.
      *
-     * Asset controllers use this to expose capabilities from features that do
+     * Extension controllers use this to expose capabilities from features that do
      * not use EngineFeature directly. Registering an already available
      * capability is idempotent.
      *
